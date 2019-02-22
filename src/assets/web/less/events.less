@@ -1,0 +1,72 @@
+@import (optional) "../../vendor/lispa/amos-layout/src/assets/resources/base/less/variables.less";
+@import (optional) "../../vendor/lispa/amos-core/views/assets/web/css/less/variables.less";
+@import "variables-events.less";
+
+.icon-calendar-intro {
+  float: left;
+  margin-right: 10px;
+}
+
+.save-draft-icon, .publish-icon {
+  background: transparent;
+  border: 0;
+
+  &:hover {
+    opacity: 0.8;
+  }
+}
+
+.save-draft-icon {
+  color: #888787;
+
+  > span {
+    color: #888787;
+  }
+
+  .icon-text {
+    color: #888787;
+    font-weight: bold;
+  }
+}
+.publish-icon {
+  > span {
+    color: @primary-color;
+  }
+
+  .icon-text{
+    color: @primary-color;
+    font-weight: bold;
+  }
+}
+
+.boxed-data {
+  font-weight: bold;
+}
+
+#tab-staff .container-tools,
+#tab-participants .container-tools {
+  margin: 0;
+  padding: 10px 15px;
+}
+
+.inline-boxed > div {
+  padding: 0 5px;
+
+  &:first-child {
+    padding-left: 0;
+  }
+
+  &:last-child {
+    padding-right: 0;
+  }
+
+  @media(max-width: 991px){
+      padding: 0;
+  }
+}
+
+//TODO insert class into code
+//fix for amos-layout btn add type event select2
+.addNew .btn.btn-primary{
+  color: #ffffff;
+}
