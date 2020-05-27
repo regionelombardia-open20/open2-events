@@ -1,17 +1,17 @@
 <?php
 
 /**
- * Lombardia Informatica S.p.A.
+ * Aria S.p.A.
  * OPEN 2.0
  *
  *
- * @package    lispa\amos\events\migrations
+ * @package    open20\amos\events\migrations
  * @category   CategoryName
  */
 
-use lispa\amos\core\migration\AmosMigrationPermissions;
+use open20\amos\core\migration\AmosMigrationPermissions;
 use yii\rbac\Permission;
-use lispa\amos\events\models\Event;
+use open20\amos\events\models\Event;
 
 /**
  * Class m170803_074914_add_events_validate_permissions_2
@@ -28,7 +28,7 @@ class m170803_074914_add_events_validate_permissions_2 extends AmosMigrationPerm
                 'name' => 'EventValidateOnDomain',
                 'type' => Permission::TYPE_PERMISSION,
                 'description' => 'Permission to validate at least one event in a domain with cwh permission',
-                'ruleName' => \lispa\amos\core\rules\UserValidatorContentRule::className(),
+                'ruleName' => \open20\amos\core\rules\UserValidatorContentRule::className(),
                 'parent' => ['PLATFORM_EVENTS_VALIDATOR', 'EVENTS_VALIDATOR', 'VALIDATED_BASIC_USER']
             ],
             [
@@ -39,7 +39,7 @@ class m170803_074914_add_events_validate_permissions_2 extends AmosMigrationPerm
                 ]
             ],
             [
-                'name' => lispa\amos\events\widgets\icons\WidgetIconEventsToPublish::className(),
+                'name' => open20\amos\events\widgets\icons\WidgetIconEventsToPublish::className(),
                 'update' => true,
                 'newValues' => [
                     'addParents' => ['EventValidateOnDomain']

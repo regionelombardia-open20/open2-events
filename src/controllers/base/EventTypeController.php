@@ -1,24 +1,22 @@
 <?php
 
 /**
- * Lombardia Informatica S.p.A.
+ * Aria S.p.A.
  * OPEN 2.0
  *
  *
- * @package    lispa\amos\events\controllers\base
+ * @package    open20\amos\events\controllers\base
  * @category   CategoryName
  */
 
-namespace lispa\amos\events\controllers\base;
+namespace open20\amos\events\controllers\base;
 
-use lispa\amos\core\controllers\CrudController;
-use lispa\amos\core\helpers\Html;
-use lispa\amos\core\icons\AmosIcons;
-use lispa\amos\dashboard\controllers\TabDashboardControllerTrait;
-use lispa\amos\events\AmosEvents;
-use lispa\amos\events\assets\EventsAsset;
-use lispa\amos\events\models\EventType;
-use lispa\amos\events\models\search\EventTypeSearch;
+use open20\amos\core\controllers\CrudController;
+use open20\amos\core\helpers\Html;
+use open20\amos\core\icons\AmosIcons;
+use open20\amos\dashboard\controllers\TabDashboardControllerTrait;
+use open20\amos\events\AmosEvents;
+use open20\amos\events\assets\EventsAsset;
 use Yii;
 use yii\helpers\Url;
 
@@ -26,10 +24,10 @@ use yii\helpers\Url;
  * Class EventTypeController
  * EventTypeController implements the CRUD actions for EventType model.
  *
- * @property \lispa\amos\events\models\EventType $model
- * @property \lispa\amos\events\models\search\EventTypeSearch $modelSearch
+ * @property \open20\amos\events\models\EventType $model
+ * @property \open20\amos\events\models\search\EventTypeSearch $modelSearch
  *
- * @package lispa\amos\events\controllers\base
+ * @package open20\amos\events\controllers\base
  */
 class EventTypeController extends CrudController
 {
@@ -38,7 +36,12 @@ class EventTypeController extends CrudController
     /**
      * @var string $layout
      */
-    public $layout = 'list';
+    public $layout = 'main';
+
+    /**
+     * @var AmosEvents $eventsModule
+     */
+    public $eventsModule = null;
 
     /**
      * @inheritdoc
@@ -47,171 +50,162 @@ class EventTypeController extends CrudController
     {
         $this->initDashboardTrait();
 
-        $this->setModelObj(new EventType());
-        $this->setModelSearch(new EventTypeSearch());
+        $this->eventsModule = AmosEvents::instance();
+
+        $this->setModelObj($this->eventsModule->createModel('EventType'));
+        $this->setModelSearch($this->eventsModule->createModel('EventTypeSearch'));
 
         EventsAsset::register(Yii::$app->view);
 
         $this->setAvailableViews([
             'grid' => [
                 'name' => 'grid',
-                'label' => AmosIcons::show('view-list-alt') . Html::tag('p', AmosEvents::tHtml('amosevents', 'Table')),
+                'label' => AmosEvents::t('amosevents', '{tableIcon}' . Html::tag('p', AmosEvents::tHtml('amosevents', 'Table')), [
+                    'tableIcon' => AmosIcons::show('view-list-alt')
+                ]),
                 'url' => '?currentView=grid'
             ],
         ]);
 
         parent::init();
+
         $this->setUpLayout();
     }
 
     /**
      * Lists all EventType models.
-     * @return mixed
+     * @param string|null $layout
+     * @return string
+     * @throws \yii\web\NotFoundHttpException
      */
-    public function actionIndex($layout = NULL)
+    public function actionIndex($layout = null)
     {
         Url::remember();
         $this->setDataProvider($this->getModelSearch()->search(Yii::$app->request->getQueryParams()));
         $this->view->params['currentDashboard'] = $this->getCurrentDashboard();
-        return parent::actionIndex();
+        return parent::actionIndex($layout);
     }
 
     /**
      * Displays a single EventType model.
      * @param integer $id
-     * @return mixed
+     * @return string
+     * @throws \yii\web\NotFoundHttpException
      */
     public function actionView($id)
     {
-        /** @var EventType $model */
-        $model = $this->findModel($id);
-
-        if ($model->load(Yii::$app->request->post()) && $model->save()) {
-            return $this->redirect(['view', 'id' => $model->id]);
-        } else {
-            return $this->render('view', ['model' => $model]);
-        }
+        $this->model = $this->findModel($id);
+        return $this->render('view', ['model' => $this->model]);
     }
 
     /**
      * Creates a new EventType model.
      * If creation is successful, the browser will be redirected to the 'view' page.
-     * @return mixed
+     * @return string|\yii\web\Response
+     * @throws \yii\base\InvalidConfigException
      */
     public function actionCreate()
     {
         $this->setUpLayout('form');
-        $model = new EventType;
 
-        if ($model->load(Yii::$app->request->post()) && $model->validate()) {
-            if ($model->save()) {
+        $this->model = $this->eventsModule->createModel('EventType');
+
+        if ($this->model->load(Yii::$app->request->post()) && $this->model->validate()) {
+            if ($this->model->save()) {
                 Yii::$app->getSession()->addFlash('success', AmosEvents::t('amosevents', 'Element successfully created.'));
                 return $this->redirect(['index']);
             } else {
                 Yii::$app->getSession()->addFlash('danger', AmosEvents::t('amosevents', 'Element not created, check the data entered.'));
-                return $this->render('create', [
-                    'model' => $model,
-                    'fid' => NULL,
-                    'dataField' => NULL,
-                    'dataEntity' => NULL,
-                ]);
             }
-        } else {
-            return $this->render('create', [
-                'model' => $model,
-                'fid' => NULL,
-                'dataField' => NULL,
-                'dataEntity' => NULL,
-            ]);
         }
+
+        return $this->render('create', [
+            'model' => $this->model,
+            'fid' => null,
+            'dataField' => null,
+            'dataEntity' => null,
+        ]);
     }
 
     /**
      * Creates a new EventType model by ajax request.
      * If creation is successful, the browser will be redirected to the 'view' page.
-     * @return mixed
+     * @param $fid
+     * @param $dataField
+     * @return false|string
+     * @throws \yii\base\InvalidConfigException
      */
     public function actionCreateAjax($fid, $dataField)
     {
         $this->setUpLayout('form');
-        $model = new EventType;
 
-        if (\Yii::$app->request->isAjax && $model->load(Yii::$app->request->post()) && $model->validate()) {
-            if ($model->save()) {
+        $this->model = $this->eventsModule->createModel('EventType');
+
+        if (\Yii::$app->request->isAjax && $this->model->load(Yii::$app->request->post()) && $this->model->validate()) {
+            if ($this->model->save()) {
                 //Yii::$app->getSession()->addFlash('success', AmosEvents::t('amosevents', 'Element successfully created.'));
-                return json_encode($model->toArray());
+                return json_encode($this->model->toArray());
             } else {
                 //Yii::$app->getSession()->addFlash('danger', AmosEvents::t('amosevents', 'Element not created, check the data entered.'));
-                return $this->renderAjax('_formAjax', [
-                    'model' => $model,
-                    'fid' => $fid,
-                    'dataField' => $dataField
-                ]);
             }
-        } else {
-            return $this->renderAjax('_formAjax', [
-                'model' => $model,
-                'fid' => $fid,
-                'dataField' => $dataField
-            ]);
         }
+
+        return $this->renderAjax('_formAjax', [
+            'model' => $this->model,
+            'fid' => $fid,
+            'dataField' => $dataField
+        ]);
     }
 
     /**
      * Updates an existing EventType model.
      * If update is successful, the browser will be redirected to the 'view' page.
      * @param integer $id
-     * @return mixed
+     * @return string|\yii\web\Response
+     * @throws \yii\web\NotFoundHttpException
      */
     public function actionUpdate($id)
     {
         $this->setUpLayout('form');
-        /** @var EventType $model */
-        $model = $this->findModel($id);
 
-        if ($model->load(Yii::$app->request->post()) && $model->validate()) {
-            if ($model->save()) {
+        $this->model = $this->findModel($id);
+
+        if ($this->model->load(Yii::$app->request->post()) && $this->model->validate()) {
+            if ($this->model->save()) {
                 Yii::$app->getSession()->addFlash('success', AmosEvents::t('amosevents', 'Element succesfully updated.'));
                 return $this->redirect(['index']);
             } else {
                 Yii::$app->getSession()->addFlash('danger', AmosEvents::t('amosevents', 'Element not updated, check the data entered.'));
-                return $this->render('update', [
-                    'model' => $model,
-                    'fid' => NULL,
-                    'dataField' => NULL,
-                    'dataEntity' => NULL,
-                ]);
             }
-        } else {
-            return $this->render('update', [
-                'model' => $model,
-                'fid' => NULL,
-                'dataField' => NULL,
-                'dataEntity' => NULL,
-            ]);
         }
+
+        return $this->render('update', [
+            'model' => $this->model,
+            'fid' => null,
+            'dataField' => null,
+            'dataEntity' => null,
+        ]);
     }
 
     /**
      * Deletes an existing EventType model.
      * If deletion is successful, the browser will be redirected to the 'index' page.
      * @param integer $id
-     * @return mixed
+     * @return \yii\web\Response
+     * @throws \Throwable
+     * @throws \yii\db\StaleObjectException
+     * @throws \yii\web\NotFoundHttpException
      */
     public function actionDelete($id)
     {
-        /** @var EventType $model */
-        $model = $this->findModel($id);
-        if ($model) {
-            //si può sostituire il  delete() con forceDelete() in caso di SOFT DELETE attiva
-            //In caso di soft delete attiva e usando la funzione delete() non sarà bloccata
-            //la cancellazione del record in presenza di foreign key quindi
-            //il record sarà cancelleto comunque anche in presenza di tabelle collegate a questo record
-            //e non saranno cancellate le dipendenze e non avremo nemmeno evidenza della loro presenza
-            //In caso di soft delete attiva è consigliato modificare la funzione oppure utilizzare il forceDelete() che non andrà
-            //mai a buon fine in caso di dipendenze presenti sul record da cancellare
-            $model->delete();
-            Yii::$app->getSession()->addFlash('success', AmosEvents::t('amosevents', 'Element succesfully deleted.'));
+        $this->model = $this->findModel($id);
+        if ($this->model) {
+            $this->model->delete();
+            if (!$this->model->hasErrors()) {
+                Yii::$app->getSession()->addFlash('success', AmosEvents::t('amosevents', 'Element succesfully deleted.'));
+            } else {
+                Yii::$app->getSession()->addFlash('danger', AmosEvents::t('amoscore', 'Item not deleted because of dependency'));
+            }
         } else {
             Yii::$app->getSession()->addFlash('danger', AmosEvents::t('amosevents', 'Element not found.'));
         }

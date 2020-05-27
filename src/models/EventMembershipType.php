@@ -1,22 +1,22 @@
 <?php
 
 /**
- * Lombardia Informatica S.p.A.
+ * Aria S.p.A.
  * OPEN 2.0
  *
  *
- * @package    lispa\amos\events\models
+ * @package    open20\amos\events\models
  * @category   CategoryName
  */
 
-namespace lispa\amos\events\models;
+namespace open20\amos\events\models;
 
 /**
  * Class EventMembershipType
  * This is the model class for table "event_membership_type".
- * @package lispa\amos\events\models
+ * @package open20\amos\events\models
  */
-class EventMembershipType extends \lispa\amos\events\models\base\EventMembershipType
+class EventMembershipType extends \open20\amos\events\models\base\EventMembershipType
 {
 
 }

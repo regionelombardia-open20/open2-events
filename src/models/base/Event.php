@@ -1,26 +1,25 @@
 <?php
 
 /**
- * Lombardia Informatica S.p.A.
+ * Aria S.p.A.
  * OPEN 2.0
  *
  *
- * @package    lispa\amos\events\models\base
+ * @package    open20\amos\events\models\base
  * @category   CategoryName
  */
 
-namespace lispa\amos\events\models\base;
+namespace open20\amos\events\models\base;
 
-use lispa\amos\attachments\behaviors\FileBehavior;
-use lispa\amos\community\models\CommunityInterface;
-use lispa\amos\events\AmosEvents;
-use lispa\amos\events\events\EventsWorkflowEvent;
-use lispa\amos\events\validators\CapValidator;
-use lispa\amos\notificationmanager\record\NotifyRecord;
-use lispa\amos\workflow\behaviors\WorkflowLogFunctionsBehavior;
+use open20\amos\attachments\behaviors\FileBehavior;
+use open20\amos\community\models\CommunityInterface;
+use open20\amos\events\AmosEvents;
+use open20\amos\events\validators\CapValidator;
+use open20\amos\core\record\ContentModel;
+use open20\amos\workflow\behaviors\WorkflowLogFunctionsBehavior;
 use raoul2000\workflow\base\SimpleWorkflowBehavior;
 use yii\helpers\ArrayHelper;
-
+use Yii;
 /**
  * Class Event
  * This is the base-model class for table "event".
@@ -35,11 +34,23 @@ use yii\helpers\ArrayHelper;
  * @property string $end_date_hour
  * @property string $publication_date_begin
  * @property string $publication_date_end
+ * @property string $registration_date_begin
+ * @property string $registration_date_end
+ * @property string $show_community
+ * @property string $show_on_frontend
+ * @property string $landing_url
+ * @property string $frontend_page_title
+ * @property string $frontend_claim
  * @property string $registration_limit_date
  * @property string $event_location
  * @property string $event_address
  * @property string $event_address_house_number
  * @property string $event_address_cap
+ * @property string $gdpr_question_1
+ * @property string $gdpr_question_2
+ * @property string $gdpr_question_3
+ * @property string $gdpr_question_4
+ * @property string $gdpr_question_5
  * @property integer $seats_available
  * @property integer $paid_event
  * @property integer $publish_in_the_calendar
@@ -54,25 +65,40 @@ use yii\helpers\ArrayHelper;
  * @property integer $length_mu_id
  * @property integer $event_type_id
  * @property integer $community_id
+ * @property integer $seats_management
+ * @property integer $has_tickets
+ * @property integer $has_qr_code
+ * @property integer $abilita_codice_fiscale_in_form
+ * @property integer $numero_max_accompagnatori
+ * @property string $thank_you_page_view
+ * @property string $subscribe_form_page_view
+ * @property string $event_closed_page_view
+ * @property string $event_full_page_view
+ * @property string $ticket_layout_view
+ * @property string $email_view
+ * @property string $email_subscribe_view
  * @property string $created_at
  * @property string $updated_at
  * @property string $deleted_at
  * @property integer $created_by
  * @property integer $updated_by
  * @property integer $deleted_by
+ * @property integer $primo_piano
+ * @property integer $in_evidenza
  *
- * @property \lispa\amos\events\models\EventType $eventType
- * @property \lispa\amos\admin\models\UserProfile $users
- * @property \lispa\amos\comuni\models\IstatComuni $cityLocation
- * @property \lispa\amos\comuni\models\IstatProvince $provinceLocation
- * @property \lispa\amos\comuni\models\IstatNazioni $countryLocation
- * @property \lispa\amos\events\models\EventMembershipType $eventMembershipType
- * @property \lispa\amos\events\models\EventLengthMeasurementUnit $eventLengthMeasurementUnit
- * @property \lispa\amos\community\models\CommunityUserMm $communityUserMm
+ * @property \open20\amos\events\models\EventType $eventType
+ * @property \open20\amos\admin\models\UserProfile $users
+ * @property \open20\amos\comuni\models\IstatComuni $cityLocation
+ * @property \open20\amos\comuni\models\IstatProvince $provinceLocation
+ * @property \open20\amos\comuni\models\IstatNazioni $countryLocation
+ * @property \open20\amos\events\models\EventMembershipType $eventMembershipType
+ * @property \open20\amos\events\models\EventLengthMeasurementUnit $eventLengthMeasurementUnit
+ * @property \open20\amos\community\models\CommunityUserMm $communityUserMm
+ * @property \open20\amos\community\models\Community $community
  *
- * @package lispa\amos\events\models\base
+ * @package open20\amos\events\models\base
  */
-class Event extends NotifyRecord implements CommunityInterface
+abstract class Event extends ContentModel implements CommunityInterface
 {
     const EVENTS_WORKFLOW = 'EventWorkflow';
     const EVENTS_WORKFLOW_STATUS_DRAFT = 'EventWorkflow/DRAFT';
@@ -100,24 +126,31 @@ class Event extends NotifyRecord implements CommunityInterface
     const SCENARIO_CREATE_HIDE_PUBBLICATION_DATE = 'scenario_create_hide_pubblication_date';
 
     /**
+     * @var AmosEvents $eventsModule
+     */
+    public $eventsModule = null;
+
+    /**
      * @inheritdoc
      */
     public function init()
     {
+        $this->eventsModule = AmosEvents::instance();
+
         parent::init();
 
         if ($this->isNewRecord) {
-            $moduleEvents = \Yii::$app->getModule(AmosEvents::getModuleName());
-            if (!is_null($moduleEvents)) {
-                if ($moduleEvents->hidePubblicationDate) {
+            if (!is_null($this->eventsModule)) {
+                if ($this->eventsModule->hidePubblicationDate) {
                     // the news will be visible forever
                     $this->publication_date_end = '9999-12-31';
                 }
                 $this->publication_date_begin = date('Y-m-d');
             }
-            $this->event_membership_type_id = \lispa\amos\events\models\EventMembershipType::TYPE_OPEN;
+            $this->event_membership_type_id = \open20\amos\events\models\EventMembershipType::TYPE_OPEN;
             $this->status = $this->getWorkflowSource()->getWorkflow(self::EVENTS_WORKFLOW)->getInitialStatusId();
-            if ($this->getWorkflowSource()->getWorkflow(self::EVENTS_WORKFLOW)->getInitialStatusId() == self::EVENTS_WORKFLOW_STATUS_PUBLISHED) {
+            
+            if ($this->status == self::EVENTS_WORKFLOW_STATUS_PUBLISHED) {
                 $this->validated_at_least_once = Event::BOOLEAN_FIELDS_VALUE_YES;
                 $this->visible_in_the_calendar = Event::BOOLEAN_FIELDS_VALUE_YES;
             }
@@ -137,16 +170,17 @@ class Event extends NotifyRecord implements CommunityInterface
      */
     public function rules()
     {
-        /** @var AmosEvents $eventsModule */
-        $eventsModule = \Yii::$app->getModule(AmosEvents::getModuleName());
-        $requiredFields = $eventsModule->eventsRequiredFields;
-        if ($eventsModule->eventLengthRequired) {
+        $requiredFields = $this->eventsModule->eventsRequiredFields;
+        if ($this->eventsModule->eventLengthRequired) {
             $requiredFields = ArrayHelper::merge($requiredFields, ['length']);
         }
-        if ($eventsModule->eventMURequired) {
+        
+        if ($this->eventsModule->eventMURequired) {
             $requiredFields = ArrayHelper::merge($requiredFields, ['length_mu_id']);
         }
-        $rules = ArrayHelper::merge(parent::rules(), [
+        
+        $rules = ArrayHelper::merge(
+            parent::rules(), [
             [$requiredFields, 'required'],
             [[
                 'begin_date_hour',
@@ -166,26 +200,50 @@ class Event extends NotifyRecord implements CommunityInterface
                 'updated_at',
                 'deleted_at',
                 'seats_available',
-                'tagValues'
+                'tagValues',
+                'numero_max_accompagnatori',
+                'gdpr_question_1',
+                'gdpr_question_2',
+                'gdpr_question_3',
+                'gdpr_question_4',
+                'gdpr_question_5',
+                'thank_you_page_view',
+                'subscribe_form_page_view',
+                'email_view',
+                'event_closed_page_view',
+                'event_full_page_view',
+                'ticket_layout_view',
+                'email_subscribe_view',
+                'registration_date_begin',
+                'registration_date_end',
+                'seats_management'
             ], 'safe'],
             [[
+                'primo_piano',
+                'in_evidenza',
                 'city_location_id',
                 'province_location_id',
                 'country_location_id',
                 'event_membership_type_id',
                 'event_type_id',
                 'community_id',
+                'abilita_codice_fiscale_in_form',
+                'numero_max_accompagnatori',
+                'has_tickets',
+                'has_qr_code',
                 'created_by',
                 'updated_by',
-                'deleted_by'
+                'deleted_by',
+                'numero_max_accompagnatori',
             ], 'integer'],
             [['length'], 'number', 'min' => 1, 'integerOnly' => true],
-            [['title', 'summary', 'status', 'event_location'], 'string', 'max' => 255],
-            [['description'], 'string'],
+            [['title', 'event_address'], 'string', 'max' => 100],
+            [['summary', 'status', 'event_location'], 'string', 'max' => 255],
+            [['description', 'email_ticket_layout_custom', 'email_ticket_sender', 'email_ticket_subject'], 'string'],
             [['event_address_cap'], CapValidator::className()],
             [['event_address_cap'], 'string', 'max' => 5],
             [['event_location', 'event_address', 'event_address_cap', 'event_address_house_number', 'country_location_id'], 'required', 'when' => function ($model) {
-                /** @var \lispa\amos\events\models\Event $model */
+                /** @var \open20\amos\events\models\Event $model */
                 if (is_null($this->eventType)) {
                     return false;
                 }
@@ -194,7 +252,7 @@ class Event extends NotifyRecord implements CommunityInterface
                 return " . (!is_null($this->eventType) ? $this->eventType->locationRequested : 0) . ";
             }"],
             [['province_location_id', 'city_location_id'], 'required', 'when' => function ($model) {
-                /** @var \lispa\amos\events\models\Event $model */
+                /** @var \open20\amos\events\models\Event $model */
                 if (is_null($this->eventType)) {
                     return false;
                 }
@@ -203,7 +261,7 @@ class Event extends NotifyRecord implements CommunityInterface
                 return " . (!is_null($this->eventType) ? ((($this->eventType->locationRequested == 1) && ($this->country_location_id == 1)) ? 1 : 0) : 0) . ";
             }"],
             [['length', 'length_mu_id'], 'required', 'when' => function ($model) {
-                /** @var \lispa\amos\events\models\Event $model */
+                /** @var \open20\amos\events\models\Event $model */
                 if (is_null($this->eventType)) {
                     return false;
                 }
@@ -212,21 +270,28 @@ class Event extends NotifyRecord implements CommunityInterface
                 return " . (!is_null($this->eventType) ? $this->eventType->durationRequested : 0) . ";
             }"],
             [['event_membership_type_id', 'seats_available', 'paid_event'], 'required', 'when' => function ($model) {
-                /** @var \lispa\amos\events\models\Event $model */
+                /** @var \open20\amos\events\models\Event $model */
                 return ($model->event_management == 1 ? true : false);
             }, 'whenClient' => "function (attribute, value) {
                 return ($('#event-event_management').val() == '1');
             }"],
+            [['seats_available'], 'required', 'when' => function ($model) {
+                /** @var \open20\amos\events\models\Event $model */
+                return (!is_null($this->eventType) ? $this->eventType->limited_seats == 1 ? true : false : false);
+            }, 'whenClient' => "function (attribute, value) {
+                return " . (!is_null($this->eventType) ? $this->eventType->limited_seats == 1 ? 1 : 0 : 0) . ";
+            }"],
         ]);
 
-        if ($this->scenario != self::SCENARIO_ORG_HIDE_PUBBLICATION_DATE && $this->scenario != self::SCENARIO_CREATE_HIDE_PUBBLICATION_DATE && $this->scenario) {
+        if ($this->scenario != self::SCENARIO_ORG_HIDE_PUBBLICATION_DATE && $this->scenario != self::SCENARIO_CREATE_HIDE_PUBBLICATION_DATE && $this->scenario
+                && (!empty($this->publication_date_begin) && !empty($this->publication_date_end)) ) {
             $rules = ArrayHelper::merge($rules, [
-                [['publication_date_begin', 'publication_date_end'], 'required'],
                 ['publication_date_begin', 'compare', 'compareAttribute' => 'publication_date_end', 'operator' => '<='],
                 ['publication_date_end', 'compare', 'compareAttribute' => 'publication_date_begin', 'operator' => '>='],
                 ['publication_date_begin', 'checkDate'],
             ]);
         }
+        
         return $rules;
     }
 
@@ -243,6 +308,7 @@ class Event extends NotifyRecord implements CommunityInterface
                 $isValid = false;
             }
         }
+        
         if (!$isValid) {
             $this->addError($attribute, $this->getAttributeLabel($attribute) . ' ' . AmosEvents::t('amosevents', "may not be less than today's date"));
         }
@@ -253,30 +319,46 @@ class Event extends NotifyRecord implements CommunityInterface
      */
     public function behaviors()
     {
-        return ArrayHelper::merge(parent::behaviors(), [
-            'fileBehavior' => [
-                'class' => FileBehavior::className()
-            ],
-            'workflow' => [
-                'class' => SimpleWorkflowBehavior::className(),
-                'defaultWorkflowId' => self::EVENTS_WORKFLOW,
-                'propagateErrorsToModel' => true
-            ],
-            'workflowLog' => [
-                'class' => WorkflowLogFunctionsBehavior::className()
-            ],
-        ]);
+        return ArrayHelper::merge(
+            parent::behaviors(),
+            [
+                'fileBehavior' => [
+                    'class' => FileBehavior::className()
+                ],
+                'workflow' => [
+                    'class' => SimpleWorkflowBehavior::className(),
+                    'defaultWorkflowId' => self::EVENTS_WORKFLOW,
+                    'propagateErrorsToModel' => true
+                ],
+                'workflowLog' => [
+                    'class' => WorkflowLogFunctionsBehavior::className()
+                ],
+            ]
+        );
     }
 
     /**
      * @inheritdoc
      */
-    public function scenarios()
-    {
-        return ArrayHelper::merge(
+    public function scenarios() {
+        $scenarios = ArrayHelper::merge(
             parent::scenarios(),
-            $this->createActionScenarios()           
+            $this->createActionScenarios()
         );
+
+        /** @var AmosEvents $eventModule */
+        $eventModule = Yii::$app->getModule(AmosEvents::getModuleName());
+        if ($eventModule->params['site_publish_enabled']) {
+            $scenarios[self::SCENARIO_CREATE][] = 'primo_piano';
+        }
+        
+        if ($eventModule->params['site_featured_enabled']) {
+            $scenarios[self::SCENARIO_CREATE][] = 'in_evidenza';
+        }
+        
+        $scenarios[self::SCENARIO_CREATE_HIDE_PUBBLICATION_DATE] = $scenarios[self::SCENARIO_CREATE];
+        
+        return $scenarios;
     }
 
     /**
@@ -312,8 +394,18 @@ class Event extends NotifyRecord implements CommunityInterface
             'begin_date_hour' => AmosEvents::t('amosevents', 'Begin Date And Hour'),
             'length' => AmosEvents::t('amosevents', 'Length'),
             'end_date_hour' => AmosEvents::t('amosevents', 'End Date And Hour'),
+            'notes' => AmosEvents::t('amosevents', '#participant_note'),
             'publication_date_begin' => AmosEvents::t('amosevents', 'Publication Date Begin'),
             'publication_date_end' => AmosEvents::t('amosevents', 'Publication Date End'),
+            'publication_date_begin' => AmosEvents::t('amosevents', 'Data e ora di inizio pubblicazione'),
+            'publication_date_end' => AmosEvents::t('amosevents', 'Data e ora di fine pubblicazione'),
+            'registration_date_begin' => AmosEvents::t('amosevents', 'Data e ora di apertura iscrizione'),
+            'registration_date_end' => AmosEvents::t('amosevents', 'Data e ora chiusura iscrizioni'),
+            'show_community' => AmosEvents::t('amosevents', '#show_community_label'),
+            'show_on_frontend' => AmosEvents::t('amosevents', '#show_on_frontend_label'),
+            'landing_url' => AmosEvents::t('amosevents', '#landing_url_label'),
+            'frontend_page_title' => AmosEvents::t('amosevents', '#frontend_page_title_label'),
+            'frontend_claim' => AmosEvents::t('amosevents', '#frontend_claim_label'),
             'registration_limit_date' => AmosEvents::t('amosevents', 'Registration Limit Date'),
             'event_location' => AmosEvents::t('amosevents', 'Event Location'),
             'event_address' => AmosEvents::t('amosevents', 'Event Address'),
@@ -326,6 +418,7 @@ class Event extends NotifyRecord implements CommunityInterface
             'event_commentable' => AmosEvents::t('amosevents', 'Event Commentable'),
             'event_management' => AmosEvents::t('amosevents', 'Event Management'),
             'validated_at_least_once' => AmosEvents::t('amosevents', 'Validated At Least Once'),
+            'seats_management' => AmosEvents::t('amosevents', 'Gestione posti'),
             'country_location_id' => AmosEvents::t('amosevents', 'Country Location'),
             'province_location_id' => AmosEvents::t('amosevents', 'Province Location'),
             'city_location_id' => AmosEvents::t('amosevents', 'City Location'),
@@ -339,10 +432,21 @@ class Event extends NotifyRecord implements CommunityInterface
             'created_by' => AmosEvents::t('amosevents', 'Created By'),
             'updated_by' => AmosEvents::t('amosevents', 'Updated By'),
             'deleted_by' => AmosEvents::t('amosevents', 'Deleted By'),
-
+            'primo_piano' => AmosEvents::t('amosevents', 'Pubblica sul sito'),
+            'in_evidenza' => AmosEvents::t('amosevents', 'In evidenza'),
             'eventType' => AmosEvents::t('amosevents', 'Event Type'),
             'eventLengthMeasurementUnit' => AmosEvents::t('amosevents', 'Length Measurement Unit'),
             'eventMembershipType' => AmosEvents::t('amosevents', 'Event Membership Type'),
+            'subscribe_form_page_view' => AmosEvents::t('amosevents', 'subscribe_form_page_view'),
+            'thank_you_page_view' => AmosEvents::t('amosevents', 'thank_you_page_view'),
+            'email_view' => AmosEvents::t('amosevents', 'email_view'),
+            'email_ticket_layout_custom' => AmosEvents::t('amosevents', 'Layout della mail del ticket'),
+            'email_ticket_sender' => AmosEvents::t('amosevents', 'Sender della mail del ticket'),
+            'email_ticket_subject' => AmosEvents::t('amosevents', 'Soggetto della mail del ticket'),
+            'event_closed_page_view' => AmosEvents::t('amosevents', 'event_closed_page_view'),
+            'event_full_page_view' => AmosEvents::t('amosevents', 'event_full_page_view'),
+            'ticket_layout_view' => AmosEvents::t('amosevents', 'ticket_layout_view'),
+            'email_subscribe_view' => AmosEvents::t('amosevents', 'email_subscribe_view'),
         ]);
     }
 
@@ -351,7 +455,7 @@ class Event extends NotifyRecord implements CommunityInterface
      */
     public function getEventType()
     {
-        return $this->hasOne(\lispa\amos\events\models\EventType::className(), ['id' => 'event_type_id']);
+        return $this->hasOne($this->eventsModule->model('EventType'), ['id' => 'event_type_id']);
     }
 
     /**
@@ -375,7 +479,7 @@ class Event extends NotifyRecord implements CommunityInterface
      */
     public function getCommunity()
     {
-        return $this->hasOne(\lispa\amos\community\models\Community::className(), ['id' => 'community_id']);
+        return $this->hasOne(\open20\amos\community\models\Community::className(), ['id' => 'community_id']);
     }
 
     /**
@@ -383,7 +487,7 @@ class Event extends NotifyRecord implements CommunityInterface
      */
     public function getCommunityUserMm()
     {
-        return $this->hasMany(\lispa\amos\community\models\CommunityUserMm::className(), ['community_id' => 'community_id']);
+        return $this->hasMany(\open20\amos\community\models\CommunityUserMm::className(), ['community_id' => 'community_id']);
     }
 
     /**
@@ -391,9 +495,7 @@ class Event extends NotifyRecord implements CommunityInterface
      */
     public function getAttrEventTypeMm()
     {
-        $retVal = "";
-        $retVal .= '' . $this->eventType->title;
-        return $retVal;
+        return '' . $this->eventType->title;
     }
 
     /**
@@ -401,7 +503,7 @@ class Event extends NotifyRecord implements CommunityInterface
      */
     public function getCityLocation()
     {
-        return $this->hasOne(\lispa\amos\comuni\models\IstatComuni::className(), ['id' => 'city_location_id']);
+        return $this->hasOne(\open20\amos\comuni\models\IstatComuni::className(), ['id' => 'city_location_id']);
     }
 
     /**
@@ -409,7 +511,7 @@ class Event extends NotifyRecord implements CommunityInterface
      */
     public function getProvinceLocation()
     {
-        return $this->hasOne(\lispa\amos\comuni\models\IstatProvince::className(), ['id' => 'province_location_id']);
+        return $this->hasOne(\open20\amos\comuni\models\IstatProvince::className(), ['id' => 'province_location_id']);
     }
 
     /**
@@ -417,7 +519,7 @@ class Event extends NotifyRecord implements CommunityInterface
      */
     public function getCountryLocation()
     {
-        return $this->hasOne(\lispa\amos\comuni\models\IstatNazioni::className(), ['id' => 'country_location_id']);
+        return $this->hasOne(\open20\amos\comuni\models\IstatNazioni::className(), ['id' => 'country_location_id']);
     }
 
     /**
@@ -425,7 +527,7 @@ class Event extends NotifyRecord implements CommunityInterface
      */
     public function getEventMembershipType()
     {
-        return $this->hasOne(\lispa\amos\events\models\EventMembershipType::className(), ['id' => 'event_membership_type_id']);
+        return $this->hasOne($this->eventsModule->model('EventMembershipType'), ['id' => 'event_membership_type_id']);
     }
 
     /**
@@ -433,6 +535,27 @@ class Event extends NotifyRecord implements CommunityInterface
      */
     public function getEventLengthMeasurementUnit()
     {
-        return $this->hasOne(\lispa\amos\events\models\EventLengthMeasurementUnit::className(), ['id' => 'length_mu_id']);
+        return $this->hasOne($this->eventsModule->model('EventLengthMeasurementUnit'), ['id' => 'length_mu_id']);
+    }
+
+    public function countGdprQuestions()
+    {
+        $count = 0;
+        if ($this->eventsModule->enableGdpr) {
+            if(!empty($this->gdpr_question_1)) { $count++; }
+            if(!empty($this->gdpr_question_2)) { $count++; }
+            if(!empty($this->gdpr_question_3)) { $count++; }
+            if(!empty($this->gdpr_question_4)) { $count++; }
+            if(!empty($this->gdpr_question_5)) { $count++; }
+        }
+        return $count;
+    }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
+    public function getEventSeats()
+    {
+        return $this->hasMany($this->eventsModule->model('EventSeats'), ['event_id' => 'id']);
     }
 }

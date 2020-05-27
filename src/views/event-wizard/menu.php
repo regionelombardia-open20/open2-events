@@ -1,10 +1,19 @@
 <?php
 
-use lispa\amos\events\components\PartsWizardEventCreation;
+/**
+ * Aria S.p.A.
+ * OPEN 2.0
+ *
+ *
+ * @package    Open20Package
+ * @category   CategoryName
+ */
+
+use open20\amos\events\components\PartsWizardEventCreation;
 
 /**
  * @var yii\web\View $this
- * @var \lispa\amos\events\models\Event $model
+ * @var \open20\amos\events\models\Event $model
  */
 
 $partsWizard = new PartsWizardEventCreation([
@@ -88,7 +97,7 @@ $lastPartsIndex = count($partsArray) - 1;
         <div class="progress-container progress-container-sm  col-xs-12">
             <?php if ($prevKeyIndex != $lastPartsIndex): ?>
                 <a href="<?= $prevElement['url'] ?>" title="<?= $prevElement['label'] ?>">
-                    <?= \lispa\amos\core\icons\AmosIcons::show('chevron-left', ['class' => 'pull-left am-2']); ?>
+                    <?= \open20\amos\core\icons\AmosIcons::show('chevron-left', ['class' => 'pull-left am-2']); ?>
                 </a>
             <?php endif; ?>
             <p>
@@ -97,7 +106,7 @@ $lastPartsIndex = count($partsArray) - 1;
             </p>
             <?php if ($nextKeyIndex != 0): ?>
                 <a href="<?= $nextElement['url'] ?>" title="<?= $nextElement['label'] ?>">
-                    <span><?= \lispa\amos\core\icons\AmosIcons::show('chevron-right', ['class' => 'pull-right am-2']); ?></span>
+                    <span><?= \open20\amos\core\icons\AmosIcons::show('chevron-right', ['class' => 'pull-right am-2']); ?></span>
                 </a>
             <?php endif; ?>
         </div>

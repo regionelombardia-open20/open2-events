@@ -1,17 +1,17 @@
 <?php
 
 /**
- * Lombardia Informatica S.p.A.
+ * Aria S.p.A.
  * OPEN 2.0
  *
  *
- * @package    lispa\amos\events\migrations
+ * @package    open20\amos\events\migrations
  * @category   CategoryName
  */
 
-use lispa\amos\core\migration\AmosMigrationPermissions;
-use lispa\amos\events\rules\DeleteOwnEventsRule;
-use lispa\amos\events\rules\UpdateOwnEventsRule;
+use open20\amos\core\migration\AmosMigrationPermissions;
+use open20\amos\events\rules\DeleteOwnEventsRule;
+use open20\amos\events\rules\UpdateOwnEventsRule;
 use yii\rbac\Permission;
 
 /**
@@ -165,35 +165,35 @@ class m170315_135901_init_events_permissions extends AmosMigrationPermissions
         $prefixStr = 'Permissions for the dashboard for the widget ';
         return [
             [
-                'name' => \lispa\amos\events\widgets\icons\WidgetIconEvents::className(),
+                'name' => \open20\amos\events\widgets\icons\WidgetIconEvents::className(),
                 'type' => Permission::TYPE_PERMISSION,
                 'description' => $prefixStr . 'WidgetIconEvents',
                 'ruleName' => null,
                 'parent' => ['EVENTS_ADMINISTRATOR', 'EVENTS_READER']
             ],
             [
-                'name' => \lispa\amos\events\widgets\icons\WidgetIconEventTypes::className(),
+                'name' => \open20\amos\events\widgets\icons\WidgetIconEventTypes::className(),
                 'type' => Permission::TYPE_PERMISSION,
                 'description' => $prefixStr . 'WidgetIconEventTypes',
                 'ruleName' => null,
                 'parent' => ['EVENTS_ADMINISTRATOR']
             ],
             [
-                'name' => \lispa\amos\events\widgets\icons\WidgetIconEventsCreatedBy::className(),
+                'name' => \open20\amos\events\widgets\icons\WidgetIconEventsCreatedBy::className(),
                 'type' => Permission::TYPE_PERMISSION,
                 'description' => $prefixStr . 'WidgetIconEventsCreatedBy',
                 'ruleName' => null,
                 'parent' => ['EVENTS_ADMINISTRATOR', 'EVENTS_CREATOR']
             ],
             [
-                'name' => \lispa\amos\events\widgets\icons\WidgetIconEventsToPublish::className(),
+                'name' => \open20\amos\events\widgets\icons\WidgetIconEventsToPublish::className(),
                 'type' => Permission::TYPE_PERMISSION,
                 'description' => $prefixStr . 'WidgetIconEventsToPublish',
                 'ruleName' => null,
                 'parent' => ['EVENTS_ADMINISTRATOR', 'EVENTS_VALIDATOR', 'PLATFORM_EVENTS_VALIDATOR']
             ],
             [
-                'name' => \lispa\amos\events\widgets\icons\WidgetIconEventsManagement::className(),
+                'name' => \open20\amos\events\widgets\icons\WidgetIconEventsManagement::className(),
                 'type' => Permission::TYPE_PERMISSION,
                 'description' => $prefixStr . 'WidgetIconEventsManagement',
                 'ruleName' => null,

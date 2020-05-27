@@ -1,42 +1,88 @@
 <?php
 
 /**
- * Lombardia Informatica S.p.A.
+ * Aria S.p.A.
  * OPEN 2.0
  *
  *
- * @package    lispa\amos\events\views\event
+ * @package    open20\amos\events\views\event
  * @category   CategoryName
  */
 
-use lispa\amos\community\models\CommunityUserMm;
-use lispa\amos\community\widgets\CommunityMembersWidget;
-use lispa\amos\core\forms\CloseButtonWidget;
-use lispa\amos\core\forms\ContextMenuWidget;
-use lispa\amos\core\forms\MapWidget;
-use lispa\amos\core\forms\Tabs;
-use lispa\amos\core\helpers\Html;
-use lispa\amos\events\AmosEvents;
-use lispa\amos\events\models\Event;
-use lispa\amos\events\models\EventMembershipType;
+use open20\amos\attachments\components\AttachmentsTable;
+use open20\amos\community\models\CommunityUserMm;
+use open20\amos\core\forms\CloseButtonWidget;
+use open20\amos\core\forms\ContextMenuWidget;
+use open20\amos\core\forms\editors\socialShareWidget\SocialShareWidget;
+use open20\amos\core\forms\ItemAndCardHeaderWidget;
+use open20\amos\core\forms\MapWidget;
+use open20\amos\core\forms\Tabs;
+use open20\amos\core\helpers\Html;
+use open20\amos\core\icons\AmosIcons;
+use open20\amos\core\views\AmosGridView;
+use open20\amos\core\views\grid\ActionColumn;
+use open20\amos\events\AmosEvents;
+use open20\amos\events\models\Event;
+use open20\amos\events\models\EventInvitation;
+use open20\amos\events\models\EventMembershipType;
+use open20\amos\events\models\EventSeats;
+use open20\amos\events\models\EventType;
+use open20\amos\events\utility\EventsUtility;
+use open20\amos\events\widgets\CommunityEventMembersWidget;
+use yii\data\ArrayDataProvider;
+use yii\helpers\Url;
+use yii\widgets\Pjax;
 
 /**
  * @var yii\web\View $this
- * @var lispa\amos\events\models\Event $model
+ * @var open20\amos\events\models\Event $model
  * @var string $position
+ * @var ArrayDataProvider $dataProviderSeats
  */
 
 $this->title = strip_tags($model->title);
 $this->params['breadcrumbs'][] = ['label' => Yii::$app->session->get('previousTitle'), 'url' => Yii::$app->session->get('previousUrl')];
 $this->params['breadcrumbs'][] = $this->title;
 
-$communityPresent = ($model->event_management && !is_null($model->community) && is_null($model->community->deleted_at));
+/** @var AmosEvents $eventsModule */
+$eventsModule = AmosEvents::instance();
+
+/** @var EventInvitation $eventInvitationModel */
+$eventInvitationModel = $eventsModule->createModel('EventInvitation');
+
+/** @var EventSeats $eventSeatsModel */
+$eventSeatsModel = $eventsModule->createModel('EventSeats');
+
+/** @var EventInvitation $evtInv */
+$evtInv = $eventsModule->createModel('EventInvitation');
+if ($eventsModule->enableAutoInviteUsers) {
+    $loggedUserRegisteredInvitation = $evtInv::find()->andWhere([
+        'event_id' => $model->id,
+        'type' => EventInvitation::INVITATION_TYPE_REGISTERED,
+        'state' => EventInvitation::INVITATION_STATE_INVITED,
+        'user_id' => Yii::$app->user->id,
+    ])->one();
+}
+
+// $communityPresent = ($model->event_management && !is_null($model->community) && is_null($model->community->deleted_at));
+$communityPresent = (!is_null($model->community) && is_null($model->community->deleted_at));
+
+$this->registerJs(<<<JS
+    $(document).on("pjax:timeout", function(event) {
+
+    // Prevent default timeout redirection behavior
+
+    event.preventDefault()
+
+});
+JS
+    , \yii\web\View::POS_LOAD);
 
 ?>
 <div class="event-view col-xs-12 nop">
     <?php $this->beginBlock('overview'); ?>
-    <div class="col-xs-12 nop nom">
-        <?= \lispa\amos\core\forms\ItemAndCardHeaderWidget::widget([
+    <div class="col-xs-12 nom nop">
+        <?= ItemAndCardHeaderWidget::widget([
             'model' => $model,
             'publicationDateField' => 'created_at',
         ]) ?>
@@ -47,8 +93,8 @@ $communityPresent = ($model->event_management && !is_null($model->community) && 
                 <div class="col-xs-12 col-sm-3 nopl">
                     <?php
                     $url = '/img/img_default.jpg';
-                    if (!is_null($model->eventLogo)) {
-                        $url = $model->eventLogo->getUrl('original', false, true);
+                    if (!is_null($model->getEventLogo())) {
+                        $url = $model->getEventLogo()->getUrl('original', false, true);
                     }
                     ?>
                     <?= Html::img($url, [
@@ -77,7 +123,7 @@ $communityPresent = ($model->event_management && !is_null($model->community) && 
                         <div class="col-sm-4 col-xs-12">
                             <?= $model->getAttributeLabel('eventType') ?>
                             <br/>
-                            <span class="bold"><?= $model->eventType->title ?></span>
+                            <span class="bold"><?= !empty($model->eventType) ? $model->eventType->title : '-' ?></span>
                         </div>
                         <div class="col-sm-4 col-xs-12">
                             <?= AmosEvents::t('amosevents', 'Country') ?>
@@ -106,27 +152,28 @@ $communityPresent = ($model->event_management && !is_null($model->community) && 
                     <label><?= $model->getAttributeLabel('paid_event'); ?></label>
                     <p class="boxed-data"><?= ($model->paid_event) ? AmosEvents::t('amosevents', 'Yes') : AmosEvents::t('amosevents', 'No') ?></p>
                 </div>
-<!--                <div class="col-sm-7 col-xs-12">-->
-<!--                    <label>< ?= AmosEvents::t('amosevents', 'Project') ?></label>-->
-<!--                    <p class="boxed-data">-->
-<!--                        < ?php-->
-<!--                        echo '-'; // TODO add project name when plugin Project Management will be available-->
-<!--                        ?>-->
-<!--                    </p>-->
-<!--                </div>-->
+                <!--                <div class="col-sm-7 col-xs-12">-->
+                <!--                    <label>< ?= AmosEvents::t('amosevents', 'Project') ?></label>-->
+                <!--                    <p class="boxed-data">-->
+                <!--                        < ?php-->
+                <!--                        echo '-'; // TODO add project name when plugin Project Management will be available-->
+                <!--                        ?>-->
+                <!--                    </p>-->
+                <!--                </div>-->
                 <div class="col-sm-3 col-xs-12">
                     <label><?= $model->getAttributeLabel('seats_available'); ?></label>
                     <p class="boxed-data"><?= ($model->seats_available) ? $model->seats_available : '-' ?></p>
                 </div>
             </div>
+            <?php $baseUrl = (!empty(Yii::$app->params['platform']['backendUrl']) ? Yii::$app->params['platform']['backendUrl'] : '') ?>
             <div class="widget-body-content col-xs-12 nop">
-                <?= \lispa\amos\core\forms\editors\socialShareWidget\SocialShareWidget::widget([
-                    'mode' => \lispa\amos\core\forms\editors\socialShareWidget\SocialShareWidget::MODE_DROPDOWN,
+                <?= SocialShareWidget::widget([
+                    'mode' => SocialShareWidget::MODE_DROPDOWN,
                     'model' => $model,
-                    'configuratorId'  => 'socialShare',
-                    'url'           => \yii\helpers\Url::to(\Yii::$app->params['platform']['backendUrl'].'/events/event/view?id='.$model->id, true),
-                    'title'         => $model->getTitle(),
-                    'description'   => $model->getDescription(true),
+                    'configuratorId' => 'socialShare',
+                    'url' => Url::to($baseUrl . '/events/event/view?id=' . $model->id, true),
+                    'title' => $model->getTitle(),
+                    'description' => $model->getDescription(true),
 //                'imageUrl'      => !empty($model->getDiscussionsTopicImage()) ? $model->getDiscussionsTopicImage()->getWebUrl('square_small') : '',
                 ]); ?>
             </div>
@@ -137,48 +184,48 @@ $communityPresent = ($model->event_management && !is_null($model->community) && 
                 <div class="box col-xs-12 nop">
                     <div class="col-sm-6">
                         <span><?= $model->getAttributeLabel('begin_date_hour'); ?></span>
-                        <p class="boxed-data"><?= \Yii::$app->getFormatter()->asDatetime($model->begin_date_hour) ?></p>
+                        <p class="boxed-data"><?= Yii::$app->getFormatter()->asDatetime($model->begin_date_hour) ?></p>
                     </div>
 
                     <div class="col-sm-6">
                         <span><?= $model->getAttributeLabel('end_date_hour'); ?></span>
-                        <p class="boxed-data"><?= ($model->end_date_hour ? \Yii::$app->getFormatter()->asDatetime($model->end_date_hour) : '-') ?></p>
+                        <p class="boxed-data"><?= ($model->end_date_hour ? Yii::$app->getFormatter()->asDatetime($model->end_date_hour) : '-') ?></p>
                     </div>
 
                     <div class="col-xs-12">
                         <span><?= AmosEvents::t('amosevents', 'Location') ?></span>
                         <p class="boxed-data">
-                            <?= ($model->event_location) ? $model->event_location : '-' ?>
+                            <?= ($model->event_location) ? $model->event_location : '' ?>
                         </p>
                     </div>
                     <div class="col-xs-12">
                         <p class="boxed-data">
                             <?= ($model->event_address) ? $model->event_address . ', ' : '-' ?>
-                            <?= ($model->event_address_house_number) ? $model->event_address_house_number : '-' ?>
+                            <?= ($model->event_address_house_number) ? $model->event_address_house_number : '' ?>
                         </p>
                     </div>
                     <div class="col-xs-12 inline-boxed">
                         <div class="col-md-2 col-sm-12">
                             <p class="boxed-data ">
-                                <?= ($model->event_address_cap) ? $model->event_address_cap : '-' ?>
+                                <?= ($model->event_address_cap) ? $model->event_address_cap : '' ?>
                             </p>
                         </div>
                         <div class="col-md-8 col-sm-12">
                             <p class="boxed-data">
                                 <?= ($model->cityLocation) ? $model->cityLocation->nome . ' ' : '-' ?>
-                                <?= ($model->provinceLocation) ? ' (' . $model->provinceLocation->sigla . ') ' : '-' ?>
+                                <?= ($model->provinceLocation) ? ' (' . $model->provinceLocation->sigla . ') ' : '' ?>
                             </p>
                         </div>
                         <div class="col-md-2 col-sm-12">
                             <p class="boxed-data">
-                                <?= ($model->countryLocation) ? $model->countryLocation->nome . ' ' : '-' ?>
+                                <?= ($model->countryLocation) ? $model->countryLocation->nome . ' ' : '' ?>
                             </p>
                         </div>
                     </div>
 
                     <?php
-                    $module = \Yii::$app->getModule(AmosEvents::getModuleName());
-                    if($module->enableGoogleMap){ ?>
+                    $module = Yii::$app->getModule(AmosEvents::getModuleName());
+                    if ($module->enableGoogleMap) { ?>
                         <div class="col-xs-12">
                             <?= MapWidget::Widget(['position' => $position, 'markerTitle' => $model->event_location, 'zoom' => 10]) ?>
                         </div>
@@ -190,7 +237,15 @@ $communityPresent = ($model->event_management && !is_null($model->community) && 
 
                     <div class="col-xs-12">
                         <?php
-                        $showButton = ($communityPresent && ($model->status == Event::EVENTS_WORKFLOW_STATUS_PUBLISHED));
+                        $showButton = (
+                                $communityPresent &&
+                                ($model->status == Event::EVENTS_WORKFLOW_STATUS_PUBLISHED) &&
+                                (
+                                    (!$eventsModule->enableAutoInviteUsers && ($model->event_type_id != EventType::TYPE_UPON_INVITATION)) ||
+                                    ($eventsModule->enableAutoInviteUsers && !is_null($loggedUserRegisteredInvitation) && ($model->event_type_id != EventType::TYPE_INFORMATIVE))
+                                )
+                        ); //&& $model->show_community);
+                        $showButtonSignup = ($communityPresent && ($model->status == Event::EVENTS_WORKFLOW_STATUS_PUBLISHED) && $model->has_tickets);
                         $button = [
                             'text' => '',
                             'url' => '#',
@@ -211,17 +266,24 @@ $communityPresent = ($model->event_management && !is_null($model->community) && 
                             }
                         }
 
-                        if(!is_null($model->registration_limit_date)){
+                        if (!is_null($model->registration_limit_date)) {
                             $today = date('Y-m-d');
-                            if($today > $model->registration_limit_date){
+                            if ($today > $model->registration_limit_date) {
                                 $messagge = AmosEvents::t('amosevents', '#registration_limit_date_expired');
                             }
                         }
 
                         if (!$userInList) {
                             $button['text'] = AmosEvents::t('amosevents', 'Subscribe');
-                            $button['url'] = ['/events/event/subscribe', 'eventId' => $model->id];
-                            $button['options']['data']['confirm'] = isset($messagge) ? $messagge : AmosEvents::t('amosevents', 'Do you really want to subscribe?');
+                            //OLD LINK : $button['url'] = ['/events/event/subscribe', 'eventId' => $model->id];
+                            $button['url'] = ['/events/event/event-signup', 'eid' => $model->id];
+                            if ($eventsModule->enableAutoInviteUsers && !is_null($loggedUserRegisteredInvitation)) {
+                                $button['url']['pCode'] = $loggedUserRegisteredInvitation->code;
+                            } else {
+                                $button['options']['target'] = '_blank';
+                            }
+                            //$button['url'] = ['/events/event/subscribe', 'eventId' => $model->id];
+                            //$button['options']['data']['confirm'] = isset($messagge) ? $messagge : AmosEvents::t('amosevents', 'Do you really want to subscribe?');
                         } else {
                             switch ($userStatus) {
                                 case CommunityUserMm::STATUS_WAITING_OK_COMMUNITY_MANAGER:
@@ -246,6 +308,7 @@ $communityPresent = ($model->event_management && !is_null($model->community) && 
                                     ];
                                     $button['text'] = AmosEvents::t('amosevents', 'Go to the community');
                                     $button['url'] = Yii::$app->urlManager->createUrl($createUrlParams);
+                                    $showButton = ($showButton && EventsUtility::showCommunityButtonInView($model, $eventsModule));
                                     break;
                             }
                         }
@@ -259,6 +322,55 @@ $communityPresent = ($model->event_management && !is_null($model->community) && 
                             <?= Html::a($button['text'], $button['url'], $button['options']) ?>
                         <?php endif; ?>
 
+                    </div>
+
+                    <div class="col-xs-12">
+                        <?php
+                        if (EventsUtility::checkManager($model)) {
+                            echo Html::a(
+                                AmosEvents::txt('Download ICS'),
+                                [
+                                    '/events/event/force-download-ics',
+                                    'eid' => $model->id,
+                                ],
+                                [
+                                    'class' => 'btn btn-primary pull-right',
+                                ]
+                            );
+                        } else {
+                            $invitation = $eventInvitationModel::findOne(['user_id' => \Yii::$app->user->id, 'event_id' => $model->id]);
+                            if ($invitation && !empty($invitation)) {
+                                echo (($model->has_tickets && $invitation->everyoneInSameInvitationHasAccreditationList())
+                                        ? Html::a(
+                                            AmosEvents::txt('Download ticket'),
+                                            [
+                                                '/events/event/download-tickets',
+                                                'eid' => $model->id,
+                                                'iid' => $invitation->id,
+                                                'code' => $invitation->code,
+                                            ],
+                                            [
+                                                'class' => 'btn btn-primary pull-right m-l-5',
+                                                'target' => '_blank'
+                                            ]
+                                        )
+                                        : '')
+
+                                    . ' ' . Html::a(
+                                        AmosEvents::txt('Download ICS'),
+                                        [
+                                            '/events/event/download-ics',
+                                            'eid' => $model->id,
+                                            'iid' => $invitation->id,
+                                            'code' => $invitation->code,
+                                        ],
+                                        [
+                                            'class' => 'btn btn-primary pull-right',
+                                        ]
+                                    );
+                            }
+                        }
+                        ?>
                     </div>
                 </div>
             </div>
@@ -283,15 +395,15 @@ $communityPresent = ($model->event_management && !is_null($model->community) && 
 
     <?php $this->beginBlock('organization'); ?>
     <div class="col-xs-12 nop">
-        <h3><?= \lispa\amos\core\icons\AmosIcons::show('info-outline') ?><?= AmosEvents::tHtml('amosevents', 'Event Organization') ?></h3>
+        <h3><?= AmosIcons::show('info-outline') ?><?= AmosEvents::tHtml('amosevents', 'Event Organization') ?></h3>
         <div class="col-sm-6">
             <span><?= $model->getAttributeLabel('publish_in_the_calendar'); ?></span>
             <span class="boxed-data"><?= ($model->publish_in_the_calendar) ? Yii::$app->getFormatter()->asBoolean($model->publish_in_the_calendar) : '-' ?></span>
         </div>
-        <div class="col-sm-6">
+        <!--div class="col-sm-6">
             <span><?= $model->getAttributeLabel('event_management'); ?></span>
             <span class="boxed-data"><?= ($model->event_management) ? Yii::$app->getFormatter()->asBoolean($model->event_management) : '-' ?></span>
-        </div>
+        </div-->
         <div class="col-sm-6">
             <span><?= $model->getAttributeLabel('registration_limit_date'); ?></span>
             <span class="boxed-data"><?= ($model->registration_limit_date) ? Yii::$app->getFormatter()->asDate($model->registration_limit_date) : '-' ?></span>
@@ -327,7 +439,7 @@ $communityPresent = ($model->event_management && !is_null($model->community) && 
     <div class="attachments col-xs-12 nop">
         <!-- TODO sostituire il tag h3 con il tag p e applicare una classe per ridimensionare correttamente il testo per accessibilità -->
         <h3><?= AmosEvents::tHtml('amosevents', 'Attachments') ?></h3>
-        <?= \lispa\amos\attachments\components\AttachmentsTable::widget([
+        <?= AttachmentsTable::widget([
             'model' => $model,
             'attribute' => 'eventAttachments',
             'viewDeleteBtn' => false
@@ -361,29 +473,39 @@ $communityPresent = ($model->event_management && !is_null($model->community) && 
         <?php $this->beginBlock('tab-participants'); ?>
         <div class="col-xs-12 nop">
             <h3><?= AmosEvents::tHtml('amosevents', 'Participants') ?></h3>
+
             <?php
             if (!$model->isNewRecord) {
-                echo CommunityMembersWidget::widget([
+                Pjax::begin(['timeout' => 10000, 'id' => 'pjax-participants-widget', 'enablePushState' => false]);
+                echo CommunityEventMembersWidget::widget([
                     'model' => $model,
                     'showRoles' => [
                         Event::EVENT_PARTICIPANT
                     ],
                     'checkManagerRole' => true,
+                    'showAdditionalAssociateButton' => $model->has_tickets,
                     'targetUrlParams' => [
                         'viewM2MWidgetGenericSearch' => true
                     ],
+                    'pjaxId' => 'pjax-participants-widget',
+                    'pageUrl' => '/events/event/view?id=' . $model->id,
+                    'enableAdditionalButtons' => true,
+                    'showSearch' => true,
                 ]);
+                Pjax::end();
             }
             ?>
         </div>
         <?php $this->endBlock(); ?>
 
         <?php
-        $itemsTab[] = [
-            'label' => AmosEvents::t('amosevents', 'Participants'),
-            'content' => $this->blocks['tab-participants'],
-            'options' => ['id' => 'tab-participants'],
-        ];
+        if (EventsUtility::hasPrivilegesLoggedUser($model)) {
+            $itemsTab[] = [
+                'label' => AmosEvents::t('amosevents', 'Participants'),
+                'content' => $this->blocks['tab-participants'],
+                'options' => ['id' => 'tab-participants'],
+            ];
+        }
         ?>
     <?php endif; ?>
 
@@ -401,24 +523,117 @@ $communityPresent = ($model->event_management && !is_null($model->community) && 
     //    ];
     ?>
 
+    <?php if ($model->seats_management && EventsUtility::hasPrivilegesLoggedUser($model)) { ?>
+        <?php $this->beginBlock('seats_management'); ?>
+        <div class="attachments col-xs-12 nop">
+            <h2><?= AmosEvents::tHtml('amosevents', 'Seats management') ?></h2>
+            <?php
+            $totSeats = $model->getEventSeats()->count();
+            $totEmptySeats = $model->getEventSeats()
+                ->andWhere(['status' => [EventSeats::STATUS_EMPTY, \open20\amos\events\models\EventSeats::STATUS_TO_REASSIGN]])->count();
+            ?>
+
+
+            <div class="col-xs-6">
+                <p><strong><?= AmosEvents::tHtml('amosevents', 'Totale posti') . ': ' ?></strong><?= $totSeats ?></p>
+                <p>
+                    <strong><?= AmosEvents::tHtml('amosevents', 'Posti disponibili') . ': ' ?></strong><?= $totEmptySeats ?>
+                </p>
+            </div>
+            <div class="col-xs-6">
+                <?php echo Html::button(AmosEvents::t('amosevents', "Importa posti"), [
+                    'class' => 'btn btn-primary pull-right',
+                    'data-toggle' => 'modal',
+                    'data-target' => '#modalImport',
+                ]); ?>
+            </div>
+            <hr>
+            <div class="col-xs-12">
+                <h3><?= AmosEvents::tHtml('amosevents', 'Settori') ?></h3>
+                <div class="col-xs-12">
+                    <?= AmosGridView::widget([
+                        'dataProvider' => $dataProviderSeats,
+                        'columns' => [
+                            [
+                                'attribute' => 'sector',
+                                'label' => AmosEvents::t('amosevents', 'Sector')
+                            ],
+                            [
+                                'value' => function ($model) use ($eventSeatsModel) {
+                                    $count = $eventSeatsModel::find()
+                                        ->andWhere(['sector' => $model['sector']])
+                                        ->andWhere(['event_id'=> $model['event_id']])
+                                        ->groupBy('sector, [[row]]')->count();
+                                    return ($count);
+                                },
+                                'label' => AmosEvents::t('amosevents', 'Number of rows')
+                            ],
+                            [
+                                'attribute' => 'seats',
+                                'label' => AmosEvents::t('amosevents', 'Number of seats')
+                            ],
+                            [
+                                'attribute' => 'empty_seats',
+                                'label' => AmosEvents::t('amosevents', 'Number of empty seats')
+                            ],
+                            [
+                                'class' => ActionColumn::className(),
+                                'template' => '{view}{delete}',
+                                'buttons' => [
+                                    'view' => function ($url, $model) {
+                                        return Html::a(AmosIcons::show('file'), ['view-sector', 'id' => $model['id']], [
+                                            'class' => 'btn btn-tools-secondary'
+                                        ]);
+                                    },
+                                    'delete' => function ($url, $model) use ($eventSeatsModel) {
+                                        if ($eventSeatsModel::isEventSeatDeletable($model['sector'], $model['event_id'])) {
+                                            return Html::a(AmosIcons::show('delete'), ['delete-sector', 'id' => $model['id']], [
+                                                'class' => 'btn btn-danger-inverse',
+                                                'data-confirm' => AmosEvents::t('amosevents', "Sei sicuro di eliminare l'intero settore?")
+                                            ]);
+                                        }
+                                    }
+                                ]
+                            ]
+                        ]
+                    ]) ?>
+                </div>
+            </div>
+        </div>
+        <?php $this->endBlock(); ?>
+
+        <?php
+        $itemsTab[] = [
+            'label' => AmosEvents::t('amosevents', 'Seats management'),
+            'content' => $this->blocks['seats_management'],
+            'options' => ['id' => 'tab-seats_management'],
+        ];
+        ?>
+    <?php } ?>
+
     <?php if ($communityPresent && (($model->status != Event::EVENTS_WORKFLOW_STATUS_DRAFT) || $model->validated_at_least_once)): ?>
         <?php $this->beginBlock('staff'); ?>
         <div class="attachments col-xs-12 nop">
             <h3><?= AmosEvents::tHtml('amosevents', 'Staff') ?></h3>
             <?php
             if (!$model->isNewRecord) {
-                echo CommunityMembersWidget::widget([
+                //echo CommunityMembersWidget::widget([
+                echo CommunityEventMembersWidget::widget([
                     'model' => $model,
                     'showRoles' => [
-                        Event::EVENT_MANAGER
+                        Event::EVENT_MANAGER,
+                        Event::EVENTS_CHECK_IN,
+                        $model->getManagerRole(),
                     ],
                     'targetUrlParams' => [
                         'viewM2MWidgetGenericSearch' => true
                     ],
                     'viewEmail' => true,
+                    'viewInvitation' => true,
                     'addPermission' => 'EVENT_UPDATE',
                     'manageAttributesPermission' => 'EVENT_UPDATE',
-                    'forceActionColumns' => (Yii::$app->user->can('EVENTS_VALIDATOR', ['model' => $model]) || Yii::$app->user->can('PLATFORM_EVENTS_VALIDATOR', ['model' => $model])),
+                    'pageUrl' => '/events/event/view?id=' . $model->id,
+                    'forceActionColumns' => (Yii::$app->user->can('EVENTS_VALIDATOR', ['model' => $model]) || Yii::$app->user->can('PLATFORM_EVENTS_VALIDATOR', ['model' => $model]) || EventsUtility::checkManager($model)),
                     'actionColumnsTemplate' => '{confirmManager}{acceptUser}{rejectUser}{relationAttributeManage}{deleteRelation}'
                 ]);
             }
@@ -427,11 +642,13 @@ $communityPresent = ($model->event_management && !is_null($model->community) && 
         <?php $this->endBlock(); ?>
 
         <?php
-        $itemsTab[] = [
-            'label' => AmosEvents::t('amosevents', 'Staff'),
-            'content' => $this->blocks['staff'],
-            'options' => ['id' => 'tab-staff'],
-        ];
+        if ($communityPresent && EventsUtility::checkManager($model->community)) {
+            $itemsTab[] = [
+                'label' => AmosEvents::t('amosevents', 'Staff'),
+                'content' => $this->blocks['staff'],
+                'options' => ['id' => 'tab-staff'],
+            ];
+        }
         ?>
     <?php endif; ?>
 
@@ -444,7 +661,9 @@ $communityPresent = ($model->event_management && !is_null($model->community) && 
 
     <?= CloseButtonWidget::widget([
         'title' => AmosEvents::t('amosevents', 'Close'),
-        'layoutClass' => 'pull-right',
+        'layoutClass' => 'col-xs-12 pull-right',
         'urlClose' => Yii::$app->session->get('previousUrl')
     ]) ?>
 </div>
+
+<?= $this->render('_modal_import', ['model' => $model]); ?>

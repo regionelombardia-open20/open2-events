@@ -1,23 +1,23 @@
 <?php
 
 /**
- * Lombardia Informatica S.p.A.
+ * Aria S.p.A.
  * OPEN 2.0
  *
  *
- * @package    lispa\amos\events\views\event-wizard
+ * @package    open20\amos\events\views\event-wizard
  * @category   CategoryName
  */
 
-use lispa\amos\core\forms\ActiveForm;
-use lispa\amos\events\AmosEvents;
-use lispa\amos\core\forms\WizardPrevAndContinueButtonWidget;
+use open20\amos\core\forms\ActiveForm;
+use open20\amos\events\AmosEvents;
+use open20\amos\core\forms\WizardPrevAndContinueButtonWidget;
 use kartik\datecontrol\DateControl;
 
 /**
  * @var yii\web\View $this
  * @var ActiveForm $form
- * @var \lispa\amos\events\models\Event $model
+ * @var \open20\amos\events\models\Event $model
  */
 
 $moduleCwh = Yii::$app->getModule('cwh');
@@ -58,7 +58,7 @@ $this->title = AmosEvents::t('amosevents',"Nuovo Evento");
     <section>
         <div class="row">
             <?php if (isset($moduleCwh) && in_array(get_class($model), $moduleCwh->modelsEnabled)): ?>
-                <?= \Yii::$app->controller->renderFile('@vendor/lispa/amos-cwh/src/views/pubblicazione/cwh.php',
+                <?= \Yii::$app->controller->renderFile('@vendor/open20/amos-cwh/src/views/pubblicazione/cwh.php',
                     [
                         'model' => $model,
                         'form' => $form
@@ -68,7 +68,7 @@ $this->title = AmosEvents::t('amosevents',"Nuovo Evento");
         </div>
         <div class="row">
             <?php if (isset($moduleTag) && in_array(get_class($model), $moduleTag->modelsEnabled) && $moduleTag->behaviors): ?>
-                <?= \lispa\amos\tag\widgets\TagWidget::widget([
+                <?= \open20\amos\tag\widgets\TagWidget::widget([
                     'model' => $model,
                     'attribute' => 'tagValues',
                     'form' => \yii\base\Widget::$stack[0]

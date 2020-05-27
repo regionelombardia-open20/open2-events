@@ -1,29 +1,32 @@
 <?php
 
 /**
- * Lombardia Informatica S.p.A.
+ * Aria S.p.A.
  * OPEN 2.0
  *
  *
- * @package    lispa\amos\events\views\event-wizard
+ * @package    open20\amos\events\views\event-wizard
  * @category   CategoryName
  */
 
-use lispa\amos\core\forms\ActiveForm;
-use lispa\amos\core\helpers\Html;
-use lispa\amos\core\icons\AmosIcons;
-use lispa\amos\events\AmosEvents;
-use lispa\amos\events\models\search\EventTypeSearch;
-use lispa\amos\core\forms\WizardPrevAndContinueButtonWidget;
+use open20\amos\core\forms\ActiveForm;
+use open20\amos\core\helpers\Html;
+use open20\amos\core\icons\AmosIcons;
+use open20\amos\events\AmosEvents;
+use open20\amos\events\models\search\EventTypeSearch;
+use open20\amos\core\forms\WizardPrevAndContinueButtonWidget;
 use kartik\select2\Select2;
 use yii\helpers\ArrayHelper;
 
 /**
  * @var yii\web\View $this
  * @var ActiveForm $form
- * @var \lispa\amos\events\models\Event $model
+ * @var \open20\amos\events\models\Event $model
  */
 $this->title = AmosEvents::t('amosevents',"Nuovo Evento");
+
+/** @var EventTypeSearch $eventTypeSearchModel */
+$eventTypeSearchModel = $moduleEvents->createModel('EventTypeSearch');
 
 ?>
 
@@ -66,7 +69,7 @@ $this->title = AmosEvents::t('amosevents',"Nuovo Evento");
     <div class="nop col-xs-12">
         <br>
         <?= $form->field($model, 'event_type_id')->widget(Select2::className(), [
-            'data' => ArrayHelper::map(EventTypeSearch::searchGenericContextEventTypes()->asArray()->all(), 'id', 'title'),
+            'data' => ArrayHelper::map($eventTypeSearchModel::searchGenericContextEventTypes()->asArray()->all(), 'id', 'title'),
             'language' => substr(Yii::$app->language, 0, 2),
             'options' => ['multiple' => false,
                 'id' => 'EventType',

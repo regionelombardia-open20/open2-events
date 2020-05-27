@@ -1,16 +1,16 @@
 <?php
 
 /**
- * Lombardia Informatica S.p.A.
+ * Aria S.p.A.
  * OPEN 2.0
  *
  *
- * @package    lispa\amos\events\migrations
+ * @package    open20\amos\events\migrations
  * @category   CategoryName
  */
 
-use lispa\amos\core\migration\AmosMigrationWidgets;
-use lispa\amos\dashboard\models\AmosWidgets;
+use open20\amos\core\migration\AmosMigrationWidgets;
+use open20\amos\dashboard\models\AmosWidgets;
 
 /**
  * Class m180410_095645_add_events_community_widgets
@@ -26,7 +26,7 @@ class m180410_095645_add_events_community_widgets extends AmosMigrationWidgets
     {
         $this->widgets = [
             [
-                'classname' => 'lispa\amos\news\widgets\icons\WidgetIconNewsDashboard',
+                'classname' => 'open20\amos\news\widgets\icons\WidgetIconNewsDashboard',
                 'type' => AmosWidgets::TYPE_ICON,
                 'module' => self::EVENTS_MODULE_NAME,
                 'status' => AmosWidgets::STATUS_ENABLED,
@@ -35,7 +35,7 @@ class m180410_095645_add_events_community_widgets extends AmosMigrationWidgets
                 'sub_dashboard' => 1
             ],
             [
-                'classname' => 'lispa\amos\discussioni\widgets\icons\WidgetIconDiscussioniDashboard',
+                'classname' => 'open20\amos\discussioni\widgets\icons\WidgetIconDiscussioniDashboard',
                 'type' => AmosWidgets::TYPE_ICON,
                 'module' => self::EVENTS_MODULE_NAME,
                 'status' => AmosWidgets::STATUS_ENABLED,
@@ -44,7 +44,7 @@ class m180410_095645_add_events_community_widgets extends AmosMigrationWidgets
                 'sub_dashboard' => 1
             ],
             [
-                'classname' => 'lispa\amos\documenti\widgets\icons\WidgetIconDocumentiDashboard',
+                'classname' => 'open20\amos\documenti\widgets\icons\WidgetIconDocumentiDashboard',
                 'type' => AmosWidgets::TYPE_ICON,
                 'module' => self::EVENTS_MODULE_NAME,
                 'status' => AmosWidgets::STATUS_ENABLED,

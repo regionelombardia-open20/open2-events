@@ -1,30 +1,31 @@
 <?php
 
 /**
- * Lombardia Informatica S.p.A.
+ * Aria S.p.A.
  * OPEN 2.0
  *
  *
- * @package    lispa\amos\events
+ * @package    open20\amos\events
  * @category   CategoryName
  */
 
-use lispa\amos\core\helpers\Html;
-use lispa\amos\events\AmosEvents;
-use lispa\amos\events\models\Event;
-use lispa\amos\events\models\search\EventTypeSearch;
+use open20\amos\core\helpers\Html;
+use open20\amos\events\AmosEvents;
+use open20\amos\events\models\search\EventTypeSearch;
 use kartik\datecontrol\DateControl;
 use kartik\select2\Select2;
-use yii\helpers\ArrayHelper;
 use yii\widgets\ActiveForm;
 
 /**
  * @var yii\web\View $this
- * @var lispa\amos\events\models\search\EventSearch $model
+ * @var open20\amos\events\models\search\EventSearch $model
  * @var yii\widgets\ActiveForm $form
  */
 
 $moduleTag = Yii::$app->getModule('tag');
+
+/** @var AmosEvents $eventsModule */
+$eventsModule = AmosEvents::instance();
 
 $idPrefix = "eventsearch";
 $this->registerJs("
@@ -73,7 +74,7 @@ $this->registerJs("
 
     <div class="col-md-4">
         <?= $form->field($model, 'event_type_id')->widget(Select2::className(), [
-            'data' => ArrayHelper::map(EventTypeSearch::searchGenericContextEventTypes()->asArray()->all(), 'id', 'title'),
+            'data' => EventTypeSearch::searchEnabledGenericContextEventTypesReadyForSelect(),
             'language' => substr(Yii::$app->language, 0, 2),
             'options' => [
                 'multiple' => true,
@@ -109,17 +110,17 @@ $this->registerJs("
         ]); ?>
     </div>
 
-    <?php if (isset($moduleTag) && in_array(Event::className(), $moduleTag->modelsEnabled) && $moduleTag->behaviors): ?>
+    <?php if (isset($moduleTag) && in_array($eventsModule->model('Event'), $moduleTag->modelsEnabled) && $moduleTag->behaviors): ?>
         <div class="col-xs-12">
             <?php
             $params = \Yii::$app->request->getQueryParams();
-            echo \lispa\amos\tag\widgets\TagWidget::widget([
+            /*echo \open20\amos\tag\widgets\TagWidget::widget([
                 'model' => $model,
                 'attribute' => 'tagValues',
                 'form' => $form,
                 'isSearch' => true,
                 'form_values' => isset($params[$model->formName()]['tagValues']) ? $params[$model->formName()]['tagValues'] : []
-            ]);
+            ]);*/
             ?>
         </div>
     <?php endif; ?>

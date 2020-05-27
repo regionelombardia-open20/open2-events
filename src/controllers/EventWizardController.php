@@ -1,24 +1,23 @@
 <?php
 
 /**
- * Lombardia Informatica S.p.A.
+ * Aria S.p.A.
  * OPEN 2.0
  *
  *
- * @package    lispa\amos\events\controllers
+ * @package    open20\amos\events\controllers
  * @category   CategoryName
  */
 
-namespace lispa\amos\events\controllers;
+namespace open20\amos\events\controllers;
 
-use lispa\amos\community\models\CommunityUserMm;
-use lispa\amos\core\controllers\CrudController;
-use lispa\amos\events\AmosEvents;
-use lispa\amos\events\assets\EventsAsset;
-use lispa\amos\events\components\PartsWizardEventCreation;
-use lispa\amos\events\models\Event;
-use lispa\amos\events\models\search\EventSearch;
-use lispa\amos\events\utility\EventsUtility;
+use open20\amos\community\models\CommunityUserMm;
+use open20\amos\core\controllers\CrudController;
+use open20\amos\events\AmosEvents;
+use open20\amos\events\assets\EventsAsset;
+use open20\amos\events\components\PartsWizardEventCreation;
+use open20\amos\events\models\Event;
+use open20\amos\events\utility\EventsUtility;
 use Yii;
 use yii\filters\AccessControl;
 use yii\filters\VerbFilter;
@@ -29,9 +28,9 @@ use yii\helpers\Url;
  * Class EventWizardController
  * This is the controller for the event creation wizard.
  *
- * @property \lispa\amos\events\models\Event $model
+ * @property \open20\amos\events\models\Event $model
  *
- * @package lispa\amos\events\controllers
+ * @package open20\amos\events\controllers
  */
 class EventWizardController extends CrudController
 {
@@ -41,12 +40,20 @@ class EventWizardController extends CrudController
     public $layout = 'progress_wizard';
 
     /**
+     * @var AmosEvents $eventsModule
+     */
+    public $eventsModule = null;
+
+    /**
      * @inheritdoc
      */
     public function init()
     {
-        $this->setModelObj(new Event());
-        $this->setModelSearch(new EventSearch());
+        $this->eventsModule = AmosEvents::instance();
+
+        $this->setModelObj($this->eventsModule->createModel('Event'));
+        $this->setModelSearch($this->eventsModule->createModel('EventSearch'));
+
         $this->setAvailableViews([]);
 
         EventsAsset::register(Yii::$app->view);
@@ -100,7 +107,7 @@ class EventWizardController extends CrudController
         if (isset($id)) {
             $this->model = $this->findModel($id);
         } else {
-            $this->model = new Event();
+            $this->model = $this->eventsModule->createModel('Event');
         }
 
         $this->detachCwhBehavior();
@@ -262,7 +269,7 @@ class EventWizardController extends CrudController
         $this->model = $this->findModel($id);
         $this->detachCwhBehavior();
         $finishMessage = AmosEvents::tHtml('amosevents', 'The event');
-        $finishMessage .= ' ' . (!is_null($this->model) ? AmosEvents::tHtml('amosevents', 'of type') . " '" . $this->model->eventType->title . "' " : '');
+        $finishMessage .= ' ' . (!is_null($this->model) ? AmosEvents::tHtml('amosevents', 'of type') . " '" . !is_null($this->model->eventType) ? $this->model->eventType->title : '-' . "' " : '');
         $finishMessage .= AmosEvents::tHtml('amosevents', 'has been') . ' ';
         $loggedUser = Yii::$app->getUser();
         $hideWorkflow = isset(\Yii::$app->params['hideWorkflowTransitionWidget']) && \Yii::$app->params['hideWorkflowTransitionWidget'];
@@ -312,18 +319,6 @@ class EventWizardController extends CrudController
     }
 
     /**
-     * Return an array with the values used in boolean fields.
-     * @return array
-     */
-    public function getBooleanFieldsValues()
-    {
-        return [
-            Event::BOOLEAN_FIELDS_VALUE_NO => AmosEvents::t('amosevents', 'No'),
-            Event::BOOLEAN_FIELDS_VALUE_YES => AmosEvents::t('amosevents', 'Yes')
-        ];
-    }
-
-    /**
      * Used for set page title and breadcrumbs.
      */
     public function setBreadcrumbs()
@@ -337,10 +332,10 @@ class EventWizardController extends CrudController
      */
     private function detachCwhBehavior()
     {
-        /** @var \lispa\amos\cwh\AmosCwh $cwhModule */
+        /** @var \open20\amos\cwh\AmosCwh $cwhModule */
         $cwhModule = Yii::$app->getModule('cwh');
-        if (isset($cwhModule) && in_array(Event::className(), $cwhModule->modelsEnabled)) {
-            $this->model->detachBehaviorByClassName(\lispa\amos\cwh\behaviors\CwhNetworkBehaviors::className());
+        if (isset($cwhModule) && in_array($this->eventsModule->model('Event'), $cwhModule->modelsEnabled)) {
+            $this->model->detachBehaviorByClassName(\open20\amos\cwh\behaviors\CwhNetworkBehaviors::className());
         }
     }
 }

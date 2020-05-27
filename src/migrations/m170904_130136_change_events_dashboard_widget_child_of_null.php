@@ -1,15 +1,15 @@
 <?php
 
 /**
- * Lombardia Informatica S.p.A.
+ * Aria S.p.A.
  * OPEN 2.0
  *
  *
- * @package    lispa\amos\events\migrations
+ * @package    open20\amos\events\migrations
  * @category   CategoryName
  */
 
-use lispa\amos\core\migration\AmosMigrationWidgets;
+use open20\amos\core\migration\AmosMigrationWidgets;
 
 /**
  * Class m170904_130136_change_events_dashboard_widget_child_of_null
@@ -23,7 +23,7 @@ class m170904_130136_change_events_dashboard_widget_child_of_null extends AmosMi
     {
         $this->widgets = [
             [
-                'classname' => \lispa\amos\events\widgets\icons\WidgetIconEvents::className(),
+                'classname' => \open20\amos\events\widgets\icons\WidgetIconEvents::className(),
                 'child_of' => null,
                 'update' => true
             ]

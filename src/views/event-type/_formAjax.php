@@ -1,17 +1,17 @@
 <?php
 
 /**
- * Lombardia Informatica S.p.A.
+ * Aria S.p.A.
  * OPEN 2.0
  *
  *
- * @package    lispa\amos\events
+ * @package    open20\amos\events
  * @category   CategoryName
  */
 
 /**
  * @var yii\web\View $this
- * @var lispa\amos\events\models\EventType $model
+ * @var open20\amos\events\models\EventType $model
  * @var yii\widgets\ActiveForm $form
  */
 ?>

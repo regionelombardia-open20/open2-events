@@ -1,27 +1,27 @@
 <?php
 
 /**
- * Lombardia Informatica S.p.A.
+ * Aria S.p.A.
  * OPEN 2.0
  *
  *
- * @package    lispa\amos\events\events
+ * @package    open20\amos\events\events
  * @category   CategoryName
  */
 
-namespace lispa\amos\events\events;
+namespace open20\amos\events\events;
 
-use lispa\amos\community\models\CommunityUserMm;
-use lispa\amos\core\controllers\CrudController;
-use lispa\amos\core\user\User;
-use lispa\amos\core\utilities\Email;
+use open20\amos\community\models\CommunityUserMm;
+use open20\amos\core\controllers\CrudController;
+use open20\amos\core\user\User;
+use open20\amos\core\utilities\Email;
 use Yii;
 use yii\base\Event;
 use yii\helpers\ArrayHelper;
 
 /**
  * Class EventsWorkflowEvent
- * @package lispa\amos\events\events
+ * @package open20\amos\events\events
  */
 class EventsWorkflowEvent
 {
@@ -31,7 +31,7 @@ class EventsWorkflowEvent
      */
     public function sendValidationRequest(Event $yiiEvent)
     {
-        /** @var \lispa\amos\events\models\Event $event */
+        /** @var \open20\amos\events\models\Event $event */
         $event = $yiiEvent->data;
         if (is_null($event->community_id)) {
             return true;
@@ -81,7 +81,7 @@ class EventsWorkflowEvent
         $controller = \Yii::$app->controller;
         $vendorAlias = Yii::getAlias('@vendor');
         $controller->setViewPath($vendorAlias . DIRECTORY_SEPARATOR .
-            'lispa' . DIRECTORY_SEPARATOR .
+            'open20' . DIRECTORY_SEPARATOR .
             'amos-events' . DIRECTORY_SEPARATOR .
             'src' . DIRECTORY_SEPARATOR .
             'views' . DIRECTORY_SEPARATOR .
@@ -133,7 +133,7 @@ class EventsWorkflowEvent
      */
     public function eventPublicationOperations(Event $yiiEvent)
     {
-        /** @var \lispa\amos\events\models\Event $event */
+        /** @var \open20\amos\events\models\Event $event */
         $event = $yiiEvent->data;
         if (is_null($event)) {
             return false;
@@ -154,7 +154,7 @@ class EventsWorkflowEvent
 
         $vendorAlias = Yii::getAlias('@vendor');
         $controller->setViewPath($vendorAlias . DIRECTORY_SEPARATOR .
-            'lispa' . DIRECTORY_SEPARATOR .
+            'open20' . DIRECTORY_SEPARATOR .
             'amos-events' . DIRECTORY_SEPARATOR .
             'src' . DIRECTORY_SEPARATOR .
             'views' . DIRECTORY_SEPARATOR .

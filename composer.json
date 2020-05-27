@@ -1,39 +1,37 @@
 {
-    "name": "lispa/amos-events",
+    "name": "open20/amos-events",
     "description": "Events manager with calendar - plugin",
     "keywords": ["amos", "yii2", "events"],
     "type": "plugin",
-    "proscription": "BSD-3-Clause",
+    "license": "BSD-3-Clause",
     "support": {
-        "issues": "https://github.com/lispa/amos-events/issues?state=open",
-        "source": "https://github.com/lispa/amos-events"
+        "issues": "https://github.com/open20/amos-events/issues?state=open",
+        "source": "https://github.com/open20/amos-events"
     },
     "require": {
         "php": ">=5.4.0",
         "cornernote/yii2-workflow-manager": "*",
-        "lispa/amos-admin" : "*",
-        "lispa/amos-attachments" : "*",
-        "lispa/amos-comments" : "*",
-        "lispa/amos-community" : "*",
-        "lispa/amos-comuni" : "*",
-        "lispa/amos-core" : "*",
-        "lispa/amos-dashboard" : "*",
-        "lispa/amos-wizflow" : "*",
-        "lispa/amos-workflow" : "*",
-        "raoul2000/yii2-workflow": "*"
-    },
-    "extra": {
-        "asset-installer-paths": {
-            "npm-asset-library": "vendor/npm",
-            "bower-asset-library": "vendor/bower"
-        }
+        "open20/amos-admin": "^2.0",
+        "open20/amos-attachments": "^1.0.3",
+        "open20/amos-comments":"^1.1",
+        "open20/amos-community": "^1.5.29",
+        "open20/amos-comuni": "*",
+        "open20/amos-core":"^1.9.60",
+        "open20/amos-dashboard": "^1.8.16",
+        "open20/amos-wizflow": "^1.0.2",
+        "open20/amos-workflow": "^1.0",
+        "raoul2000/yii2-workflow": "*",
+        "simomatte/yii2-dynamicform": "~2.0.2",
+        "symfony/dom-crawler": "2.8",
+        "symfony/css-selector": "2.8",
+        "2amigos/yii2-qrcode-helper": "1.0.2",
+        "kartik-v/yii2-mpdf": "*",
+        "kartik-v/yii2-popover-x": "*",
+        "moonlandsoft/yii2-phpexcel": "*"
     },
     "autoload": {
         "psr-4": {
-            "lispa\\amos\\events\\": "src"
+            "open20\\amos\\events\\": "src"
         }
-    },
-    "require-dev": {
-        "yiisoft/yii2-faker": "*"
     }
 }

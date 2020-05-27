@@ -1,26 +1,26 @@
 <?php
 /**
- * Lombardia Informatica S.p.A.
+ * Aria S.p.A.
  * OPEN 2.0
  *
  *
- * @package    lispa\amos\events
+ * @package    open20\amos\events
  * @category   CategoryName
  */
-/** @var \lispa\amos\dashboard\models\AmosUserDashboards $currentDashboard * */
+/** @var \open20\amos\dashboard\models\AmosUserDashboards $currentDashboard * */
 
 /** @var \yii\web\View $this * */
-use lispa\amos\core\helpers\Html;
-use lispa\amos\core\icons\AmosIcons;
-use lispa\amos\dashboard\AmosDashboard;
-use lispa\amos\dashboard\assets\ModuleDashboardAsset;
-use lispa\amos\events\AmosEvents;
+use open20\amos\core\helpers\Html;
+use open20\amos\core\icons\AmosIcons;
+use open20\amos\dashboard\AmosDashboard;
+use open20\amos\dashboard\assets\ModuleDashboardAsset;
+use open20\amos\events\AmosEvents;
 
 $moduleL = \Yii::$app->getModule('layout');
 if (!empty($moduleL)) {
-    \lispa\amos\layout\assets\BaseAsset::register($this);
+    \open20\amos\layout\assets\BaseAsset::register($this);
 } else {
-    \lispa\amos\core\views\assets\AmosCoreAsset::register($this);
+    \open20\amos\core\views\assets\AmosCoreAsset::register($this);
 }
 
 

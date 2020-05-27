@@ -1,17 +1,17 @@
 <?php
 
 /**
- * Lombardia Informatica S.p.A.
+ * Aria S.p.A.
  * OPEN 2.0
  *
  *
- * @package    lispa\amos\events\models\base
+ * @package    open20\amos\events\models\base
  * @category   CategoryName
  */
 
-namespace lispa\amos\events\models\base;
+namespace open20\amos\events\models\base;
 
-use lispa\amos\events\AmosEvents;
+use open20\amos\events\AmosEvents;
 use yii\helpers\ArrayHelper;
 
 /**
@@ -25,6 +25,11 @@ use yii\helpers\ArrayHelper;
  * @property integer $locationRequested
  * @property integer $durationRequested
  * @property integer $logoRequested
+ * @property integer $enabled
+ * @property integer $event_type
+ * @property integer $limited_seats
+ * @property integer $manage_subscritions_queue
+ * @property integer $partners
  * @property integer $event_context_id
  * @property string $created_at
  * @property string $updated_at
@@ -33,12 +38,17 @@ use yii\helpers\ArrayHelper;
  * @property integer $updated_by
  * @property integer $deleted_by
  *
- * @property \lispa\amos\events\models\EventTypeContext $eventTypeContext
+ * @property \open20\amos\events\models\EventTypeContext $eventTypeContext
  *
- * @package lispa\amos\events\models\base
+ * @package open20\amos\events\models\base
  */
-class EventType extends \lispa\amos\core\record\Record
+class EventType extends \open20\amos\core\record\Record
 {
+    /**
+     * @var AmosEvents $eventsModule
+     */
+    public $eventsModule = null;
+
     /**
      * @inheritdoc
      */
@@ -50,12 +60,22 @@ class EventType extends \lispa\amos\core\record\Record
     /**
      * @inheritdoc
      */
+    public function init()
+    {
+        parent::init();
+
+        $this->eventsModule = AmosEvents::instance();
+    }
+
+    /**
+     * @inheritdoc
+     */
     public function rules()
     {
         return [
             [['title', 'description', 'color', 'event_context_id'], 'required'],
-            [['created_at', 'updated_at', 'deleted_at'], 'safe'],
-            [['locationRequested', 'durationRequested', 'logoRequested', 'event_context_id', 'created_by', 'updated_by', 'deleted_by'], 'integer'],
+            [['enabled', 'created_at', 'updated_at', 'deleted_at'], 'safe'],
+            [['locationRequested', 'durationRequested', 'logoRequested', 'enabled', 'event_context_id', 'created_by', 'updated_by', 'deleted_by'], 'integer'],
             [['title'], 'string', 'max' => 60],
             [['description'], 'string', 'max' => 2000],
             [['color'], 'string', 'max' => 255],
@@ -75,6 +95,7 @@ class EventType extends \lispa\amos\core\record\Record
             'locationRequested' => AmosEvents::t('amosevents', 'Location Requested'),
             'durationRequested' => AmosEvents::t('amosevents', 'Duration Requested'),
             'logoRequested' => AmosEvents::t('amosevents', 'Logo Requested'),
+            'enabled' => AmosEvents::t('amosevents', 'Enabled'),
             'event_context_id' => AmosEvents::t('amosevents', 'Event Context ID'),
             'created_at' => AmosEvents::t('amosevents', 'Created At'),
             'updated_at' => AmosEvents::t('amosevents', 'Updated At'),
@@ -90,6 +111,6 @@ class EventType extends \lispa\amos\core\record\Record
      */
     public function getEventTypeContext()
     {
-        return $this->hasOne(\lispa\amos\events\models\EventTypeContext::className(), ['id' => 'event_context_id']);
+        return $this->hasOne($this->eventsModule->model('EventTypeContext'), ['id' => 'event_context_id']);
     }
 }

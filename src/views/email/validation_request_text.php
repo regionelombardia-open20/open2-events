@@ -1,19 +1,19 @@
 <?php
 
 /**
- * Lombardia Informatica S.p.A.
+ * Aria S.p.A.
  * OPEN 2.0
  *
  *
- * @package    lispa\amos\events\views\email
+ * @package    open20\amos\events\views\email
  * @category   CategoryName
  */
 
-use lispa\amos\events\AmosEvents;
+use open20\amos\events\AmosEvents;
 
 /**
- * @var \lispa\amos\events\models\Event $event
- * @var \lispa\amos\core\user\User $user
+ * @var \open20\amos\events\models\Event $event
+ * @var \open20\amos\core\user\User $user
  */
 
 ?>
@@ -21,7 +21,7 @@ use lispa\amos\events\AmosEvents;
 <h2>
     <?= AmosEvents::t('amosevents', 'Has been requested the validation for event'); ?>
 </h2>
-<?= AmosEvents::t('amosevents', 'Event type') . ': ' . $event->eventType->title . '<br>'; ?>
+<?= AmosEvents::t('amosevents', 'Event type') . ': ' . !is_null($event->eventType) ? $event->eventType->title : '-'. '<br>'; ?>
 <?= AmosEvents::t('amosevents', 'Event title') . ': ' . $event->title . '<br>'; ?>
 <?= AmosEvents::t('amosevents', 'Event summary') . ': ' . $event->summary . '<br>'; ?>
 <?= AmosEvents::t('amosevents', 'Published by') . ': ' . $user->userProfile->getNomeCognome(); ?>

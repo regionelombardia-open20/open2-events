@@ -1,15 +1,15 @@
 <?php
 
 /**
- * Lombardia Informatica S.p.A.
+ * Aria S.p.A.
  * OPEN 2.0
  *
  *
- * @package    lispa\amos\events\migrations
+ * @package    open20\amos\events\migrations
  * @category   CategoryName
  */
 
-use lispa\amos\core\migration\AmosMigrationPermissions;
+use open20\amos\core\migration\AmosMigrationPermissions;
 use yii\rbac\Permission;
 
 /**
@@ -27,7 +27,7 @@ class m170412_084900_add_permission_event_validate extends AmosMigrationPermissi
                 'name' => 'EventValidate',
                 'type' => Permission::TYPE_PERMISSION,
                 'description' => 'Permission to validate an event with cwh query',
-                'ruleName' => \lispa\amos\core\rules\ValidatorUpdateContentRule::className(),
+                'ruleName' => \open20\amos\core\rules\ValidatorUpdateContentRule::className(),
                 'parent' => ['EVENTS_VALIDATOR', 'PLATFORM_EVENTS_VALIDATOR']
             ],
             [

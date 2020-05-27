@@ -1,11 +1,11 @@
 <?php
 
 /**
- * Lombardia Informatica S.p.A.
+ * Aria S.p.A.
  * OPEN 2.0
  *
  *
- * @package    lispa\amos\events
+ * @package    open20\amos\events
  * @category   CategoryName
  */
 
@@ -21,10 +21,12 @@ use yii\web\View;
  * configurazione della vista nella pagina index.php
  */
 /**
- * @var \lispa\amos\events\models\Event $model
+ * @var \open20\amos\events\models\Event $model
  * @var $this View
  */
 
+// Modal render for each event (previous code)
+/*
 $jsAjax = <<<JS
 
 $('body').on('click', '.fc-content', function (e) {
@@ -43,8 +45,10 @@ $('body').on('click', '.fc-content', function (e) {
 JS;
 
 $this->registerJs($jsAjax, View::POS_READY);
-?>
 
+// END PHP TAG
+?
+>
 <div class="event-modal">
     <?php
     Modal::begin([
@@ -61,3 +65,19 @@ $this->registerJs($jsAjax, View::POS_READY);
     Modal::end();
     ?>
 </div>
+
+*/
+
+// Open the event page directly without modals
+$this->registerJs(<<<JS
+    $('body').on('click', '.fc-content', function (e) {
+        var elemId = $(this).attr('id').toString();
+        if(elemId !== undefined && elemId !== "") {
+            eventId = elemId.split("-")[2];
+            window.open("/events/event/view?id=" + eventId, "_self");
+        }
+    });
+JS
+    );
+
+?>

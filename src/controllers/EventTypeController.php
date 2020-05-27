@@ -1,20 +1,20 @@
 <?php
 
 /**
- * Lombardia Informatica S.p.A.
+ * Aria S.p.A.
  * OPEN 2.0
  *
  *
- * @package    lispa\amos\events\controllers
+ * @package    open20\amos\events\controllers
  * @category   CategoryName
  */
 
-namespace lispa\amos\events\controllers;
+namespace open20\amos\events\controllers;
 
 /**
  * Class EventTypeController
  * This is the class for controller "EventTypeController".
- * @package lispa\amos\events\controllers
+ * @package open20\amos\events\controllers
  */
 class EventTypeController extends base\EventTypeController
 {

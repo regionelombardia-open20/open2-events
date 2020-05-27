@@ -1,15 +1,15 @@
 <?php
 
 /**
- * Lombardia Informatica S.p.A.
+ * Aria S.p.A.
  * OPEN 2.0
  *
  *
- * @package    lispa\amos\events\migrations
+ * @package    open20\amos\events\migrations
  * @category   CategoryName
  */
 
-use lispa\amos\core\migration\AmosMigrationWorkflow;
+use open20\amos\core\migration\AmosMigrationWorkflow;
 use yii\helpers\ArrayHelper;
 
 /**
@@ -149,7 +149,7 @@ class m170414_153602_remove_events_wizflow extends AmosMigrationWorkflow
                 'workflow_id' => self::WIZARD_WORKFLOW_NAME,
                 'status_id' => 'INTRODUCTION',
                 'key' => 'model',
-                'value' => 'lispa\amos\events\models\CreationEventWizardIntroduction'
+                'value' => 'open20\amos\events\models\CreationEventWizardIntroduction'
             ],
             [
                 'type' => AmosMigrationWorkflow::TYPE_WORKFLOW_METADATA,
@@ -165,7 +165,7 @@ class m170414_153602_remove_events_wizflow extends AmosMigrationWorkflow
                 'workflow_id' => self::WIZARD_WORKFLOW_NAME,
                 'status_id' => 'DESCRIPTION',
                 'key' => 'model',
-                'value' => 'lispa\amos\events\models\CreationEventWizardDescription'
+                'value' => 'open20\amos\events\models\CreationEventWizardDescription'
             ],
             [
                 'type' => AmosMigrationWorkflow::TYPE_WORKFLOW_METADATA,
@@ -181,7 +181,7 @@ class m170414_153602_remove_events_wizflow extends AmosMigrationWorkflow
                 'workflow_id' => self::WIZARD_WORKFLOW_NAME,
                 'status_id' => 'ORGANIZATIONALDATA',
                 'key' => 'model',
-                'value' => 'lispa\amos\events\models\CreationEventWizardOrganizationalData'
+                'value' => 'open20\amos\events\models\CreationEventWizardOrganizationalData'
             ],
             [
                 'type' => AmosMigrationWorkflow::TYPE_WORKFLOW_METADATA,
@@ -197,7 +197,7 @@ class m170414_153602_remove_events_wizflow extends AmosMigrationWorkflow
                 'workflow_id' => self::WIZARD_WORKFLOW_NAME,
                 'status_id' => 'PUBLICATION',
                 'key' => 'model',
-                'value' => 'lispa\amos\events\models\CreationEventWizardPublication'
+                'value' => 'open20\amos\events\models\CreationEventWizardPublication'
             ],
             [
                 'type' => AmosMigrationWorkflow::TYPE_WORKFLOW_METADATA,
@@ -213,7 +213,7 @@ class m170414_153602_remove_events_wizflow extends AmosMigrationWorkflow
                 'workflow_id' => self::WIZARD_WORKFLOW_NAME,
                 'status_id' => 'SUMMARY',
                 'key' => 'model',
-                'value' => 'lispa\amos\events\models\CreationEventWizardSummary'
+                'value' => 'open20\amos\events\models\CreationEventWizardSummary'
             ],
             [
                 'type' => AmosMigrationWorkflow::TYPE_WORKFLOW_METADATA,

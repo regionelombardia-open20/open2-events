@@ -1,15 +1,15 @@
 <?php
 
 /**
- * Lombardia Informatica S.p.A.
+ * Aria S.p.A.
  * OPEN 2.0
  *
  *
- * @package    lispa\amos\events\migrations
+ * @package    open20\amos\events\migrations
  * @category   CategoryName
  */
 
-use lispa\amos\core\migration\AmosMigrationPermissions;
+use open20\amos\core\migration\AmosMigrationPermissions;
 
 /**
  * Class m180207_083951_fix_events_permissions
@@ -23,7 +23,7 @@ class m180207_083951_fix_events_permissions extends AmosMigrationPermissions
     {
         return [
             [
-                'name' => \lispa\amos\events\widgets\icons\WidgetIconEventOwnInterest::className(),
+                'name' => \open20\amos\events\widgets\icons\WidgetIconEventOwnInterest::className(),
                 'update' => true,
                 'newValues' => [
                     'addParents' => ['EVENTS_READER'],

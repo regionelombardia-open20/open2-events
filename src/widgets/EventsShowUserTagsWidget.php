@@ -1,21 +1,21 @@
 <?php
 
 /**
- * Lombardia Informatica S.p.A.
+ * Aria S.p.A.
  * OPEN 2.0
  *
  *
- * @package    lispa\amos\events\widgets
+ * @package    open20\amos\events\widgets
  * @category   CategoryName
  */
 
-namespace lispa\amos\events\widgets;
+namespace open20\amos\events\widgets;
 
-use lispa\amos\core\forms\ShowUserTagsWidget;
+use open20\amos\core\forms\ShowUserTagsWidget;
 
 /**
  * Class EventsShowUserTagsWidget
- * @package lispa\amos\events\widgets
+ * @package open20\amos\events\widgets
  */
 class EventsShowUserTagsWidget extends ShowUserTagsWidget
 {
@@ -35,12 +35,14 @@ class EventsShowUserTagsWidget extends ShowUserTagsWidget
                 if (!strlen($treeTagIdsStr)) {
                     continue;
                 }
+                
                 $treeTagIds = explode(',', $treeTagIdsStr);
                 foreach ($treeTagIds as $tagId) {
                     $ret[] = $tagId;
                 }
             }
         }
+        
         return $ret;
     }
 
@@ -56,11 +58,13 @@ class EventsShowUserTagsWidget extends ShowUserTagsWidget
                 if (!strlen($treeTagIdsStr)) {
                     continue;
                 }
+                
                 $root = $this->getTagById($rootId);
                 $ret[$rootId]['el'] = $root->nome;
                 $ret[$rootId]['level'] = $root->lvl;
             }
         }
+        
         return $ret;
     }
 

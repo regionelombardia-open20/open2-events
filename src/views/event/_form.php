@@ -1,29 +1,39 @@
 <?php
 
 /**
- * Lombardia Informatica S.p.A.
+ * Aria S.p.A.
  * OPEN 2.0
  *
  *
- * @package    lispa\amos\events\views\event
+ * @package    open20\amos\events\views\event
  * @category   CategoryName
  */
 
-use lispa\amos\attachments\components\AttachmentsInput;
-use lispa\amos\attachments\components\AttachmentsTableWithPreview;
-use lispa\amos\core\forms\ActiveForm;
-use lispa\amos\core\forms\CreatedUpdatedWidget;
-use lispa\amos\core\forms\Tabs;
-use lispa\amos\core\forms\TextEditorWidget;
-use lispa\amos\core\helpers\Html;
-use lispa\amos\events\AmosEvents;
-use lispa\amos\events\models\Event;
-use lispa\amos\events\models\EventLengthMeasurementUnit;
-use lispa\amos\events\models\EventMembershipType;
-use lispa\amos\events\models\search\EventTypeSearch;
-use lispa\amos\events\utility\EventsUtility;
+use open20\amos\attachments\components\AttachmentsInput;
+use open20\amos\attachments\components\AttachmentsList;
+use open20\amos\attachments\components\CropInput;
+use open20\amos\comuni\widgets\helpers\AmosComuniWidget;
+use open20\amos\core\forms\AccordionWidget;
+use open20\amos\core\forms\ActiveForm;
+use open20\amos\core\forms\CreatedUpdatedWidget;
+use open20\amos\core\forms\editors\Select;
+use open20\amos\core\forms\RequiredFieldsTipWidget;
+use open20\amos\core\forms\Tabs;
+use open20\amos\core\forms\TextEditorWidget;
+use open20\amos\core\helpers\Html;
+use open20\amos\events\AmosEvents;
+use open20\amos\events\assets\EventsFilesAsset;
+use open20\amos\events\models\Event;
+use open20\amos\events\models\EventAccreditationList;
+use open20\amos\events\models\EventLengthMeasurementUnit;
+use open20\amos\events\models\search\EventTypeSearch;
+use open20\amos\events\utility\EventsUtility;
+use open20\amos\workflow\widgets\WorkflowTransitionButtonsWidget;
+use open20\amos\workflow\widgets\WorkflowTransitionStateDescriptorWidget;
 use kartik\datecontrol\DateControl;
+use kartik\grid\GridView;
 use kartik\select2\Select2;
+use yii\data\ActiveDataProvider;
 use yii\helpers\ArrayHelper;
 use yii\helpers\Inflector;
 use yii\helpers\Url;
@@ -31,10 +41,14 @@ use yii\web\View;
 
 /**
  * @var yii\web\View $this
- * @var lispa\amos\events\models\Event $model
+ * @var open20\amos\events\models\Event $model
+ * @var open20\amos\events\models\EventInvitationsUpload $upload
  * @var yii\widgets\ActiveForm $form
  * @var string $fid
  */
+
+/** @var AmosEvents $moduleEvents */
+$moduleEvents = \Yii::$app->getModule(AmosEvents::getModuleName());
 
 $this->registerJs("
     $('#event-begin_date" . ((isset($fid)) ? $fid : 0) . "').change(function(){
@@ -49,6 +63,16 @@ $this->registerJs("
     });
 ", yii\web\View::POS_READY);
 
+$this->registerJs(<<<JS
+    setTimeout(function() {
+      if(window.location.toString().includes('#w8')) {
+        $("#w8 #ui-id-3").click();
+        $("#w5 #ui-id-1").click();
+    }
+    }, 500);
+JS
+    , yii\web\View::POS_LOAD);
+
 $eventManagementFieldId = Html::getInputId($model, 'event_management');
 $registrationLimitDateFieldId = Html::getInputId($model, 'registration_limit_date') . '-disp';
 $eventMembershipTypeIdFieldId = Html::getInputId($model, 'event_membership_type_id');
@@ -56,6 +80,12 @@ $seatsAvailableFieldId = Html::getInputId($model, 'seats_available');
 $paidEventFieldId = Html::getInputId($model, 'paid_event');
 
 $beginDateHourId = lcfirst(Inflector::id2camel(\yii\helpers\StringHelper::basename($model->className()), '_')) . '-begin_date_hour' . ((isset($fid)) ? $fid : 0);
+
+$eventType = $model->eventType;
+$eventTypePresent = !is_null($eventType);
+$eventTypeWithLimitedSeats = ($eventTypePresent && $eventType->limited_seats);
+$moduleNotify = \Yii::$app->getModule('notify');
+
 
 $js = "
     function calcEndDateHour() {
@@ -74,6 +104,7 @@ $js = "
                     $('#event-end_date_hour').val(response.datetime);
                     $('#elem-end-date').html(response.date);
                     $('#elem-end-hour').html(response.time);
+                    
                 }
             });
         } else {
@@ -137,6 +168,16 @@ $js = "
             $('.field-event-paid_event').addClass('required');
         }
     }
+    
+    function changeSeatsAvailableRequiredAsterisk() {
+        var limitedSeatsVal = " . ($eventTypeWithLimitedSeats ? 1 : 0) . ";
+        if (limitedSeatsVal == 0) {
+            $('.field-event-seats_available').removeClass('required');
+        }
+        if (limitedSeatsVal == 1) {
+            $('.field-event-seats_available').addClass('required');
+        }
+    }
 
     $('#" . $eventManagementFieldId . "').on('change', function (event) {
         disableEventManagementFields();
@@ -145,34 +186,103 @@ $js = "
     
     disableEventManagementFields();
     changeEventManagementRequiredFieldsAsterisk();
+    changeSeatsAvailableRequiredAsterisk();
 ";
 $this->registerJs($js, View::POS_READY);
-$moduleEvents = \Yii::$app->getModule(AmosEvents::getModuleName());
+
+$jsTicket = <<<JS
+    $('#has-ticket').click(function(){
+        var value = $(this).val();
+        if(value == 1){
+            $("#container-seats-management").show();
+        }else {
+            $("#container-seats-management").hide();
+            $('#event-seats_management').val(0)
+        }
+    });
+
+$('#event-seats_management').click(function(){
+     var value = $(this).val();
+     if(value == 1){
+         $('#event-seats_available').val(0);
+     }
+});
+JS;
+
+$this->registerJs($jsTicket);
+
+
+$impXlsJs = <<<JS
+$("#import-invitations-form").submit(function(e) {
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    $("#import-invitations-modal").modal("hide");
+    $("#import-invitations-response").hide();
+    var dta = new FormData(this);
+    var url = $(this).prop("action");
+    console.log(dta);
+    console.log(url);
+    $.ajax({
+        url: url,
+        type: "POST",
+        data: dta,
+        processData: false,
+        contentType: false,
+        success: function(rsp) {
+            // if (rsp.success) {
+            // } else{
+            // }
+            $("#import-invitations-response").html(rsp.message).show();
+            $("#import-invitations-modal button").prop("disabled", false).prop("clicked", false);
+        },
+        error: function(){
+            alert("Something went wrong");
+            console.log("Error");
+        }
+    });
+});
+JS;
+$this->registerJs($impXlsJs, yii\web\View::POS_READY);
+
+$user_enabled = \Yii::$app->user->can('EVENTS_MANAGER');
+
+/** @var EventLengthMeasurementUnit $eventLengthMeasurementUnitModel */
+$eventLengthMeasurementUnitModel = $moduleEvents->createModel('EventLengthMeasurementUnit');
+
+/** @var EventTypeSearch $eventTypeSearchModel */
+$eventTypeSearchModel = $moduleEvents->createModel('EventTypeSearch');
+
+$eventsFilesAsset = EventsFilesAsset::register($this);
 
 ?>
 
-<?php $form = ActiveForm::begin([
+<?php
+$form = ActiveForm::begin([
     'options' => [
-        'id' => 'event_' . ((isset($fid)) ? $fid : 0),
+        'id' => 'event_form',
         'data-fid' => (isset($fid)) ? $fid : 0,
         'data-field' => ((isset($dataField)) ? $dataField : ''),
         'data-entity' => ((isset($dataEntity)) ? $dataEntity : ''),
         'class' => ((isset($class)) ? $class : ''),
         'enctype' => 'multipart/form-data' // important
-    ]
+    ],
+    'errorSummaryCssClass' => 'error-summary alert alert-error',
 ]);
 ?>
-<?= \lispa\amos\workflow\widgets\WorkflowTransitionStateDescriptorWidget::widget([
+<?=
+WorkflowTransitionStateDescriptorWidget::widget([
     'form' => $form,
     'model' => $model,
     'workflowId' => Event::EVENTS_WORKFLOW,
     'classDivMessage' => 'message',
     'viewWidgetOnNewRecord' => false
-]); ?>
+]);
+?>
 
 <div class="event-form col-xs-12 nop">
-    <?php // $form->errorSummary($model, ['class' => 'alert-danger alert fade in']); ?>
+<!--    < ?= $form->errorSummary($model, ['class' => 'alert-danger alert fade in', 'role' => 'alert', 'showAllErrors' => true]);  ?>-->
     <?php if ($model->getScenario() == Event::SCENARIO_CREATE || $model->getScenario() == Event::SCENARIO_CREATE_HIDE_PUBBLICATION_DATE): ?>
+
         <?php $this->beginBlock('general'); ?>
         <div class="row">
             <div class="col-lg-6 col-sm-6">
@@ -184,7 +294,7 @@ $moduleEvents = \Yii::$app->getModule(AmosEvents::getModuleName());
                 ?>
 
                 <?= $form->field($model, 'event_type_id')->widget(Select2::className(), [
-                    'data' => ArrayHelper::map(EventTypeSearch::searchGenericContextEventTypes()->asArray()->all(), 'id', 'title'),
+                    'data' => $eventTypeSearchModel::searchEnabledGenericContextEventTypesReadyForSelect(),
                     'language' => substr(Yii::$app->language, 0, 2),
                     'options' => [
                         'multiple' => false,
@@ -200,129 +310,188 @@ $moduleEvents = \Yii::$app->getModule(AmosEvents::getModuleName());
                     'pluginOptions' => [
                         'allowClear' => true,
                     ],
-                    'pluginEvents' => [
-                        "select2:open" => "dynamicInsertOpening"
-                    ]
+                    // 'pluginEvents' => [
+                    //     "select2:open" => "dynamicInsertOpening"
+                    // ]
                 ]) ?>
             </div>
         </div>
         <div class="row">
             <div class="col-lg-12 col-sm-12">
-                <?= $form->field($model, 'title')->textInput(['maxlength' => true]) ?>
+                <?= $form->field($model, 'title')->textInput(['maxlength' => true])->hint(AmosEvents::t('amosevents', '#title_field_hint')) ?>
             </div>
         </div>
         <div class="row">
             <div class="col-xs-12">
-                <?= \lispa\amos\cwh\widgets\DestinatariPlusTagWidget::widget([
+                <?=
+                \open20\amos\cwh\widgets\DestinatariPlusTagWidget::widget([
                     'model' => $model,
-                ]); ?>
+                    'moduleCwh' => $moduleCwh,
+                    'scope' => $scope
+                ]);
+                ?>
             </div>
         </div>
         <?php $this->endBlock(); ?>
 
-        <?php $itemsTab[] = [
+        <?php
+        $itemsTab[] = [
             'label' => AmosEvents::tHtml('amosevents', 'General'),
             'content' => $this->blocks['general'],
         ];
         ?>
+
     <?php else: ?>
+
         <?php $this->beginBlock('general'); ?>
         <?= $form->field($model, 'event_type_id')->hiddenInput()->label(false) ?>
         <div>
-            <h4><strong><?= $model->getAttributeLabel('eventType') ?>:</strong> <?= $model->eventType->title ?></h4>
+            <h4><strong><?= $model->getAttributeLabel('eventType') ?>:</strong> <?= $eventTypePresent ? $eventType->title : '-' ?></h4>
         </div>
         <div class="row">
-            <div class="col-lg-8 col-sm-8">
-                <?= $form->field($model, 'title')->textInput(['maxlength' => true]) ?>
-            </div>
-            <div class="col-lg-4 col-sm-4">
-                <div class="col-xs-12 pull-right">
-                    <?= $form->field($model, 'eventLogo')->widget(AttachmentsInput::classname(), [
-                        'options' => [ // Options of the Kartik's FileInput widget
-                            'multiple' => false, // If you want to allow multiple upload, default to false
-                        ],
-                        'pluginOptions' => [ // Plugin options of the Kartik's FileInput widget
-                            'maxFileCount' => 1 // Client max files
-                        ]
-                    ])->label('Locandina') ?>
+            <div class="col-md-8 col-xs-12">
+                <?= $this->render('boxes/box_custom_fields_begin', ['form' => $form, 'model' => $model]); ?>
+                <?= $form->field($model, 'title')->textInput(['maxlength' => true])->hint(AmosEvents::t('amosevents', '#title_field_hint')) ?>
+
+                <div class="row">
+                    <div class="col-lg-5 col-sm-5">
+                        <?= $form->field($model, 'begin_date_hour')->widget(DateControl::className(), [
+                            'type' => DateControl::FORMAT_DATETIME,
+                            'options' => [
+                                'id' => $beginDateHourId,
+                                'layout' => '{input} {picker} ' . (($model->begin_date_hour == '') ? '' : '{remove}')]
+                        ]); ?>
+                    </div>
+                    <div class="col-lg-3 col-sm-3">
+                        <?= $form->field($model, 'length')->textInput(['maxlength' => true, 'type' => 'number']) ?>
+                    </div>
+                    <div class="col-lg-4 col-sm-4">
+                        <?= $form->field($model, 'length_mu_id')->widget(Select2::className(),
+                            [
+                                'data' => EventsUtility::translateArrayValues(
+                                    ArrayHelper::map(
+                                        $eventLengthMeasurementUnitModel::find()->asArray()->all(), 'id', 'title'
+                                    )
+                                ),
+                                'language' => substr(Yii::$app->language, 0, 2),
+                                'options' => ['multiple' => false,
+                                    'id' => 'EventLengthMeasurementUnit' . $fid,
+                                    'placeholder' => AmosEvents::t('amosevents', 'Select/Choose') . '...',
+                                    'class' => 'dynamicCreation',
+                                    'data-model' => 'event_length_measurement_unit',
+                                    'data-field' => 'title',
+                                    'data-module' => 'events',
+                                    'data-entity' => 'event-length-measurement-unit',
+                                    'data-toggle' => 'tooltip'
+                                ],
+                                'pluginOptions' => [
+                                    'allowClear' => true
+                                ],
+                                'pluginEvents' => [
+                                    "select2:open" => "dynamicInsertOpening"
+                                ]
+                            ])->label(AmosEvents::tHtml('amosevents', 'Length Measurement Unit'))
+                        ?>
+                    </div>
                 </div>
+                <div class="row">
+                    <div class="col-lg-4 col-sm-4">
+                        <label><?= AmosEvents::tHtml('amosevents', 'End Date') ?></label>
+                        <div id="elem-end-date"></div>
+                    </div>
+                    <div class="col-lg-4 col-sm-4">
+                        <label><?= AmosEvents::tHtml('amosevents', 'End Hour') ?></label>
+                        <div id="elem-end-hour"></div>
+                    </div>
+                    <?= $form->field($model, 'end_date_hour')->hiddenInput()->label(false) ?>
+                </div>
+
+
+                <?php
+                if ($eventTypeWithLimitedSeats) {
+                    ?>
+                    <div class="row">
+                        <div class="col-lg-4 col-sm-4">
+                            <?php
+                            $disabled = false;
+                            if ($model->seats_management) {
+                                $disabled = true;
+                            }
+                            /** @var Event $eventModel */
+                            $eventModel = $moduleEvents->createModel('Event');
+                            ?>
+                            <?= $form->field($model, 'seats_available')->textInput(['disabled' => $disabled, 'maxlength' => true]) ?>
+                        </div>
+                        <!-- Lasciare così la findOne perché deve prendere sempre il valore da db e non quello caricato nel model (tipo quando si salva e ci sono errori). Forse basta fare getOldAttribute ma è da testare -->
+                        <?php if ($eventModel::findOne($model->id)->seats_management) { ?>
+                            <div class="col-lg-4 col-sm-4" style="margin-top:30px;">
+                                <?php
+                                echo Html::button(AmosEvents::t('amosevents', "Importa posti"),
+                                    [
+                                        'class' => 'btn btn-primary pull-left',
+                                        'data-toggle' => 'modal',
+                                        'data-target' => '#modalImport',
+                                    ]);
+                                ?>
+                            </div>
+                        <?php } ?>
+                    </div>
+                    <?php
+                }
+                ?>
+
+                <div class="row">
+                    <div class="col-lg-12 col-sm-12">
+                        <?= $form->field($model, 'summary')->textInput(['maxlength' => true]) ?>
+                        <?= $form->field($model, 'description')->widget(TextEditorWidget::className(), [
+                            'clientOptions' => [
+                                'placeholder' => AmosEvents::t('amosevents', 'Insert the event description'),
+                                'lang' => substr(Yii::$app->language, 0, 2)
+                            ]
+                        ]) ?>
+                    </div>
+                </div>
+
             </div>
+
+            <div class="col-lg-4 col-sm-4">
+                <?= $this->render('boxes/box_custom_uploads_begin', ['form' => $form, 'model' => $model]); ?>
+                <!-- {{{ Locandina -->
+                <div class="col-xs-12 nop">
+                        <?=
+                        $form->field($model, 'eventLogo')->widget(CropInput::classname(),
+                            [
+                            'jcropOptions' => ['aspectRatio' => '1.7']
+                        ])->label(AmosEvents::t('amosevents', 'Locandina'))
+                        ?>
+                </div>
+                <!-- }}} Locandina -->
+                <!-- {{{ Allegati -->
+                <div class="col-xs-12 attachment-section nop">
+                    <div class="col-xs-12">
+                        <?= Html::tag('h2', AmosEvents::t('amosevents', '#attachments_title')) ?>
+                        <?= $form->field($model, 'eventAttachments')->widget(AttachmentsInput::classname(), [
+                            'options' => [// Options of the Kartik's FileInput widget
+                                'multiple' => true, // If you want to allow multiple upload, default to false
+                            ],
+                            'pluginOptions' => [// Plugin options of the Kartik's FileInput widget
+                                'maxFileCount' => 100, // Client max files
+                                'showPreview' => false
+                            ]
+                        ])->label(AmosEvents::t('amosevents', '#attachments_field'))->hint(AmosEvents::t('amosevents', '#attachments_field_hint')) ?>
+
+                        <?= AttachmentsList::widget([
+                            'model' => $model,
+                            'attribute' => 'eventAttachments'
+                        ]) ?>
+                    </div>
+                </div>
+                <!-- }}} Allegati -->
+                <?= $this->render('boxes/box_custom_uploads_end', ['form' => $form, 'model' => $model]); ?>
+            </div>
+
         </div>
 
-        <div class="row">
-            <div class="col-lg-4 col-sm-4">
-                <?= $form->field($model, 'begin_date_hour')->widget(DateControl::className(), [
-                    'type' => DateControl::FORMAT_DATETIME,
-                    'options' => [
-                        'id' => $beginDateHourId,
-                        'layout' => '{input} {picker} ' . (($model->begin_date_hour == '') ? '' : '{remove}')]
-                ]); ?>
-            </div>
-            <div class="col-lg-4 col-sm-4">
-                <?= $form->field($model, 'length')->textInput(['maxlength' => true, 'type' => 'number']) ?>
-            </div>
-            <div class="col-lg-4 col-sm-4">
-                <?= $form->field($model, 'length_mu_id')->widget(Select2::className(), [
-                    'data' => EventsUtility::translateArrayValues(ArrayHelper::map(EventLengthMeasurementUnit::find()->asArray()->all(), 'id', 'title')),
-                    'language' => substr(Yii::$app->language, 0, 2),
-                    'options' => ['multiple' => false,
-                        'id' => 'EventLengthMeasurementUnit' . $fid,
-                        'placeholder' => AmosEvents::t('amosevents', 'Select/Choose') . '...',
-                        'class' => 'dynamicCreation',
-                        'data-model' => 'event_length_measurement_unit',
-                        'data-field' => 'title',
-                        'data-module' => 'events',
-                        'data-entity' => 'event-length-measurement-unit',
-                        'data-toggle' => 'tooltip'
-                    ],
-                    'pluginOptions' => [
-                        'allowClear' => true
-                    ],
-                    'pluginEvents' => [
-                        "select2:open" => "dynamicInsertOpening"
-                    ]
-                ])->label(AmosEvents::tHtml('amosevents', 'Length Measurement Unit'))
-                ?>
-            </div>
-        </div>
-        <div class="row">
-            <div class="col-lg-4 col-sm-4">
-                <label><?= AmosEvents::tHtml('amosevents', 'End Date') ?></label>
-                <div id="elem-end-date"></div>
-            </div>
-            <div class="col-lg-4 col-sm-4">
-                <label><?= AmosEvents::tHtml('amosevents', 'End Hour') ?></label>
-                <div id="elem-end-hour"></div>
-            </div>
-            <?= $form->field($model, 'end_date_hour')->hiddenInput()->label(false) ?>
-        </div>
-        <div class="row">
-            <div class="col-lg-12 col-sm-12">
-                <?= $form->field($model, 'summary')->textInput(['maxlength' => true]) ?>
-                <?= $form->field($model, 'description')->widget(TextEditorWidget::className(), [
-                    'clientOptions' => [
-                        'placeholder' => AmosEvents::t('amosevents', 'Insert the event description'),
-                        'lang' => substr(Yii::$app->language, 0, 2)
-                    ]
-                ]) ?>
-            </div>
-        </div>
-        <div class="row">
-            <?php
-            if ($moduleEvents->hidePubblicationDate == false) {
-                ?>
-                <div class="col-lg-4 col-sm-4">
-                    <?= $form->field($model, 'publication_date_begin')->widget(DateControl::className(), [
-                        'type' => DateControl::FORMAT_DATE
-                    ]) ?>
-                </div>
-                <div class="col-lg-4 col-sm-4">
-                    <?= $form->field($model, 'publication_date_end')->widget(DateControl::className(), [
-                        'type' => DateControl::FORMAT_DATE
-                    ]) ?>
-                </div>
-            <?php } ?>
-        </div>
         <div class="row">
             <div class="col-lg-12 col-sm-12">
                 <?= $form->field($model, 'event_location')->textInput(['maxlength' => true]) ?>
@@ -340,9 +509,9 @@ $moduleEvents = \Yii::$app->getModule(AmosEvents::getModuleName());
                 <?= $form->field($model, 'event_address_cap')->textInput(['maxlength' => true])->label(AmosEvents::tHtml('amosevents', 'CAP')) ?>
             </div>
         </div>
+
         <div class="row">
-            <?php
-            echo \lispa\amos\comuni\widgets\helpers\AmosComuniWidget::widget([
+            <?= AmosComuniWidget::widget([
                 'form' => $form,
                 'model' => $model,
                 'nazioneConfig' => [
@@ -357,135 +526,621 @@ $moduleEvents = \Yii::$app->getModule(AmosEvents::getModuleName());
                     'attribute' => 'city_location_id',
                     'class' => 'col-lg-4 col-sm-4'
                 ],
-            ]);
-            ?>
+            ]); ?>
         </div>
+        <?= $this->render('boxes/box_custom_fields_end', ['form' => $form, 'model' => $model]); ?>
 
+        <?php $this->beginBlock('general_advanced'); ?>
         <div class="row">
             <div class="col-xs-12"><h2><?= AmosEvents::t('amosevents', '#form_section_advanced') ?></h2></div>
-            <div class="col-lg-4 col-sm-4">
-                <?= $form->field($model, 'event_commentable')->dropDownList(Yii::$app->controller->getBooleanFieldsValues(),
-                    ['options' => ['1' => ['Selected' => true]]],
-                    ['prompt' => AmosEvents::t('amosevents', 'Select/Choose' . '...'), 'disabled' => false,]) ?>
-            </div>
             <?php
-            $disable = false;
-            if (!$moduleEvents->enableInvitationManagement) {
-                $disable = true;
-                $model->event_management = Event::BOOLEAN_FIELDS_VALUE_NO;
-                echo $form->field($model, 'event_management')->hiddenInput()->label(false);
-            } else {
+            if ($moduleEvents->hidePubblicationDate == false) {
                 ?>
                 <div class="col-lg-4 col-sm-4">
-                    <?= $form->field($model, 'event_management')->widget(\lispa\amos\core\forms\editors\Select::className(), [
-                        'boolean' => true,
-                        'auto_fill' => true,
-                        'options' => [
-                            'prompt' => AmosEvents::t('amosevents', 'Select/Choose' . '...'),
-                        ]
-                    ])
+                    <?=
+                    $form->field($model, 'publication_date_begin')->widget(DateControl::className(),
+                        [
+                            'type' => DateControl::FORMAT_DATETIME
+                        ])->hint(AmosEvents::t('amosevents', '#publication_date_begin_hint'))
+                    ?>
+                </div>
+                <div class="col-lg-4 col-sm-4">
+                    <?=
+                    $form->field($model, 'publication_date_end')->widget(DateControl::className(),
+                        [
+                            'type' => DateControl::FORMAT_DATETIME
+                        ])->hint(AmosEvents::t('amosevents', '#publication_date_end_hint'))
                     ?>
                 </div>
             <?php } ?>
-            <div class="col-lg-4 col-sm-4">
-                <div class="select">
-                    <?= $form->field($model, 'event_membership_type_id')->widget(Select2::classname(), [
-                        'options' => ['placeholder' => AmosEvents::t('amosevents', 'Type membership type'), 'id' => $eventMembershipTypeIdFieldId, 'disabled' => FALSE],
-                        'data' => EventsUtility::translateArrayValues(ArrayHelper::map(EventMembershipType::find()->asArray()->all(), 'id', 'title'))
-                    ])->label($model->getAttributeLabel('eventMembershipType')); ?>
+            <?php
+            if ($moduleNotify && !empty($moduleNotify->enableNotificationContentLanguage) && $moduleNotify->enableNotificationContentLanguage) { ?>
+                <div class="col-lg-4 col-sm-4">
+                    <?=
+                    \open20\amos\notificationmanager\widgets\NotifyContentLanguageWidget::widget(['model' => $model]);
+                    ?>
+                </div>
+            <?php } ?>
+        </div>
+        <?php if ($eventTypeWithLimitedSeats): ?>
+            <div class="row">
+                <div class="col-sm-4">
+                    <?= $form->field($model, 'numero_max_accompagnatori')->textInput(['type' => 'number']); ?>
                 </div>
             </div>
-            <?= $form->field($model, 'publish_in_the_calendar')->hiddenInput()->label(false) ?>
-        </div>
+        <?php endif; ?>
         <div class="row">
             <div class="col-lg-4 col-sm-4">
-                <?= $form->field($model, 'registration_limit_date')->widget(DateControl::className(), [
-                    'type' => DateControl::FORMAT_DATE
-                ]) ?>
+                <?=
+                $form->field($model, 'registration_date_begin')->widget(DateControl::className(),
+                    [
+                        'type' => DateControl::FORMAT_DATETIME
+                    ])
+                ?>
             </div>
             <div class="col-lg-4 col-sm-4">
-                <?= $form->field($model, 'seats_available')->textInput(['maxlength' => true]) ?>
+                <?=
+                $form->field($model, 'registration_date_end')->widget(DateControl::className(),
+                    [
+                        'type' => DateControl::FORMAT_DATETIME
+                    ])
+                ?>
             </div>
+
+        </div>
+
+
+        <div class="row">
             <div class="col-lg-4 col-sm-4">
-                <?= $form->field($model, 'paid_event')->dropDownList(Yii::$app->controller->getBooleanFieldsValues(),
-                    ['prompt' => AmosEvents::t('amosevents', 'Select/Choose' . '...'), 'disabled' => false]) ?>
+                <?=
+                $form->field($model, 'event_commentable')->dropDownList(
+                    Html::getBooleanFieldsValues(),
+                    [
+                        'options' => $model->isNewRecord ? [$moduleEvents->forceEventCommentable => ['Selected' => true]] : null,
+                        'prompt' => AmosEvents::t('amosevents', 'Select/Choose' . '...'), 'disabled' => false,
+                    ]
+                )
+                ?>
             </div>
         </div>
+
+
+        <div class="row">
+            <div class="col-lg-4 col-sm-4">
+                <?=
+                $form->field($model, 'abilita_codice_fiscale_in_form')->dropDownList(
+                    Html::getBooleanFieldsValues(),
+                    ['prompt' => AmosEvents::t('amosevents', 'Select/Choose' . '...'), 'disabled' => false,]
+                )
+                ?>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-lg-4 col-sm-4">
+                <?=
+                $form->field($model, 'has_tickets')->dropDownList(
+                    Html::getBooleanFieldsValues(),
+                    [
+                        'prompt' => AmosEvents::t('amosevents', 'Select/Choose' . '...'),
+                        'disabled' => false,
+                        'id' => 'has-ticket'
+                    ]
+                )
+                ?>
+            </div>
+
+            <?php
+            if ($eventTypeWithLimitedSeats) {
+                $strhide = '';
+                if (!$model->has_tickets) {
+                    $strhide = "display:none";
+                }
+                ?>
+                <?php if ($moduleEvents->enableSeatsManagement): ?>
+                    <div id="container-seats-management" class="col-lg-4 col-sm-4" style="<?= $strhide ?>">
+                        <?=
+                        $form->field($model, 'seats_management')->dropDownList(
+                            Html::getBooleanFieldsValues(),
+                            ['prompt' => AmosEvents::t('amosevents', 'Select/Choose' . '...'), 'disabled' => false,]
+                        )->hint(AmosEvents::t('amosevents',
+                            "Con gestione posti uguale a 'si' occorre effettuare l'importazione dei posti da file excel"))
+                        ?>
+                    </div>
+                <?php endif; ?>
+            <?php } ?>
+
+            <div class="col-lg-4 col-sm-4">
+                <?=
+                $form->field($model, 'has_qr_code')->dropDownList(
+                    Html::getBooleanFieldsValues(),
+                    ['prompt' => AmosEvents::t('amosevents', 'Select/Choose' . '...'), 'disabled' => false,]
+                )
+                ?>
+            </div>
+
+
+        </div>
+
+        <div class="row">
+            <div class="col-xs-12">
+                <?php
+                if ($model->has_tickets) {
+                    /** @var EventAccreditationList $eventAccreditationListModel */
+                    $eventAccreditationListModel = $moduleEvents->createModel('EventAccreditationList');
+                    echo AccordionWidget::widget([
+                        'items' => [
+                            [
+                                'header' => AmosEvents::txt('Accreditation lists'),
+                                'content' => Html::tag('div',
+                                    Html::a(
+                                        AmosEvents::txt('Add') . ' ' . AmosEvents::txt('Accreditation lists'),
+                                        '/events/event-accreditation-list/create?eid=' . $model->id,
+                                        ['class' => 'btn btn-primary']
+                                    ) .
+                                    GridView::widget([
+                                        'id' => 'accreditation-lists-available',
+                                        'responsive' => true,
+                                        'dataProvider' => new ActiveDataProvider([
+                                            'query' => $eventAccreditationListModel::find()->andWhere([
+                                                'event_id' => $model->id]),
+                                        ]),
+                                        'formatter' => [
+                                            'class' => 'yii\i18n\Formatter',
+                                            'nullDisplay' => '-'
+                                        ],
+                                        'columns' => [
+                                            'title',
+                                            [
+                                                'attribute' => 'position',
+                                                'label' => AmosEvents::txt('Order'),
+                                            ],
+                                            [
+                                                'class' => 'yii\grid\ActionColumn',
+                                                'template' => '{update} {delete}',
+                                                'buttons' => [
+                                                    'update' => function ($url, $model) {
+                                                        return Html::a(
+                                                            Html::tag('span', '',
+                                                                ['class' => 'glyphicon glyphicon-pencil']),
+                                                            ['/events/event-accreditation-list/update', 'id' => $model->id]
+                                                        );
+                                                    },
+                                                    'delete' => function ($url, $model) {
+                                                        return Html::a(
+                                                            Html::tag('span', '',
+                                                                ['class' => 'glyphicon glyphicon-trash']),
+                                                            ['/events/event-accreditation-list/delete', 'id' => $model->id]
+                                                        );
+                                                    }
+                                                ]
+                                            ],
+                                        ]
+                                    ]), ['style' => 'overflow-x:hidden;']),
+                            ],
+                        ],
+                        'headerOptions' => ['tag' => 'h2'],
+                        'clientOptions' => [
+                            'collapsible' => true,
+                            'active' => 'false',
+                            'icons' => [
+                                'header' => 'ui-icon-amos am am-plus-square',
+                                'activeHeader' => 'ui-icon-amos am am-minus-square',
+                            ]
+                        ],
+                    ]);
+                }
+                ?>
+            </div>
+        </div>
+
+        <div>&nbsp;</div>
+
+        <?php $this->endBlock(); ?>
+
+        <?php if ($moduleEvents->enableGdpr): ?>
+            <?php $this->beginBlock('general_gdpr'); ?>
+            <div class="row">
+                <div class="col-xs-12"><h2><?= AmosEvents::t('amosevents', '#form_section_gdpr') ?></h2></div>
+                <div class="col-xs-12">
+                    <?= $form->field($model, 'gdpr_question_1')->textInput() ?>
+                </div>
+                <div class="col-xs-12">
+                    <?= $form->field($model, 'gdpr_question_2')->textInput() ?>
+                </div>
+                <div class="col-xs-12">
+                    <?= $form->field($model, 'gdpr_question_3')->textInput() ?>
+                </div>
+                <div class="col-xs-12">
+                    <?= $form->field($model, 'gdpr_question_4')->textInput() ?>
+                </div>
+                <div class="col-xs-12">
+                    <?= $form->field($model, 'gdpr_question_5')->textInput() ?>
+                </div>
+            </div>
+            <?php $this->endBlock(); ?>
+        <?php endif; ?>
+
+        <?php $this->beginBlock('advanced_customizations'); ?>
+        <div class="row">
+            <div class="col-xs-12"><h2><?= AmosEvents::t('amosevents', 'Personalizzazioni') ?></h2></div>
+        </div>
+        <div class="row">
+            <div class="col-xs-12">
+                <?= $form->field($model, 'subscribe_form_page_view')->textInput() ?>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-xs-12">
+                <?= $form->field($model, 'thank_you_page_view')->textInput() ?>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-xs-12">
+                <?= $form->field($model, 'email_view')->textInput() ?>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-xs-12">
+                <?= $form->field($model, 'email_ticket_subject')->textInput() ?>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-xs-12">
+                <?= $form->field($model, 'email_ticket_layout_custom')->textInput() ?>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-xs-12">
+                <?= $form->field($model, 'email_ticket_sender')->textInput() ?>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-xs-12">
+                <?= $form->field($model, 'event_closed_page_view')->textInput() ?>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-xs-12">
+                <?= $form->field($model, 'event_full_page_view')->textInput() ?>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-xs-12">
+                <?= $form->field($model, 'ticket_layout_view')->textInput() ?>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-xs-12">
+                <?= $form->field($model, 'email_subscribe_view')->textInput() ?>
+            </div>
+        </div>
+        <?php $this->endBlock(); ?>
+
+        <?php
+        $showReceiverSection = false;
+
+        $moduleCwh = \Yii::$app->getModule('cwh');
+        isset($moduleCwh) ? $showReceiverSection = true : null;
+
+        $moduleTag = \Yii::$app->getModule('tag');
+        isset($moduleTag) ? $showReceiverSection = true : null;
+
+        if ($showReceiverSection) :
+            ?>
+
+            <div class="row">
+                <div class="col-xs-12">
+                    <?= Html::tag('h2', AmosEvents::t('amosevents', '#settings_receiver_title'),
+                        ['class' => 'subtitle-form'])
+                    ?>
+                    <div class="col-xs-12 receiver-section">
+                        <?=
+                        \open20\amos\cwh\widgets\DestinatariPlusTagWidget::widget([
+                            'model' => $model,
+                            'moduleCwh' => $moduleCwh,
+                            'scope' => $scope
+                        ]);
+                        ?>
+                    </div>
+                </div>
+            </div>
+
+        <?php endif; ?>
+
+        <?php if ($moduleEvents->enableCommunitySections): ?>
+            <?php $this->beginBlock('general_community'); ?>
+            <div class="row">
+                <div class="col-xs-12"><h2><?= AmosEvents::t('amosevents', '#section_community') ?></h2></div>
+                <div class="col-lg-12 col-sm-12">
+                    <?= $form->field($model, 'show_community')->checkbox(); ?>
+                </div>
+            </div>
+            <?php $this->endBlock(); ?>
+        <?php endif; ?>
+
+        <?php $this->beginBlock('general_frontend'); ?>
+        <div class="row">
+            <div class="col-xs-12"><h2><?= AmosEvents::t('amosevents', '#section_frontend') ?></h2></div>
+            <div class="col-lg-12 col-sm-12">
+                <?= $form->field($model, 'show_on_frontend')->checkbox(); ?>
+            </div>
+            <div class="col-lg-12 col-sm-12">
+                <?= $form->field($model, 'landing_url')->textInput(['maxlength' => true]) ?>
+            </div>
+            <div class="col-lg-12 col-sm-12">
+                <?= $form->field($model, 'landingHeader')->widget(AttachmentsInput::classname(), [
+                    'options' => ['multiple' => false],
+                    'pluginOptions' => ['maxFileCount' => 1],
+                ]); ?>
+            </div>
+            <div class="col-lg-12 col-sm-12">
+                <?= $form->field($model, 'frontend_page_title')->textInput(['maxlength' => 255]) ?>
+            </div>
+            <div class="col-lg-12 col-sm-12">
+                <?= $form->field($model, 'frontend_claim')->widget(TextEditorWidget::className(), [
+                    'clientOptions' => [
+                        'lang' => substr(Yii::$app->language, 0, 2)
+                    ]
+                ]) ?>
+            </div>
+        </div>
+        <?php $this->endBlock(); ?>
+
+        <?php
+        if ($user_enabled) {
+            ?>
+            <?php $this->beginBlock('general_invitations'); ?>
+                <?php if($model->status == Event::EVENTS_WORKFLOW_STATUS_PUBLISHED) : ?>
+                <div class="row">
+                    <div class="col-xs-12">
+                        <?= Html::a(AmosEvents::t('amosevents', '#download_invitations_example_file'), Url::to($eventsFilesAsset->baseUrl . DIRECTORY_SEPARATOR . 'tracciato_esempio.xlsx')) ?>
+                    </div>
+                    <div class="col-xs-12" id="import-invitations-response"></div>
+                    <div class="col-xs-12">
+                        <ul>
+                            <?php
+                            $stats = $model->getInvitationStats();
+
+                            if ($stats['registered']) {
+                                ?>
+                                <li><?=
+                                    AmosEvents::txt('#invitations_stats_registered',
+                                        [
+                                            'total' => $stats['registered'],
+                                            'accepted' => (int)$stats['registered_accepted'],
+                                            'rejected' => (int)$stats['registered_rejected']
+                                        ]);
+                                    ?></li>
+                                <?php
+                            }
+
+                            if ($stats['imported']) {
+                                ?>
+                                <li><?=
+                                    AmosEvents::txt('#invitations_stats_imported',
+                                        [
+                                            'total' => $stats['imported'],
+                                            'accepted' => (int)$stats['imported_accepted'],
+                                            'rejected' => (int)$stats['imported_rejected']
+                                        ]);
+                                    ?></li>
+                                <?php
+                            }
+
+                            if ($stats['partners']) {
+                                ?>
+                                <li><?= AmosEvents::txt('#invitations_stats_partners', ['total' => $stats['partners']]); ?></li>
+                                <?php
+                            }
+                            ?>
+                            <li><?=
+                                AmosEvents::txt('#invitations_stats_total',
+                                    [
+                                        'total' => $stats['total'],
+                                        'accepted' => (int)$stats['accepted'],
+                                        'rejected' => (int)$stats['rejected']
+                                    ]);
+                                ?></li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-xs-12">
+                        <button type="button" class="btn" data-toggle="modal" data-target="#import-invitations-modal">
+                            <?= AmosEvents::t('amosevents', '#import_from_excel'); ?>
+                        </button>
+                    </div>
+                </div>
+                <?php else: ?>
+                <div class="row">
+                    <div class="col-xs-12">
+                        <?= AmosEvents::t('amosevents', '#import_if_published_message'); ?>
+                    </div>
+                </div>
+                <?php endif; ?>
+            <?php $this->endBlock(); ?>
+        <?php } ?>
+
+        <?php
+        $itemsAccordion = [];
+        $itemsAccordion[] = [
+            'header' => AmosEvents::t('amosevents', '#form_section_advanced'),
+            'content' => $this->blocks['general_advanced'],
+        ];
+        if ($moduleEvents->enableGdpr) {
+            $itemsAccordion[] = [
+                'header' => AmosEvents::t('amosevents', '#form_section_gdpr'),
+                'content' => $this->blocks['general_gdpr'],
+            ];
+        }
+        if ($moduleEvents->enableCommunitySections) {
+            $itemsAccordion[] = [
+                'header' => AmosEvents::t('amosevents', '#section_community'),
+                'content' => $this->blocks['general_community'],
+            ];
+        }
+
+        if (\Yii::$app->user->can('ADVANCED_CUSTOMIZE_EVENTS')) {
+            $itemsAccordion[] = [
+                'header' => AmosEvents::t('amosevents', 'Personalizzazioni'),
+                'content' => $this->blocks['advanced_customizations'],
+            ];
+        }
+        ?>
+
+        <?=
+        AccordionWidget::widget([
+            'items' => $itemsAccordion,
+            // [
+            //     'header' => AmosEvents::t('amosevents', '#section_frontend'),
+            //     'content' => $this->blocks['general_frontend'],
+            // ],
+            'headerOptions' => ['tag' => 'h2'],
+            'clientOptions' => [
+                'collapsible' => true,
+                'active' => 'false',
+                'icons' => [
+                    'header' => 'ui-icon-amos am am-plus-square',
+                    'activeHeader' => 'ui-icon-amos am am-minus-square',
+                ]
+            ],
+        ]);
+        ?>
 
 
         <?php
+        if ($user_enabled) {
+            ?>
+            <?=
+            AccordionWidget::widget([
+                'items' => [
+                    [
+                        'header' => AmosEvents::t('amosevents', '#section_invitations'),
+                        'content' => $this->blocks['general_invitations'],
+                    ],
+                ],
+                'headerOptions' => ['tag' => 'h2'],
+                'clientOptions' => [
+                    'collapsible' => true,
+                    'active' => 'false',
+                    'icons' => [
+                        'header' => 'ui-icon-amos am am-plus-square',
+                        'activeHeader' => 'ui-icon-amos am am-minus-square',
+                    ]
+                ],
+            ]);
+            ?>
+        <?php } ?>
 
+        <?php
+        if (\Yii::$app->user->can('EVENTS_PUBLISHER_FRONTEND')) {
+            if (Yii::$app->getModule('events')->params['site_publish_enabled'] || Yii::$app->getModule('events')->params['site_featured_enabled']) {
+                ?>
+                <div class="col-xs-12 receiver-section">
+                    <div class="row">
+                        <?php if (Yii::$app->getModule('events')->params['site_publish_enabled']) { ?>
+
+                            <h3 class="subtitle-section-form"><?= AmosEvents::t('amosevents', "Pubblication on the portal mode") ?>
+                                <em>(<?= AmosEvents::t('amosevents', "Choose if you want to publish the news also on the portal") ?>)</em>
+                            </h3>
+                            <?php
+                            $primoPiano = '<div class="col-md-6 col-xs-12">'
+                                . $form->field($model, 'primo_piano')->widget(Select::className(),
+                                    [
+                                        'auto_fill' => true,
+                                        'data' => [
+                                            '0' => AmosEvents::t('amosevents', 'No'),
+                                            '1' => AmosEvents::t('amosevents', 'Si')
+                                        ],
+                                        'options' => [
+                                            'prompt' => AmosEvents::t('amosevents', 'Seleziona'),
+                                            'disabled' => false,
+                                            'onchange' => "
+                    if($(this).val() == 1) $('#event-in_evidenza').prop('disabled', false);
+                    if($(this).val() == 0) {
+                        $('#event-in_evidenza').prop('disabled', true);
+                        $('#event-in_evidenza').val(0);
+                    }"
+                                        ],
+                                    ]) .
+                                '</div>';
+                            echo $primoPiano;
+                        }
+
+                        if (Yii::$app->getModule('events')->params['site_featured_enabled']) {
+                            $inEvidenza = '<div class="col-md-6 col-xs-12">'
+                                . $form->field($model, 'in_evidenza')->widget(Select::className(),
+                                    [
+                                        'auto_fill' => true,
+                                        'data' => [
+                                            '0' => AmosEvents::t('amosevents', 'No'),
+                                            '1' => AmosEvents::t('amosevents', 'Si')
+                                        ],
+                                        'options' => [
+                                            'prompt' => AmosEvents::t('amosevents', 'Seleziona'),
+                                            'disabled' => ($model->primo_piano == 1 ? false : true)
+                                        ]
+                                    ])
+                                . '</div>';
+                            echo $inEvidenza;
+                        }
+                        ?>
+                    </div>
+                </div>
+                <?php
+            }
+        }
+        ?>
+
+
+        <?php
         $moduleSeo = \Yii::$app->getModule('seo');
-
-        if (isset($moduleSeo)) : ?>
+        if (isset($moduleSeo)) :
+            ?>
 
             <div class="row">
 
                 <div class="col-xs-12">
-                    <?= Html::tag('h2', AmosEvents::t('amosevents', '#settings_seo_title'), ['class' => 'subtitle-form']) ?>
+                    <?= Html::tag('h2', AmosEvents::t('amosevents', '#settings_seo_title'),
+                        ['class' => 'subtitle-form'])
+                    ?>
                     <div class="col-xs-12 receiver-section">
                         <?=
-                        \lispa\amos\seo\widgets\SeoWidget::widget([
+                        \open20\amos\seo\widgets\SeoWidget::widget([
                             'contentModel' => $model,
                         ]);
                         ?>
                     </div>
                 </div>
-                <div class="col-xs-12 note_asterisk">
-                    <span><?= AmosEvents::t('amosevents', '#required_field') ?></span>
-                </div>
-
             </div>
 
         <?php endif; ?>
-
-
-        <!--        <div class="row">-->
-
-        <!--        </div>-->
-
         <div class="clearfix"></div>
         <?php $this->endBlock(); ?>
 
-        <?php $itemsTab[] = [
+
+        <?php
+        $itemsTab[] = [
             'label' => AmosEvents::tHtml('amosevents', 'General'),
             'content' => $this->blocks['general'],
         ];
         ?>
 
-        <?php $this->beginBlock('attachments'); ?>
-        <?= $form->field($model, 'eventAttachments')->widget(\lispa\amos\attachments\components\AttachmentsInput::classname(), [
-        'options' => [ // Options of the Kartik's FileInput widget
-            'multiple' => true, // If you want to allow multiple upload, default to false
-        ],
-        'pluginOptions' => [ // Plugin options of the Kartik's FileInput widget
-            'maxFileCount' => 100 // Client max files
-        ]])->label(AmosEvents::tHtml('amosevents', 'Attachments')) ?>
-        <?= AttachmentsTableWithPreview::widget(['model' => $model, 'attribute' => 'eventAttachments']) ?>
-
-        <div class="clearfix"></div>
-        <?php $this->endBlock(); ?>
-
-        <?php
-        $itemsTab[] = [
-            'label' => AmosEvents::tHtml('amosevents', 'Attachments'),
-            'content' => $this->blocks['attachments'],
-            'options' => ['id' => 'tab-attachments'],
-        ];
-        ?>
     <?php endif; ?>
 
-    <?= Tabs::widget([
-        'encodeLabels' => false,
-        'items' => $itemsTab,
-        'hideCwhTab' => $model->isNewRecord,
-        'hideTagsTab' => $model->isNewRecord,
-    ]); ?>
+    <?=
+    Tabs::widget(
+        [
+            'encodeLabels' => false,
+            'items' => $itemsTab,
+            'hideCwhTab' => true, //$model->isNewRecord,
+            'hideTagsTab' => true, //$model->isNewRecord
+        ]
+    );
+    ?>
+    <?= RequiredFieldsTipWidget::widget() ?>
     <?= CreatedUpdatedWidget::widget(['model' => $model]) ?>
-    <div class="col-xs-12 note_asterisk nop">
-        <p><?= AmosEvents::tHtml('amosevents', 'The fields marked with') ?> <span class="red"> * </span> <?= AmosEvents::tHtml('amosevents', 'are required') ?>.
-        </p>
-    </div>
 
     <?php
     //    $statusToRender = [
@@ -496,9 +1151,10 @@ $moduleEvents = \Yii::$app->getModule(AmosEvents::getModuleName());
     //        $statusToRender[Event::EVENTS_WORKFLOW_STATUS_PUBLISHED] = AmosEvents::t('amosevents', 'Pubblica');
     //    }
 
+
     $hideDraftStatuses = true;
 
-    if (\Yii::$app->user->can('EventValidate', ['model' => $model])) {
+    if (\Yii::$app->user->can($model->getValidatorRole(), ['model' => $model])) {
         $hideDraftStatuses = false;
     }
 
@@ -519,31 +1175,29 @@ $moduleEvents = \Yii::$app->getModule(AmosEvents::getModuleName());
     }
     ?>
 
-    <?= \lispa\amos\workflow\widgets\WorkflowTransitionButtonsWidget::widget([
+    <?=
+    WorkflowTransitionButtonsWidget::widget([
         // parametri ereditati da verioni precedenti del widget WorkflowTransition
         'form' => $form,
         'model' => $model,
         'workflowId' => Event::EVENTS_WORKFLOW,
         'viewWidgetOnNewRecord' => true,
-
-        'closeButton' => Html::a(AmosEvents::t('amosevents', 'Annulla'), Yii::$app->session->get('previousUrl'), ['class' => 'btn btn-secondary']),
-
+        'closeButton' => Html::a(AmosEvents::t('amosevents', 'Annulla'), Yii::$app->session->get('previousUrl'),
+            ['class' => 'btn btn-secondary']),
         // fisso lo stato iniziale per generazione pulsanti e comportamenti
         // "fake" in fase di creazione (il record non e' ancora inserito nel db)
         'initialStatusName' => 'DRAFT',
         'initialStatus' => $model->getWorkflowSource()->getWorkflow(Event::EVENTS_WORKFLOW)->getInitialStatusId(),
         // Stati da renderizzare obbligatoriamente in fase di creazione (quando il record non e' ancora inserito nel db)
         //'statusToRender' => $statusToRender,
-
         'hideSaveDraftStatus' => $hideDraftStatus,
-
         'draftButtons' => [
             Event::EVENTS_WORKFLOW_STATUS_PUBLISHREQUEST => [
-                'button' => Html::submitButton(AmosEvents::t('amoscommunity', 'Salva'), ['class' => 'btn btn-workflow']),
+                'button' => Html::submitButton(AmosEvents::t('amosevents', 'Save'), ['class' => 'btn btn-workflow']),
                 'description' => AmosEvents::t('amosevents', 'le modifiche e mantieni l\'evento in "richiesta di pubblicazione"'),
             ],
             Event::EVENTS_WORKFLOW_STATUS_PUBLISHED => [
-                'button' => Html::submitButton(AmosEvents::t('amoscommunity', 'Salva'), ['class' => 'btn btn-workflow']),
+                'button' => Html::submitButton(AmosEvents::t('amosevents', 'Save'), ['class' => 'btn btn-workflow']),
                 'description' => AmosEvents::t('amosevents', 'le modifiche e mantieni l\'evento "pubblicato"'),
             ],
             'default' => [
@@ -551,7 +1205,45 @@ $moduleEvents = \Yii::$app->getModule(AmosEvents::getModuleName());
                 'description' => $defaultButtonDescription,
             ]
         ]
-    ]); ?>
+    ]);
+    ?>
 
     <?php ActiveForm::end(); ?>
 </div>
+
+<div id="import-invitations-modal" class="modal" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <?php
+            $form = ActiveForm::begin([
+                'id' => 'import-invitations-form',
+                'action' => 'import-invitations?id=' . $model->id,
+                'options' => [
+                    'enctype' => 'multipart/form-data' // important
+                ]
+            ]);
+            ?>
+            <div class="modal-header">
+                <h5 class="modal-title"><?= AmosEvents::t('amosevents', 'Inviti') ?></h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-lg-12 col-sm-12">
+                        <?= $form->field($upload, 'excelFile')->fileInput()->hint(AmosEvents::txt('#invitations_excel_file_hint')) ?>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <?= Html::submitButton('Importa', ['class' => 'btn']) ?>
+                <button type="button" class="btn btn-secondary" data-dismiss="modal"><?= AmosEvents::t('amosevents', 'Close') ?></button>
+            </div>
+            <?php
+            ActiveForm::end();
+            ?>
+        </div>
+    </div>
+</div>
+<?= $this->render('_modal_import', ['model' => $model]); ?>

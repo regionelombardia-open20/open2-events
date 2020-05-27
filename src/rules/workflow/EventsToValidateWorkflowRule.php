@@ -1,17 +1,17 @@
 <?php
 
 /**
- * Lombardia Informatica S.p.A.
+ * Aria S.p.A.
  * OPEN 2.0
  *
  *
- * @package    lispa\amos\projectmanagement\rules\workflow
+ * @package    open20\amos\projectmanagement\rules\workflow
  * @category   CategoryName
  */
 
-namespace lispa\amos\events\rules\workflow;
+namespace open20\amos\events\rules\workflow;
 
-use lispa\amos\core\rules\ToValidateWorkflowContentRule;
+use open20\amos\core\rules\ToValidateWorkflowContentRule;
 
 class EventsToValidateWorkflowRule extends ToValidateWorkflowContentRule
 {

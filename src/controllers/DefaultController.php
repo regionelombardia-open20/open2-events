@@ -1,22 +1,22 @@
 <?php
 
 /**
- * Lombardia Informatica S.p.A.
+ * Aria S.p.A.
  * OPEN 2.0
  *
  *
- * @package    lispa\amos\events
+ * @package    open20\amos\events
  * @category   CategoryName
  */
 
-namespace lispa\amos\events\controllers;
+namespace open20\amos\events\controllers;
 
-use lispa\amos\dashboard\controllers\base\DashboardController;
+use open20\amos\dashboard\controllers\base\DashboardController;
 use yii\helpers\Url;
 
 /**
  * Class DefaultController
- * @package lispa\amos\events\controllers
+ * @package open20\amos\events\controllers
  */
 class DefaultController extends DashboardController
 {
@@ -64,7 +64,7 @@ class DefaultController extends DashboardController
         $module = \Yii::$app->getModule('layout');
         if (empty($module)) {
             if (strpos($this->layout, '@') === false) {
-                $this->layout = '@vendor/lispa/amos-core/views/layouts/'.(!empty($layout) ? $layout : $this->layout);
+                $this->layout = '@vendor/open20/amos-core/views/layouts/'.(!empty($layout) ? $layout : $this->layout);
             }
             return true;
         }

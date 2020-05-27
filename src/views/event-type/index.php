@@ -1,21 +1,21 @@
 <?php
 
 /**
- * Lombardia Informatica S.p.A.
+ * Aria S.p.A.
  * OPEN 2.0
  *
  *
- * @package    lispa\amos\events\views\event-type
+ * @package    open20\amos\events\views\event-type
  * @category   CategoryName
  */
 
-use lispa\amos\core\views\DataProviderView;
-use lispa\amos\events\AmosEvents;
+use open20\amos\core\views\DataProviderView;
+use open20\amos\events\AmosEvents;
 
 /**
  * @var yii\web\View $this
  * @var yii\data\ActiveDataProvider $dataProvider
- * @var lispa\amos\events\models\search\EventTypeSearch $model
+ * @var open20\amos\events\models\search\EventTypeSearch $model
  * @var string $currentView
  */
 
@@ -41,18 +41,18 @@ $this->params['breadcrumbs'][] = $this->title;
                     'format' => 'raw',
                     'attribute' => 'color',
                     'value' => function ($model) {
-                        return \yii\helpers\Html::tag('div', '', ['style' => "background-color:{$model->color}"]);
+                        return \yii\helpers\Html::tag('div', '&nbsp;', ['style' => "background-color:{$model->color}"]);
                     }
                 ],
+                // [
+                //     'label' => AmosEvents::t('amosevents', 'Event context'),
+                //     'value' => function ($model) {
+                //         /** @var \open20\amos\events\models\EventType $model */
+                //         return $model->eventTypeContext->title;
+                //     }
+                // ],
                 [
-                    'label' => AmosEvents::t('amosevents', 'Event context'),
-                    'value' => function ($model) {
-                        /** @var \lispa\amos\events\models\EventType $model */
-                        return AmosEvents::t('amosevents', $model->eventTypeContext->title);
-                    }
-                ],
-                [
-                    'class' => 'lispa\amos\core\views\grid\ActionColumn',
+                    'class' => 'open20\amos\core\views\grid\ActionColumn',
                 ]
             ]
         ],

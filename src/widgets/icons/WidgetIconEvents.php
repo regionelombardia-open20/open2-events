@@ -1,55 +1,93 @@
 <?php
 
 /**
- * Lombardia Informatica S.p.A.
+ * Aria S.p.A.
  * OPEN 2.0
  *
  *
- * @package    lispa\amos\events\widgets\icons
+ * @package    open20\amos\events\widgets\icons
  * @category   CategoryName
  */
 
-namespace lispa\amos\events\widgets\icons;
+namespace open20\amos\events\widgets\icons;
 
-use lispa\amos\core\widget\WidgetIcon;
-use lispa\amos\events\AmosEvents;
+use open20\amos\core\widget\WidgetIcon;
+use open20\amos\core\widget\WidgetAbstract;
+use open20\amos\core\icons\AmosIcons;
+
+use open20\amos\events\AmosEvents;
+
+use Yii;
 use yii\helpers\ArrayHelper;
 
 /**
  * Class WidgetIconEvents
- * @package lispa\amos\events\widgets\icons
+ * @package open20\amos\events\widgets\icons
  */
 class WidgetIconEvents extends WidgetIcon
 {
+
     /**
      * @inheritdoc
      */
     public function init()
     {
         parent::init();
-        $this->setLabel(AmosEvents::t('amosevents', 'Events'));
+
+        $paramsClassSpan = [
+            'bk-backgroundIcon',
+            'color-lightPrimary'
+        ];
+
+        $this->setLabel(AmosEvents::t('amosevents', '#widget_icon_events_label'));
         $this->setDescription(AmosEvents::t('amosevents', 'Allow the user to modify the Events entity'));
-        $this->setIcon('calendar');
+
+        if (!empty(Yii::$app->params['dashboardEngine']) && Yii::$app->params['dashboardEngine'] == WidgetAbstract::ENGINE_ROWS) {
+            $this->setIconFramework(AmosIcons::IC);
+            $this->setIcon('eventi');
+            $paramsClassSpan = [];
+        } else {
+            $this->setIcon('calendar');
+        }
+
         $this->setUrl(['/events']);
         $this->setCode('EVENTS');
         $this->setModuleName('events');
         $this->setNamespace(__CLASS__);
-        $this->setClassSpan(ArrayHelper::merge($this->getClassSpan(), [
-            'bk-backgroundIcon',
-            'color-lightPrimary'
-        ]));
-        $count = $this->makeBulletCount();
-        $this->setBulletCount($count);
+
+        $this->setClassSpan(
+            ArrayHelper::merge(
+                $this->getClassSpan(),
+                $paramsClassSpan
+            )
+        );
+
+        if ($this->disableBulletCounters == false) {
+            $this->setBulletCount(
+                $this->makeBulletCounter(
+                    Yii::$app->getUser()->getId()
+                )
+            );
+        }
     }
 
     /**
-     * Make the number to set in the bullet count.
+     * 
+     * @param type $userId
+     * @param type $className
+     * @param type $externalQuery
+     * @return type
      */
-    public function makeBulletCount()
+    public function makeBulletCounter($userId = null, $className = null, $externalQuery = null)
     {
-        $widgetAll = new WidgetIconEventOwnInterest();
-        $widgetCreatedBy = new WidgetIconEventsCreatedBy();
-        $count = $widgetAll->makeBulletCount() + $widgetCreatedBy->makeBulletCount();
-        return $count;
+//        $widgetAll = new WidgetIconEventOwnInterest();
+//        $widgetCreatedBy = new WidgetIconEventsCreatedBy();
+//
+//        return $widgetAll->getBulletCount() + $widgetCreatedBy->getBulletCount();
+
+        $widgetAll = new WidgetIconAllEvents();
+
+        return $widgetAll->getBulletCount();
     }
+
 }

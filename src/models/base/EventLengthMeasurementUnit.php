@@ -1,17 +1,17 @@
 <?php
 
 /**
- * Lombardia Informatica S.p.A.
+ * Aria S.p.A.
  * OPEN 2.0
  *
  *
- * @package    lispa\amos\events\models\base
+ * @package    open20\amos\events\models\base
  * @category   CategoryName
  */
 
-namespace lispa\amos\events\models\base;
+namespace open20\amos\events\models\base;
 
-use lispa\amos\events\AmosEvents;
+use open20\amos\events\AmosEvents;
 use yii\helpers\ArrayHelper;
 
 /**
@@ -22,11 +22,11 @@ use yii\helpers\ArrayHelper;
  * @property string $title
  * @property string $date_interval_period
  *
- * @property \lispa\amos\events\models\Event[] $events
+ * @property \open20\amos\events\models\Event[] $events
  *
- * @package lispa\amos\events\models\base
+ * @package open20\amos\events\models\base
  */
-class EventLengthMeasurementUnit extends \lispa\amos\core\record\Record
+class EventLengthMeasurementUnit extends \open20\amos\core\record\Record
 {
     const UNIT_HOURS = 1;
     const UNIT_DAYS = 2;
@@ -67,6 +67,6 @@ class EventLengthMeasurementUnit extends \lispa\amos\core\record\Record
      */
     public function getEvents()
     {
-        return $this->hasMany(\lispa\amos\events\models\Event::className(), ['event_membership_type_id' => 'id']);
+        return $this->hasMany(AmosEvents::instance()->model('Event'), ['event_membership_type_id' => 'id']);
     }
 }

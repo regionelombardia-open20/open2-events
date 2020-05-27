@@ -1,16 +1,18 @@
 <?php
 
 /**
- * Lombardia Informatica S.p.A.
+ * Aria S.p.A.
  * OPEN 2.0
  *
  *
- * @package    lispa\amos\events
+ * @package    open20\amos\events
  * @category   CategoryName
  */
 
 return [
     'params' => [
+        'site_publish_enabled' => false,
+        'site_featured_enabled' => false,
 
         //active the search 
         'searchParams' => [

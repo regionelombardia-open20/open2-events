@@ -1,23 +1,24 @@
 <?php
 
 /**
- * Lombardia Informatica S.p.A.
+ * Aria S.p.A.
  * OPEN 2.0
  *
  *
- * @package    lispa\amos\events\views\event-wizard
+ * @package    open20\amos\events\views\event-wizard
  * @category   CategoryName
  */
 
-use lispa\amos\attachments\components\AttachmentsInput;
-use lispa\amos\comuni\models\IstatNazioni;
-use lispa\amos\comuni\models\IstatProvince;
-use lispa\amos\core\forms\ActiveForm;
-use lispa\amos\core\icons\AmosIcons;
-use lispa\amos\events\AmosEvents;
-use lispa\amos\events\models\EventLengthMeasurementUnit;
-use lispa\amos\events\utility\EventsUtility;
-use lispa\amos\core\forms\WizardPrevAndContinueButtonWidget;
+use open20\amos\attachments\components\AttachmentsInput;
+use open20\amos\comuni\models\IstatNazioni;
+use open20\amos\comuni\models\IstatProvince;
+use open20\amos\core\forms\ActiveForm;
+use open20\amos\core\icons\AmosIcons;
+use open20\amos\events\AmosEvents;
+use open20\amos\events\models\EventLengthMeasurementUnit;
+use open20\amos\core\helpers\Html;
+use open20\amos\core\forms\WizardPrevAndContinueButtonWidget;
+use open20\amos\events\utility\EventsUtility;
 use kartik\datecontrol\DateControl;
 use kartik\depdrop\DepDrop;
 use kartik\select2\Select2;
@@ -27,12 +28,14 @@ use yii\helpers\Url;
 use yii\redactor\widgets\Redactor;
 use yii\web\View;
 
-//use lispa\amos\attachments\components\AttachmentsInput;
 /**
  * @var yii\web\View $this
  * @var ActiveForm $form
- * @var \lispa\amos\events\models\Event $model
+ * @var \open20\amos\events\models\Event $model
  */
+
+/** @var AmosEvents $eventsModule */
+$eventsModule = AmosEvents::instance();
 
 $beginDateHourId = lcfirst(Inflector::id2camel(\yii\helpers\StringHelper::basename($model->className()), '_')) . '-begin_date_hour' . ((isset($fid)) ? $fid : 0);
 
@@ -91,6 +94,9 @@ $this->registerJs($js, View::POS_READY);
 
 $this->title = AmosEvents::t('amosevents',"Nuovo Evento");
 
+/** @var EventLengthMeasurementUnit $eventLengthMeasurementUnitModel */
+$eventLengthMeasurementUnitModel = $moduleEvents->createModel('EventLengthMeasurementUnit');
+
 ?>
 
 <div class="event-wizard-description">
@@ -124,7 +130,7 @@ $this->title = AmosEvents::t('amosevents',"Nuovo Evento");
                     ])->label($model->getAttributeLabel('eventLogo')) ?>
                 </div>
                 <div class="col-xs-12">
-                    <?= $form->field($model, 'event_commentable')->dropDownList(Yii::$app->controller->getBooleanFieldsValues(), [
+                    <?= $form->field($model, 'event_commentable')->dropDownList(Html::getBooleanFieldsValues(), [
                         'prompt' => AmosEvents::t('amosevents', 'Select/Choose') . '...',
                         'disabled' => false
                     ]) ?>
@@ -224,7 +230,7 @@ $this->title = AmosEvents::t('amosevents',"Nuovo Evento");
             </div>
             <div class="col-lg-4 col-sm-4">
                 <?= $form->field($model, 'length_mu_id')->widget(Select2::className(), [
-                    'data' => EventsUtility::translateArrayValues(ArrayHelper::map(EventLengthMeasurementUnit::find()->asArray()->all(), 'id', 'title')),
+                    'data' => EventsUtility::translateArrayValues(ArrayHelper::map($eventLengthMeasurementUnitModel::find()->asArray()->all(), 'id', 'title')),
                     'language' => substr(Yii::$app->language, 0, 2),
                     'options' => ['multiple' => false,
                         'id' => 'EventLengthMeasurementUnit',

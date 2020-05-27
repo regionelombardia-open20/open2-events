@@ -1,26 +1,26 @@
 <?php
 
 /**
- * Lombardia Informatica S.p.A.
+ * Aria S.p.A.
  * OPEN 2.0
  *
  *
- * @package    lispa\amos\events\components
+ * @package    open20\amos\events\components
  * @category   CategoryName
  */
 
-namespace lispa\amos\events\components;
+namespace open20\amos\events\components;
 
-use lispa\amos\attachments\models\File;
-use lispa\amos\core\components\PartQuestionarioAbstract;
-use lispa\amos\events\AmosEvents;
-use lispa\amos\events\models\Event;
+use open20\amos\attachments\models\File;
+use open20\amos\core\components\PartQuestionarioAbstract;
+use open20\amos\events\AmosEvents;
+use open20\amos\events\models\Event;
 use Yii;
 use yii\web\UploadedFile;
 
 /**
  * Class PartsWizardEventCreation
- * @package lispa\amos\events\components
+ * @package open20\amos\events\components
  */
 class PartsWizardEventCreation extends PartQuestionarioAbstract
 {

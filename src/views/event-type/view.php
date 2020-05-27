@@ -1,21 +1,21 @@
 <?php
 
 /**
- * Lombardia Informatica S.p.A.
+ * Aria S.p.A.
  * OPEN 2.0
  *
  *
- * @package    lispa\amos\events\views\event-type
+ * @package    open20\amos\events\views\event-type
  * @category   CategoryName
  */
 
-use lispa\amos\core\forms\CloseButtonWidget;
-use lispa\amos\events\AmosEvents;
+use open20\amos\core\forms\CloseButtonWidget;
+use open20\amos\events\AmosEvents;
 use yii\widgets\DetailView;
 
 /**
  * @var yii\web\View $this
- * @var lispa\amos\events\models\EventType $model
+ * @var open20\amos\events\models\EventType $model
  */
 
 $this->title = strip_tags($model->title);
@@ -29,13 +29,6 @@ $this->params['breadcrumbs'][] = $this->title;
             'title',
             'description:html',
             'color',
-            [
-                'label' => AmosEvents::t('amosevents', 'Event context'),
-                'value' => function ($model) {
-                    /** @var \lispa\amos\events\models\EventType $model */
-                    return AmosEvents::t('amosevents', $model->eventTypeContext->title);
-                }
-            ],
         ],
     ]) ?>
 </div>

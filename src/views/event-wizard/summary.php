@@ -1,26 +1,26 @@
 <?php
 
 /**
- * Lombardia Informatica S.p.A.
+ * Aria S.p.A.
  * OPEN 2.0
  *
  *
- * @package    lispa\amos\events\views\event-wizard
+ * @package    open20\amos\events\views\event-wizard
  * @category   CategoryName
  */
 
-use lispa\amos\core\forms\ActiveForm;
-use lispa\amos\core\forms\ShowUserTagsWidget;
-use lispa\amos\core\helpers\Html;
-use lispa\amos\core\icons\AmosIcons;
-use lispa\amos\events\AmosEvents;
-use lispa\amos\events\models\Event;
+use open20\amos\core\forms\ActiveForm;
+use open20\amos\core\forms\ShowUserTagsWidget;
+use open20\amos\core\helpers\Html;
+use open20\amos\core\icons\AmosIcons;
+use open20\amos\events\AmosEvents;
+use open20\amos\events\models\Event;
 use yii\web\View;
 
 /**
  * @var yii\web\View $this
- * @var \lispa\amos\core\forms\ActiveForm $form
- * @var \lispa\amos\events\models\Event $model
+ * @var \open20\amos\core\forms\ActiveForm $form
+ * @var \open20\amos\events\models\Event $model
  * @var string $viewPublish
  * @var string $viewPublishRequest
  */
@@ -69,7 +69,7 @@ $this->title = AmosEvents::t('amosevents',"Nuovo Evento");
                     </dl>
                     <dl>
                         <dt><?= $model->getAttributeLabel('eventType') ?></dt>
-                        <dd><?= $model->eventType->title ?></dd>
+                        <dd><?= !empty($model->eventType) ? $model->eventType->title : '-' ?></dd>
                     </dl>
                     <dl>
                         <dt><?= $model->getAttributeLabel('event_location') ?></dt>
@@ -167,23 +167,23 @@ $this->title = AmosEvents::t('amosevents',"Nuovo Evento");
                         <dt><?= $model->getAttributeLabel('publication_date_end') ?></dt>
                         <dd><?= ($model->publication_date_end ? Yii::$app->getFormatter()->asDate($model->publication_date_end) : '-') ?></dd>
                     </dl>
-                    <?= \lispa\amos\events\widgets\EventsPublishedByWidget::widget([
+                    <?= \open20\amos\events\widgets\EventsPublishedByWidget::widget([
                         'entities' => $model->destinatari,
                         'publicationRule' => $model->regola_pubblicazione
                     ]) ?>
                     <?php
                     // TODO use PublishedByWidget! Delete the above widget when PublishedByWidget is correctly configured.
-                    //                    echo\lispa\amos\core\forms\PublishedByWidget::widget([
+                    //                    echo\open20\amos\core\forms\PublishedByWidget::widget([
                     //                        'model' => $model,
                     //                        'layout' => '<dl><dt>' .  AmosEvents::tHtml('amosevents', 'Recipients') . '</dt><dt>{event_published_by}</dt></dl><dl><dt>' .  AmosEvents::tHtml('amosevents', 'Published by') . '</dt><dt>{event_publisher}</dt></dl>',
                     //                        'renderSections' => [
                     //                            '{event_published_by}' => function ($model, $widget) {
-                    //                                /** @var \lispa\amos\core\forms\PublishedByWidget $widget */
+                    //                                /** @var \open20\amos\core\forms\PublishedByWidget $widget */
                     //                                /** @var Event $model */
                     //                                return $model->getRegolaPubblicazione();
                     //                            },
                     //                            '{event_publisher}' => function ($model, $widget) {
-                    //                                /** @var \lispa\amos\core\forms\PublishedByWidget $widget */
+                    //                                /** @var \open20\amos\core\forms\PublishedByWidget $widget */
                     //                                /** @var Event $model */
                     //                                return '';
                     //                            }
@@ -233,7 +233,7 @@ $this->title = AmosEvents::t('amosevents',"Nuovo Evento");
         <?php ActiveForm::end();
     } else { ?>
     <?php
-    echo \lispa\amos\core\forms\WizardPrevAndContinueButtonWidget::widget([
+    echo \open20\amos\core\forms\WizardPrevAndContinueButtonWidget::widget([
         'model' => $model,
         'previousUrl' => Yii::$app->getUrlManager()->createUrl(['/events/event-wizard/publication', 'id' => $model->id]),
         'cancelUrl' => $hideWorkflow ? '' : Yii::$app->session->get(AmosEvents::beginCreateNewSessionKey()),

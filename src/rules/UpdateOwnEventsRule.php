@@ -1,22 +1,22 @@
 <?php
 
 /**
- * Lombardia Informatica S.p.A.
+ * Aria S.p.A.
  * OPEN 2.0
  *
  *
- * @package    lispa\amos\events
+ * @package    open20\amos\events
  * @category   CategoryName
  */
 
-namespace lispa\amos\events\rules;
+namespace open20\amos\events\rules;
 
-use lispa\amos\core\rules\DefaultOwnContentRule;
-use lispa\amos\events\models\Event;
+use open20\amos\core\rules\DefaultOwnContentRule;
+use open20\amos\events\models\Event;
 
 /**
  * Class UpdateOwnEventsRule
- * @package lispa\amos\events\rules
+ * @package open20\amos\events\rules
  */
 class UpdateOwnEventsRule extends DefaultOwnContentRule
 {
@@ -40,18 +40,26 @@ class UpdateOwnEventsRule extends DefaultOwnContentRule
                     $model = $this->instanceModel($model, $post['id']);
                 }
             }
-            if (!$model instanceof Event) {
+            if (!($model instanceof Event) || !$model->id) {
                 return false;
             }
 
+            /**
+             * La logica implementata nel codice commentato non è conforme agli altri plugin di contenuto e non è descritta in nessuna analisi.
+             * L'unico punto in cui si parla di workflow dei contenuti è il task POII-1193 nel quale in ogni caso non si parla di amos-events,
+             * se non per i pulsanti durante la creazione, quindi viene implementato il funzionamento standard degli altri plugin di contenuto.
+             */
+//            if (!empty($model->getWorkflowStatus())) {
+//                if (($model->getWorkflowStatus()->getId() == Event::EVENTS_WORKFLOW_STATUS_PUBLISHREQUEST ) && !(\Yii::$app->user->can('EventValidate', ['model' => $model]))) {
+//                    return false;
+//                }
+//            }
             if (!empty($model->getWorkflowStatus())) {
-                if (($model->getWorkflowStatus()->getId() == Event::EVENTS_WORKFLOW_STATUS_PUBLISHREQUEST ) && !(\Yii::$app->user->can('EventValidate', ['model' => $model]))) {
-                    return false;
+                if ((($model->getWorkflowStatus()->getId() == Event::EVENTS_WORKFLOW_STATUS_DRAFT) || \Yii::$app->user->can('EventValidate', ['model' => $model])) && ($model->created_by == $user)) {
+                    return true;
                 }
             }
-            return ($model->created_by == \Yii::$app->user->id);
-        } else {
-            return false;
         }
+        return false;
     }
 }

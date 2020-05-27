@@ -1,31 +1,41 @@
 <?php
-
 /**
- * Lombardia Informatica S.p.A.
+ * Aria S.p.A.
  * OPEN 2.0
  *
  *
- * @package    lispa\amos\events\utility
+ * @package    open20\amos\events\utility
  * @category   CategoryName
  */
 
-namespace lispa\amos\events\utility;
+namespace open20\amos\events\utility;
 
-use lispa\amos\attachments\models\File;
-use lispa\amos\community\AmosCommunity;
-use lispa\amos\community\exceptions\CommunityException;
-use lispa\amos\community\models\Community;
-use lispa\amos\community\models\CommunityType;
-use lispa\amos\community\models\CommunityUserMm;
-use lispa\amos\events\AmosEvents;
-use lispa\amos\events\models\Event;
-use lispa\amos\events\models\EventMembershipType;
+use dosamigos\qrcode\lib\Enum;
+use dosamigos\qrcode\QrCode;
+use open20\amos\attachments\models\File;
+use open20\amos\community\AmosCommunity;
+use open20\amos\community\exceptions\CommunityException;
+use open20\amos\community\models\Community;
+use open20\amos\community\models\CommunityContextInterface;
+use open20\amos\community\models\CommunityType;
+use open20\amos\community\models\CommunityUserMm;
+use open20\amos\community\utilities\CommunityUtil;
+use open20\amos\events\AmosEvents;
+use open20\amos\events\models\Event;
+use open20\amos\events\models\EventAccreditationList;
+use open20\amos\events\models\EventInvitation;
+use open20\amos\events\models\EventParticipantCompanion;
+use open20\amos\events\models\EventType;
+use open20\amos\invitations\models\Invitation;
+use kartik\mpdf\Pdf;
 use Yii;
+use yii\base\Exception;
+use yii\helpers\Url;
 use yii\log\Logger;
 
 /**
  * Class EventsUtility
- * @package lispa\amos\events\utility
+ * @package open20\amos\events\utility
  */
 class EventsUtility
 {
@@ -42,7 +52,7 @@ class EventsUtility
         }
         return $translatedArrayValues;
     }
-    
+
     /**
      * Create a community for the event.
      * @param Event $model
@@ -55,17 +65,20 @@ class EventsUtility
         $communityModule = Yii::$app->getModule('community');
         $title = ($model->title ? $model->title : '');
         $description = ($model->description ? $model->description : '');
+        $eventType = $model->eventType;
         $type = CommunityType::COMMUNITY_TYPE_CLOSED; // DEFAULT TYPE
-        if ($model->event_membership_type_id == EventMembershipType::TYPE_OPEN) {
-            $type = CommunityType::COMMUNITY_TYPE_PRIVATE;
-        }
-        if ($model->event_membership_type_id == EventMembershipType::TYPE_ON_INVITATION) {
+
+        if (!is_null($eventType) && $eventType->event_type == EventType::TYPE_OPEN) {
+            $type = CommunityType::COMMUNITY_TYPE_OPEN;
+        } else if (!is_null($eventType) && $eventType->event_type == EventType::TYPE_UPON_INVITATION) {
             $type = CommunityType::COMMUNITY_TYPE_CLOSED;
         }
-        $context = Event::className();
+        $context = AmosEvents::instance()->model('Event');
         $managerRole = $model->getManagerRole();
         try {
-            $model->community_id = $communityModule->createCommunity($title, $type, $context, $managerRole, $description, $model, $managerStatus);
+            $model->community_id = $communityModule->createCommunity($title,
+                $type, $context, $managerRole, $description, $model,
+                $managerStatus);
             $ok = $model->save(false);
             if (!is_null($model->community_id)) {
                 $ok = EventsUtility::duplicateEventTagForCommunity($model);
@@ -76,7 +89,7 @@ class EventsUtility
         }
         return $ok;
     }
-    
+
     /**
      * Update a community.
      * @param Event $model
@@ -89,7 +102,7 @@ class EventsUtility
         $ok = $model->community->save(false);
         return $ok;
     }
-    
+
     /**
      * @param Event $model
      * @return bool
@@ -97,14 +110,17 @@ class EventsUtility
     public static function duplicateEventTagForCommunity($model)
     {
         $moduleTag = Yii::$app->getModule('tag');
+        /** @var AmosEvents $eventsModule */
+        $eventsModule = AmosEvents::instance();
         $ok = true;
-        if (isset($moduleTag) && in_array(Event::className(), $moduleTag->modelsEnabled) && $moduleTag->behaviors) {
-            $eventTags = \lispa\amos\tag\models\EntitysTagsMm::findAll([
-                'classname' => Event::className(),
+        if (isset($moduleTag) && in_array($eventsModule->model('Event'),
+                $moduleTag->modelsEnabled) && $moduleTag->behaviors) {
+            $eventTags = \open20\amos\tag\models\EntitysTagsMm::findAll([
+                'classname' => $eventsModule->model('Event'),
                 'record_id' => $model->id
             ]);
             foreach ($eventTags as $eventTag) {
-                $entityTag = new \lispa\amos\tag\models\EntitysTagsMm();
+                $entityTag = new \open20\amos\tag\models\EntitysTagsMm();
                 $entityTag->classname = Community::className();
                 $entityTag->record_id = $model->community_id;
                 $entityTag->tag_id = $eventTag->tag_id;
@@ -117,7 +133,7 @@ class EventsUtility
         }
         return $ok;
     }
-    
+
     /**
      * @param Event $model
      * @return bool
@@ -125,26 +141,31 @@ class EventsUtility
     public static function duplicateEventLogoForCommunity($model)
     {
         $ok = true;
-        $eventLogo = File::findOne(['model' => Event::className(), 'attribute' => 'eventLogo', 'itemId' => $model->id]);
+        $eventLogo = File::findOne(['model' => AmosEvents::instance()->model('Event'), 'attribute' => 'eventLogo',
+            'itemId' => $model->id]);
         if (!is_null($eventLogo)) {
-            $communityLogo = File::findOne(['model' => Community::className(), 'attribute' => 'communityLogo', 'itemId' => $model->community_id]);
+            $communityLogo = File::findOne(['model' => Community::className(), 'attribute' => 'communityLogo',
+                'itemId' => $model->community_id]);
             if (!is_null($communityLogo)) {
                 if ($eventLogo->hash != $communityLogo->hash) {
                     $communityLogo->delete();
-                    $ok = EventsUtility::newCommunityLogo($model->community_id, $eventLogo);
+                    $ok = EventsUtility::newCommunityLogo($model->community_id,
+                        $eventLogo);
                 }
             } else {
-                $ok = EventsUtility::newCommunityLogo($model->community_id, $eventLogo);
+                $ok = EventsUtility::newCommunityLogo($model->community_id,
+                    $eventLogo);
             }
         } else {
-            $communityLogo = File::findOne(['model' => Community::className(), 'attribute' => 'communityLogo', 'itemId' => $model->community_id]);
+            $communityLogo = File::findOne(['model' => Community::className(), 'attribute' => 'communityLogo',
+                'itemId' => $model->community_id]);
             if (!is_null($communityLogo)) {
                 $communityLogo->delete();
             }
         }
         return $ok;
     }
-    
+
     /**
      * @param int $communityId
      * @param File $eventLogo
@@ -165,15 +186,16 @@ class EventsUtility
         $communityLogo->itemId = $communityId;
         return $communityLogo->save();
     }
-    
+
     public static function deleteCommunityLogo($model)
     {
-        $communityLogo = File::findOne(['model' => Community::className(), 'attribute' => 'communityLogo', 'itemId' => $model->community_id]);
+        $communityLogo = File::findOne(['model' => Community::className(), 'attribute' => 'communityLogo',
+            'itemId' => $model->community_id]);
         if (!is_null($communityLogo)) {
             $communityLogo->delete();
         }
     }
-    
+
     /**
      * Check if there is at least one confirmed event manager only if there is a community. If not it return true.
      * @param Event $event
@@ -184,10 +206,11 @@ class EventsUtility
         if (!$event->community_id) {
             return true;
         }
-        $confirmedEventManagers = self::findEventManagers($event, CommunityUserMm::STATUS_ACTIVE);
+        $confirmedEventManagers = self::findEventManagers($event,
+            CommunityUserMm::STATUS_ACTIVE);
         return (count($confirmedEventManagers) > 0);
     }
-    
+
     /**
      * Check if there is at least one confirmed event manager only if there is a community. If not it return true.
      * @param Event $event
@@ -199,18 +222,18 @@ class EventsUtility
         if (!$event->community_id) {
             return [];
         }
-        
+
         $where = [
             'community_id' => $event->community_id,
             'role' => $event->getManagerRole()
         ];
-        
+
         if ($status) {
             $where['status'] = $status;
         }
-        
+
         $eventManagers = CommunityUserMm::find()->andWhere($where)->all();
-        
+
         return $eventManagers;
     }
 
@@ -221,11 +244,12 @@ class EventsUtility
     public static function getUserCalendarService($userId = null)
     {
         $socialAuth = \Yii::$app->getModule('socialauth');
-        if(!is_null($socialAuth)) {
+        if (!is_null($socialAuth)) {
             if (is_null($userId)) {
                 $userId = \Yii::$app->user->id;
             }
-            $socialAuthUser = \lispa\amos\socialauth\models\SocialAuthUsers::findOne(['user_id' => $userId, 'provider' => 'google']);
+            $socialAuthUser = \open20\amos\socialauth\models\SocialAuthUsers::findOne([
+                'user_id' => $userId, 'provider' => 'google']);
             if (!is_null($socialAuthUser)) {
                 $service = $socialAuthUser->getServices()->andWhere(['service' => 'calendar'])->one();
                 return $service;
@@ -235,15 +259,15 @@ class EventsUtility
     }
 
     /**
-     * @param null|\lispa\amos\socialauth\models\SocialAuthServices $service
+     * @param null|\open20\amos\socialauth\models\SocialAuthServices $service
      * @return \Google_Service_Calendar|null
      */
     public static function getGoogleServiceCalendar($service = null)
     {
         $socialAuth = \Yii::$app->getModule('socialauth');
-        if(!is_null($socialAuth)) {
+        if (!is_null($socialAuth)) {
             $client = $socialAuth->getClient('google', $service);
-            if(!is_null($client)){
+            if (!is_null($client)) {
                 return new \Google_Service_Calendar($client);
             }
         }
@@ -256,23 +280,28 @@ class EventsUtility
      * @param \Google_Service_Calendar_Event $eventCalendar
      * @return bool - operation result
      */
-    public static function insertOrUpdateGoogleEvent($serviceGoogle, $calendarId, $eventCalendar){
+    public static function insertOrUpdateGoogleEvent($serviceGoogle,
+                                                     $calendarId, $eventCalendar)
+    {
 
         $eventId = $eventCalendar->getId();
         try {
-            $eventCalendarExists = $serviceGoogle->events->get($calendarId, $eventId);
+            $eventCalendarExists = $serviceGoogle->events->get($calendarId,
+                $eventId);
             $isUpdate = true;
         } catch (\Google_Service_Exception $ex) {
             $isUpdate = false;
         }
         try {
-            if(!$isUpdate){
+            if (!$isUpdate) {
                 $serviceGoogle->events->insert($calendarId, $eventCalendar);
-            }else{
-                $serviceGoogle->events->update($calendarId, $eventCalendar->getId(), $eventCalendar);
+            } else {
+                $serviceGoogle->events->update($calendarId,
+                    $eventCalendar->getId(), $eventCalendar);
             }
         } catch (\Google_Service_Exception $e) {
-            Yii::getLogger()->log('Google calendar insert or update event '.$eventId.': '.$e->getMessage(), Logger::LEVEL_WARNING );
+            Yii::getLogger()->log('Google calendar insert or update event ' . $eventId . ': ' . $e->getMessage(),
+                Logger::LEVEL_WARNING);
             return false;
         }
         return true;
@@ -284,7 +313,9 @@ class EventsUtility
      * @param string $eventId
      * @return bool - operation result
      */
-    public static function deleteGoogleEvent($serviceGoogle, $calendarId, $eventId){
+    public static function deleteGoogleEvent($serviceGoogle, $calendarId,
+                                             $eventId)
+    {
 
         try {
             $eventCalendar = $serviceGoogle->events->get($calendarId, $eventId);
@@ -292,10 +323,281 @@ class EventsUtility
             return true;
         }
         try {
-                $serviceGoogle->events->delete($calendarId, $eventId);
+            $serviceGoogle->events->delete($calendarId, $eventId);
         } catch (\Google_Service_Exception $e) {
             return false;
         }
         return true;
+    }
+
+    /**
+     * @param Event $event
+     * @param int $eventId
+     * @return int|string
+     */
+    public static function cmpSeatsAvailable(Event $event, $eventId = 0)
+    {
+        $count = 0;
+        try {
+            if (is_null($event)) {
+                if ($eventId > 0) {
+                    /** @var AmosEvents $eventsModule */
+                    $eventsModule = AmosEvents::instance();
+                    /** @var Event $eventModel */
+                    $eventModel = $eventsModule->createModel('Event');
+                    $event = $eventModel::findOne($eventId);
+                } else {
+                    throw new Exception('No event present');
+                }
+            }
+            $community = $event->getCommunityModel();
+            $query = $community->getCommunityManagers();
+            $members = $query->count();
+            $count = $event->seats_available - $members;
+        } catch (\Exception $ex) {
+            \Yii::getLogger()->log($ex->getMessage(), Logger::LEVEL_ERROR);
+        }
+
+        return $count;
+    }
+
+    public static function checkManager($event)
+    {
+        $communityUtil = new CommunityUtil();
+        return $communityUtil->isManagerLoggedUser($event);
+    }
+
+    /**
+     * @param CommunityContextInterface $model
+     * @return bool
+     */
+    public static function hasPrivilegesLoggedUser($model)
+    {
+        $foundRow = CommunityUserMm::findOne([
+            'community_id' => $model->getCommunityModel()->id,
+            'user_id' => \Yii::$app->getUser()->getId(),
+            'role' => $model->getPriviledgedRoles()
+        ]);
+        return (!is_null($foundRow));
+    }
+
+    /**
+     * @param Event|null $event
+     * @param Invitation|null $invitation
+     * @param string $type
+     * @param array $companion
+     * @param null $url
+     * @param string $qrcodeFormat
+     * @param int $size
+     * @return string
+     */
+    public static function createQrCode($event = null, $invitation = null,
+                                        $type = '', $companion = null,
+                                        $url = null, $qrcodeFormat = 'png',
+                                        $size = 350)
+    {
+        if ($type == 'participant') {
+            if ($event && $invitation) {
+                $url = Url::base(true) . Url::toRoute(['register-participant', 'eid' => $event->id,
+                        'pid' => $invitation->user_id, 'iid' => $invitation->id]);
+            }
+        } elseif ($type == 'companion') {
+            if ($event && $invitation) {
+                $url = Url::base(true) . Url::toRoute(['register-companion', 'eid' => $event->id,
+                        'pid' => $invitation->user_id, 'iid' => $invitation->id,
+                        'cid' => $companion['id']]);
+            }
+        }
+
+        if (!empty($url)) {
+            /* if ($qrcodeFormat == 'svg') {
+              return QrCode::svg($url, "qrcode", false, Enum::QR_ECLEVEL_M, $size);
+              } else */
+            if ($qrcodeFormat == 'png') {
+                ob_start();
+                QrCode::png($url, false, Enum::QR_ECLEVEL_M, $size);
+                $imageString = base64_encode(ob_get_contents());
+                ob_end_clean();
+                return "<img width=\"{$size}\" src=\"data:image/png;base64,{$imageString}\" />";
+            }
+        }
+        return '';
+    }
+
+    /**
+     * @param $eid
+     * @return string
+     * @throws \yii\base\InvalidConfigException
+     */
+    public static function createDownloadTicket($eid)
+    {
+        /** @var AmosEvents $eventModule */
+        $eventModule = AmosEvents::instance();
+        if (!is_null($eventModule)) {
+            $temp_dir = $eventModule->getTempPath();
+            /** @var Event $eventModel */
+            $eventModel = $eventModule->createModel('Event');
+            /** @var Event $event */
+            $event = $eventModel::findOne(['id' => $eid]);
+            $seatModel = null;
+            if ($event) {
+                $filenameTicket = $eid . '_' . \Yii::$app->user->id . '_Ticket.pdf';
+                if ($event->has_tickets) {
+                    /** @var EventInvitation $eventInvitationModel */
+                    $eventInvitationModel = $eventModule->createModel('EventInvitation');
+                    /** @var EventParticipantCompanion $eventParticipantCompanionModel */
+                    $eventParticipantCompanionModel = $eventModule->createModel('EventParticipantCompanion');
+                    /** @var EventInvitation $invitation */
+                    $invitation = $eventInvitationModel::findOne(['event_id' => $eid, 'user_id' => \Yii::$app->user->id]);
+                    if ($invitation) {
+                        $companions = $eventParticipantCompanionModel::find()
+                            ->andWhere(['event_invitation_id' => $invitation->id])
+                            ->all();
+
+                        // get assignd seat
+                        $seat = null;
+                        if ($event->seats_management) {
+                            $assignedSeat = $invitation->assignedSeat;
+
+                            if ($assignedSeat) {
+                                $seat = $assignedSeat->getStringCoordinateSeat();
+                                $filenameTicket = $assignedSeat->getTicketName();
+                                $seatModel = $assignedSeat;
+                            }
+                        }
+
+                        $content = \Yii::$app->controller->renderPartial(
+                            !empty($event->ticket_layout_view) ? $event->ticket_layout_view
+                                : 'pdf-tickets/general-layout',
+                            [
+                                'eventData' => $event,
+                                'participantData' => [
+                                    'nome' => $invitation->name,
+                                    'cognome' => $invitation->surname,
+                                    'azienda' => $invitation->company,
+                                    'codice_fiscale' => $event->abilita_codice_fiscale_in_form
+                                        ? $invitation->fiscal_code : "",
+                                    'email' => $invitation->email,
+                                    'note' => $invitation->notes,
+                                    'accreditation_list_id' => $invitation->accreditation_list_id,
+                                    'accreditationModel' => $invitation->getAccreditationList()->one(),
+                                    'companion_of' => null,
+                                    'seat' => $seat,
+
+                                ],
+                                'seatModel' => $seatModel,
+                                'qrcode' => $event->has_qr_code ? EventsUtility::createQrCode($event,
+                                    $invitation, 'participant', null, null,
+                                    'png') : '',
+                            ]
+                        );
+
+                        foreach ($companions as $companion) {
+                            $seat = null;
+                            $seatModel = null;
+                            // GET ASSIGNED SEAT
+                            if ($event->seats_management) {
+                                $assignedSeat = $companion->assignedSeat;
+                                if ($assignedSeat) {
+                                    $seat = $assignedSeat->getStringCoordinateSeat();
+                                    $seatModel = $assignedSeat;
+                                }
+                            }
+                            $content .= "<pagebreak />";
+
+                            /** @var EventAccreditationList $eventAccreditationListModel */
+                            $eventAccreditationListModel = $eventModule->createModel('EventAccreditationList');
+
+                            $content .= \Yii::$app->controller->renderPartial(!empty($event->ticket_layout_view)
+                                ? $event->ticket_layout_view : 'pdf-tickets/general-layout',
+                                [
+                                    'eventData' => $event,
+                                    'participantData' => [
+                                        'nome' => $companion->nome,
+                                        'cognome' => $companion->cognome,
+                                        'azienda' => $companion->azienda,
+                                        'codice_fiscale' => $event->abilita_codice_fiscale_in_form
+                                            ? $companion->codice_fiscale : "",
+                                        'email' => $companion->email,
+                                        'note' => $companion->note,
+                                        'accreditation_list_id' => $companion->event_accreditation_list_id,
+                                        'accreditationModel' => $eventAccreditationListModel::findOne([
+                                            'id' => $companion->event_accreditation_list_id]),
+                                        'companion_of' => $invitation,
+                                        'seat' => $seat,
+
+                                    ],
+                                    'seatModel' => $seatModel,
+                                    'qrcode' => $event->has_qr_code ? EventsUtility::createQrCode($event,
+                                        $invitation, 'companion', $companion,
+                                        null, 'png') : "",
+                                ]);
+                        }
+                        $filenameTicket = str_replace(" ", "_", $filenameTicket);
+                        $pdf = new Pdf([
+                            'filename' => $filenameTicket,
+                            // set to use core fonts only
+                            'mode' => Pdf::MODE_CORE,
+                            // A4 paper format
+                            'format' => Pdf::FORMAT_A4,
+                            // portrait orientation
+                            'orientation' => Pdf::ORIENT_PORTRAIT,
+                            // stream to browser inline
+                            'destination' => Pdf::DEST_BROWSER,
+                            // your html content input
+                            'content' => $content,
+                            'methods' => [
+                                //'SetHeader'=>[$event->title],
+                                //'SetFooter'=>['{PAGENO}'],
+                            ]
+                        ]);
+
+                        $pdf->marginBottom = 5;
+                        $pdf->marginTop = 5;
+
+
+                        $pdf_file = $temp_dir . DIRECTORY_SEPARATOR . $filenameTicket . '.pdf';
+                        $savepath = $temp_dir . DIRECTORY_SEPARATOR . $filenameTicket . '.jpg';
+                        $pdf->output($pdf->content, $temp_dir . DIRECTORY_SEPARATOR . $filenameTicket . '.pdf',
+                            'F');
+
+                        exec("convert '" . $pdf_file . "' '" . $savepath . "'");
+                        $invitation->ticket_downloaded_at = date("Y-m-d H:i:s");
+                        $invitation->ticket_downloaded_by = (!empty(\Yii::$app->user)
+                            && !empty(\Yii::$app->user->id)) ? \Yii::$app->user->id
+                            : $invitation->user_id;
+                        $invitation->save(false);
+                        return "ticket_download/" . $filenameTicket . '.jpg';
+                    } else {
+                        return '';
+                    }
+
+                    return '';
+                } else {
+                    return '';
+                }
+            }
+        }
+        return '';
+    }
+
+    /**
+     * This method checks if the user can view the "Enter in community" button in view.
+     * @param Event $model
+     * @param AmosEvents|null $eventsModule
+     * @return bool
+     */
+    public static function showCommunityButtonInView(Event $model, $eventsModule = null)
+    {
+        if (is_null($eventsModule)) {
+            $eventsModule = AmosEvents::instance();
+        }
+        return (
+            $eventsModule->enableCommunitySections ||
+            (
+                !$eventsModule->enableCommunitySections &&
+                EventsUtility::checkManager($model)
+            )
+        );
     }
 }

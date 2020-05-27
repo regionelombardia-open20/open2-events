@@ -1,29 +1,29 @@
 <?php
 
 /**
- * Lombardia Informatica S.p.A.
+ * Aria S.p.A.
  * OPEN 2.0
  *
  *
- * @package    lispa\amos\events\widgets
+ * @package    open20\amos\events\widgets
  * @category   CategoryName
  */
 
-namespace lispa\amos\events\widgets;
+namespace open20\amos\events\widgets;
 
 use yii\base\Widget;
 
 /**
  * Class EventsPublishedByWidget
  * Shows the entities name publishing the content and the selected publication rule
- * @package lispa\amos\events\widgets
+ * @package open20\amos\events\widgets
  */
 class EventsPublishedByWidget extends Widget
 {
     /**
      * @var string $layout The layout view
      */
-    public $layout = '@vendor/lispa/amos-events/src/views/event-wizard/layouts/event_published_by_widget.php';
+    public $layout = '@vendor/open20/amos-events/src/views/event-wizard/layouts/event_published_by_widget.php';
 
     /**
      * @var array $entities The list of entities publishing a specific content (news, topic, etc)
@@ -48,24 +48,32 @@ class EventsPublishedByWidget extends Widget
             $moduleCwh = \Yii::$app->getModule('cwh');
             foreach ($this->entities as $publishingEntity) {
                 if (isset($moduleCwh)) {
-                    $entity = \lispa\amos\cwh\models\CwhNodi::findOne($publishingEntity);
+                    $entity = \open20\amos\cwh\models\CwhNodi::findOne($publishingEntity);
                 }
+                
                 if ($i > 0) {
                     $publishingEntities .= ', ';
                 }
+                
                 if (!empty($entity)) {
                     $publishingEntities .= $entity->text;
                 }
+                
                 $i++;
             }
         }
+        
         if (!is_null($this->publicationRule)) {
-            $pubblicationRule = \lispa\amos\cwh\models\base\CwhRegolePubblicazione::findOne($this->publicationRule);
+            $pubblicationRule = \open20\amos\cwh\models\base\CwhRegolePubblicazione::findOne($this->publicationRule);
             $recipients = (!is_null($pubblicationRule) ? $pubblicationRule->nome : '-');
         }
-        return $this->renderFile($this->layout, [
-            'publishingEntities' => $publishingEntities,
-            'recipients' => $recipients
-        ]);
+        
+        return $this->renderFile(
+            $this->layout,
+            [
+                'publishingEntities' => $publishingEntities,
+                'recipients' => $recipients
+            ]
+        );
     }
 }

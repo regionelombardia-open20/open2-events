@@ -1,30 +1,30 @@
 <?php
 
 /**
- * Lombardia Informatica S.p.A.
+ * Aria S.p.A.
  * OPEN 2.0
  *
  *
- * @package    lispa\amos\events
+ * @package    open20\amos\events
  * @category   CategoryName
  */
 
-namespace lispa\amos\events\models\search;
+namespace open20\amos\events\models\search;
 
-use lispa\amos\community\models\CommunityUserMm;
-use lispa\amos\core\interfaces\CmsModelInterface;
-use lispa\amos\core\interfaces\SearchModelInterface;
-use lispa\amos\core\record\CmsField;
-use lispa\amos\core\record\SearchResult;
-use lispa\amos\cwh\AmosCwh;
-use lispa\amos\cwh\query\CwhActiveQuery;
-use lispa\amos\events\AmosEvents;
-use lispa\amos\events\models\Event;
-use lispa\amos\events\models\EventMembershipType;
-use lispa\amos\notificationmanager\AmosNotify;
-use lispa\amos\notificationmanager\base\NotifyWidget;
-use lispa\amos\notificationmanager\base\NotifyWidgetDoNothing;
-use lispa\amos\notificationmanager\models\NotificationChannels;
+use open20\amos\community\models\CommunityUserMm;
+use open20\amos\core\interfaces\CmsModelInterface;
+use open20\amos\core\interfaces\SearchModelInterface;
+use open20\amos\core\record\CmsField;
+use open20\amos\core\record\SearchResult;
+use open20\amos\cwh\AmosCwh;
+use open20\amos\cwh\query\CwhActiveQuery;
+use open20\amos\events\AmosEvents;
+use open20\amos\events\models\Event;
+use open20\amos\events\models\EventMembershipType;
+use open20\amos\notificationmanager\AmosNotify;
+use open20\amos\notificationmanager\base\NotifyWidget;
+use open20\amos\notificationmanager\base\NotifyWidgetDoNothing;
+use open20\amos\notificationmanager\models\NotificationChannels;
 use Yii;
 use yii\base\Component;
 use yii\base\InvalidConfigException;
@@ -36,14 +36,13 @@ use yii\di\Container;
 use yii\di\NotInstantiableException;
 use yii\helpers\ArrayHelper;
 
-
 /**
  * Class EventSearch
- * EventSearch represents the model behind the search form about `lispa\amos\events\models\Event`.
- * @package lispa\amos\events\models\search
+ * EventSearch represents the model behind the search form about `open20\amos\events\models\Event`.
+ * @package open20\amos\events\models\search
  */
-class EventSearch extends Event implements SearchModelInterface, CmsModelInterface
-{
+class EventSearch extends Event implements SearchModelInterface, CmsModelInterface {
+
     /**
      * @var Container $container
      */
@@ -52,10 +51,10 @@ class EventSearch extends Event implements SearchModelInterface, CmsModelInterfa
     /**
      * @inheritdoc
      */
-    public function __construct(array $config = [])
-    {
+    public function __construct(array $config = []) {
         $this->container = new Container();
         $this->container->set('notify', new NotifyWidgetDoNothing());
+        
         parent::__construct($config);
     }
 
@@ -64,16 +63,14 @@ class EventSearch extends Event implements SearchModelInterface, CmsModelInterfa
      * @throws InvalidConfigException
      * @throws NotInstantiableException
      */
-    public function getNotifier()
-    {
+    public function getNotifier() {
         return $this->container->get('notify');
     }
 
     /**
      * @param $notifier
      */
-    public function setNotifier(NotifyWidget $notifier)
-    {
+    public function setNotifier(NotifyWidget $notifier) {
         $this->container->set('notify', $notifier);
     }
 
@@ -82,22 +79,26 @@ class EventSearch extends Event implements SearchModelInterface, CmsModelInterfa
      * @throws InvalidConfigException
      * @throws NotInstantiableException
      */
-    private function notificationOff($query)
-    {
+    private function notificationOff($query) {
         $notify = $this->getNotifier();
+        
         if ($notify) {
             /** @var AmosNotify $notify */
-            $notify->notificationOff(\Yii::$app->getUser()->id, Event::className(), $query, NotificationChannels::CHANNEL_READ);
+            $notify->notificationOff(
+                \Yii::$app->getUser()->id,
+                $this->eventsModule->model('Event'),
+                $query, 
+                NotificationChannels::CHANNEL_READ
+            );
         }
     }
 
     /**
      * @inheritdoc
      */
-    public function rules()
-    {
+    public function rules() {
         return [
-            [['id', 'created_by', 'updated_by', 'deleted_by'], 'integer'],
+            [['id', 'primo_piano', 'created_by', 'updated_by', 'deleted_by'], 'integer'],
             [
                 [
                     'title',
@@ -124,24 +125,24 @@ class EventSearch extends Event implements SearchModelInterface, CmsModelInterfa
     }
 
     /**
+     * bypass scenarios() implementation in the parent class
+     *         
      * @inheritdoc
      */
-    public function scenarios()
-    {
-        // bypass scenarios() implementation in the parent class
+    public function scenarios() {
         return Model::scenarios();
     }
 
     /**
+     * @see    Component::behaviors()    for more info.
      */
-    public function behaviors()
-    {
+    public function behaviors() {
         $parentBehaviors = parent::behaviors();
 
         $behaviors = [];
         //if the parent model News is a model enabled for tags, NewsSearch will have TaggableBehavior too
         $moduleTag = \Yii::$app->getModule('tag');
-        if (isset($moduleTag) && in_array(Event::className(), $moduleTag->modelsEnabled) && $moduleTag->behaviors) {
+        if (isset($moduleTag) && in_array($this->eventsModule->model('Event'), $moduleTag->modelsEnabled) && $moduleTag->behaviors) {
             $behaviors = ArrayHelper::merge($moduleTag->behaviors, $behaviors);
         }
 
@@ -152,11 +153,22 @@ class EventSearch extends Event implements SearchModelInterface, CmsModelInterfa
      * @param $params
      * @return ActiveQuery $query
      */
-    public function baseSearch($params)
+    public function baseSearch($params) 
     {
+        //init the default search values
+        $this->initOrderVars();
+        
+        if (is_string($params)) {
+            $params = [$params];
+        }
+
+        //check params to get orders value
+        $this->setOrderVars($params);
+        
         $module = AmosEvents::instance();
         /** @var Event $eventModel */
         $eventModel = $module->model('Event');
+        
         return $eventModel::find()->distinct();
     }
 
@@ -164,72 +176,44 @@ class EventSearch extends Event implements SearchModelInterface, CmsModelInterfa
      * @param $params
      * @return ActiveDataProvider
      */
-    public function search($params, $queryType, $limit = null, $management = false)
+    public function search($params, $queryType = null, $limit = null, $onlyDrafts = false)
     {
-        $query = $this->buildQuery($queryType, $params, $management);
+        $query = $this->buildQuery($params, $queryType, $onlyDrafts);
 
         $dataProvider = new ActiveDataProvider([
             'query' => $query,
-            'sort' => [
-                'defaultOrder' => [
-                    'created_at' => SORT_DESC,
-                ],
-            ],
-            'pagination' => [
-                'pageSize' => $limit,
-            ]
         ]);
-
+        
+        $dataProvider = $this->searchDefaultOrder($dataProvider);
+        
+        if (!empty($params["withPagination"])) {
+            $dataProvider->setPagination(['pageSize' => $limit]);
+            $query->limit(null);
+        } else {
+            $query->limit($limit);
+        }
         $this->notificationOff($query);
 
         if (!($this->load($params) && $this->validate())) {
             return $dataProvider;
         }
 
-        if (isset($params[$this->formName()]['tagValues'])) {
-
-            $tagValues = $params[$this->formName()]['tagValues'];
-            $this->setTagValues($tagValues);
-            if (is_array($tagValues) && !empty($tagValues)) {
-                $andWhere = "";
-                $i = 0;
-                foreach ($tagValues as $rootId => $tagId) {
-                    if (!empty($tagId)) {
-                        if ($i == 0) {
-                            $query->innerJoin('entitys_tags_mm entities_tag',
-                                "entities_tag.classname = '" . addslashes(Event::className()) . "' AND entities_tag.record_id=event.id");
-
-                        } else {
-                            $andWhere .= " OR ";
-                        }
-                        $andWhere .= "(entities_tag.tag_id in (" . $tagId . ") AND entities_tag.root_id = " . $rootId . " AND entities_tag.deleted_at is null)";
-                        $i++;
-                    }
-                }
-                $andWhere .= "";
-                if (!empty($andWhere)) {
-                    $query->andWhere($andWhere);
-                }
-            }
-        }
-
-        $query->joinWith('eventType');
-
-        $query->andFilterWhere([
-            'id' => $this->id,
-            'event_type_id' => $this->event_type_id,
-            'created_at' => $this->created_at,
-            'updated_at' => $this->updated_at,
-            'deleted_at' => $this->deleted_at,
-            'created_by' => $this->created_by,
-            'updated_by' => $this->updated_by,
-            'deleted_by' => $this->deleted_by,
-        ]);
-
-        $query->andFilterWhere(['like', self::tableName() . '.title', $this->title])
-            ->andFilterWhere(['like', self::tableName() . '.description', $this->description]);
-        $query->andFilterWhere(['>=', self::tableName() . '.begin_date_hour', $this->begin_date_hour]);
-        $query->andFilterWhere(['<=', self::tableName() . '.end_date_hour', $this->end_date_hour]);
+        $query
+            ->joinWith('eventType')
+            ->andFilterWhere([
+                self::tableName() . '.id' => $this->id,
+                self::tableName() . '.event_type_id' => $this->event_type_id,
+                self::tableName() . '.created_at' => $this->created_at,
+                self::tableName() . '.updated_at' => $this->updated_at,
+                self::tableName() . '.deleted_at' => $this->deleted_at,
+                self::tableName() . '.created_by' => $this->created_by,
+                self::tableName() . '.updated_by' => $this->updated_by,
+                self::tableName() . '.deleted_by' => $this->deleted_by,
+            ])
+            ->andFilterWhere(['like', self::tableName() . '.title', $this->title])
+            ->andFilterWhere(['like', self::tableName() . '.description', $this->description])
+            ->andFilterWhere(['>=', self::tableName() . '.begin_date_hour', $this->begin_date_hour])
+            ->andFilterWhere(['<=', self::tableName() . '.end_date_hour', $this->end_date_hour]);
 
         return $dataProvider;
     }
@@ -241,23 +225,33 @@ class EventSearch extends Event implements SearchModelInterface, CmsModelInterfa
      * @param int|null $limit Query limit
      * @return ActiveDataProvider
      */
-    public function searchCreatedBy($params, $limit = null)
-    {
+    public function searchCreatedBy($params, $limit = null) {
         return $this->search($params, 'created-by', $limit);
     }
 
     /**
      * @param ActiveQuery $query
      */
-    private function filterByMembershipType($query)
-    {
+    private function filterByMembershipType($query) {
         $loggedUserId = Yii::$app->getUser()->id;
-        $query->leftJoin('community_user_mm', 'community_user_mm.community_id = event.community_id AND community_user_mm.user_id=' . $loggedUserId);
-        $query->andWhere('event.event_membership_type_id !=' . EventMembershipType::TYPE_ON_INVITATION . ' OR 
+        $query
+            ->leftJoin('community_user_mm', 'community_user_mm.community_id = event.community_id AND community_user_mm.user_id=' . $loggedUserId)
+            ->andWhere('event.event_membership_type_id !=' . EventMembershipType::TYPE_ON_INVITATION . ' OR 
         ( event.event_membership_type_id = ' . EventMembershipType::TYPE_ON_INVITATION . ' AND community_user_mm.user_id = ' . $loggedUserId . ' AND community_user_mm.deleted_at is null )
          OR  ( event.event_management = 0 AND event.event_membership_type_id is null )');
     }
 
+    /**
+     * Search for all events
+     *
+     * @param array $params $_GET search parametrs
+     * @param int|null $limit Query limit
+     * @return ActiveDataProvider
+     */
+    public function searchAllEvents($params, $limit = null) {
+        return $this->search($params, 'all', $limit);
+    }
+    
     /**
      * Search for events visible by the logged user and published on the calendar
      *
@@ -265,8 +259,7 @@ class EventSearch extends Event implements SearchModelInterface, CmsModelInterfa
      * @param int|null $limit Query limit
      * @return ActiveDataProvider
      */
-    public function searchCalendarView($params, $limit = null)
-    {
+    public function searchCalendarView($params, $limit = null) {
         return $this->search($params, 'own-interest', $limit);
     }
 
@@ -277,8 +270,7 @@ class EventSearch extends Event implements SearchModelInterface, CmsModelInterfa
      * @param int|null $limit Query limit
      * @return ActiveDataProvider
      */
-    public function searchToPublish($params, $limit = null)
-    {
+    public function searchToPublish($params, $limit = null) {
         return $this->search($params, 'to-validate', $limit);
     }
 
@@ -289,8 +281,7 @@ class EventSearch extends Event implements SearchModelInterface, CmsModelInterfa
      * @param int|null $limit Query limit
      * @return ActiveDataProvider
      */
-    public function searchManagement($params, $limit = null)
-    {
+    public function searchManagement($params, $limit = null) {
         return $this->search($params, 'all', $limit);
     }
 
@@ -299,10 +290,11 @@ class EventSearch extends Event implements SearchModelInterface, CmsModelInterfa
      * @param array $params
      * @return ActiveQuery $query
      */
-    public function buildQuery($queryType, $params, $management = false)
+    public function buildQuery($params, $queryType, $onlyDrafts = false)
     {
         $query = $this->baseSearch($params);
-        $classname = Event::className();
+        $classname = $this->eventsModule->model('Event');
+        
         /** @var  AmosCwh $moduleCwh */
         $moduleCwh = \Yii::$app->getModule('cwh');
         $cwhActiveQuery = null;
@@ -311,10 +303,11 @@ class EventSearch extends Event implements SearchModelInterface, CmsModelInterfa
         if ($isSetCwh) {
             $moduleCwh->setCwhScopeFromSession();
             $cwhActiveQuery = new CwhActiveQuery(
-                $classname, [
+                    $classname, [
                 'queryBase' => $query
             ]);
         }
+        
         switch ($queryType) {
             case 'created-by':
                 if ($isSetCwh) {
@@ -359,16 +352,14 @@ class EventSearch extends Event implements SearchModelInterface, CmsModelInterfa
                 }
                 break;
         }
-        if ($management) {
+        if ($onlyDrafts) {
             $query->joinWith('communityUserMm');
 
             // MANAGEMENT
             $query->andWhere([
                 'community_user_mm.user_id' => \Yii::$app->getUser()->id,
                 'community_user_mm.status' => CommunityUserMm::STATUS_ACTIVE,
-                'community_user_mm.role' => self::EVENT_MANAGER
-            ]);
-            $query->andFilterWhere([
+                'community_user_mm.role' => self::EVENT_MANAGER,
                 'validated_at_least_once' => true,
                 'event_management' => true,
             ]);
@@ -377,15 +368,14 @@ class EventSearch extends Event implements SearchModelInterface, CmsModelInterfa
         return $query;
     }
 
-
     /**
-     * Search method useful to retrieve events in validated status with both flags publish_in_the_calendar and visible_in_the_calendar true
+     * Search method useful to retrieve events in validated status with both flags 
+     * publish_in_the_calendar and visible_in_the_calendar true
      *
      * @param array $params Array di parametri
      * @return ActiveDataProvider
      */
-    public function searchHighlightedAndHomepageEvents($params)
-    {
+    public function searchHighlightedAndHomepageEvents($params) {
         $query = $this->highlightedAndHomepageEventsQuery($params);
 
         $dataProvider = new ActiveDataProvider([
@@ -404,20 +394,37 @@ class EventSearch extends Event implements SearchModelInterface, CmsModelInterfa
      * @param array $params
      * @return ActiveQuery
      */
-    public function highlightedAndHomepageEventsQuery($params)
-    {
+    public function highlightedAndHomepageEventsQuery($params) {
         $tableName = $this->tableName();
-        $query = $this->baseSearch($params)
+        
+        return $this->baseSearch($params)
             ->where([])
             ->andWhere([
                 $tableName . '.status' => Event::EVENTS_WORKFLOW_STATUS_PUBLISHED,
-            ])
-            ->andWhere($tableName . '.deleted_at IS NULL')
-            ->andWhere($tableName . '.publish_in_the_calendar = 1')
-            ->andWhere($tableName . '.visible_in_the_calendar = 1');
-        return $query;
+                $tableName . '.in_evidenza = 1',
+                $tableName . '.primo_piano = 1',
+                $tableName . '.deleted_at IS NULL',
+                $tableName . '.publish_in_the_calendar = 1',
+                $tableName . '.visible_in_the_calendar = 1'
+            ]);
     }
 
+    /**
+     * @param array $params
+     * @return \yii\db\ActiveQuery
+     */
+    public function homepageEventQuery($params) {
+        $now = date('Y-m-d');
+        $tableName = $this->tableName();
+        $query = $this->baseSearch($params)
+            ->andWhere([
+                $tableName . '.status' => Event::EVENTS_WORKFLOW_STATUS_PUBLISHED,
+            ])
+            ->andWhere($tableName . '.primo_piano = 1');
+        
+        return $query;
+    }
+    
     /**
      * Search all validated documents
      *
@@ -425,8 +432,7 @@ class EventSearch extends Event implements SearchModelInterface, CmsModelInterfa
      * @param int|null $pageSize
      * @return ActiveDataProvider
      */
-    public function globalSearch($searchParamsArray, $pageSize = 5)
-    {
+    public function globalSearch($searchParamsArray, $pageSize = 5) {
         $dataProvider = $this->search([], 'all', null);
         $pagination = $dataProvider->getPagination();
         if (!$pagination) {
@@ -437,10 +443,10 @@ class EventSearch extends Event implements SearchModelInterface, CmsModelInterfa
 
         // Verifico se il modulo supporta i TAG e, in caso, ricerco anche fra quelli
         $moduleTag = \Yii::$app->getModule('tag');
-        $enableTagSearch = isset($moduleTag) && in_array(Event::className(), $moduleTag->modelsEnabled);
+        $enableTagSearch = isset($moduleTag) && in_array($this->eventsModule->model('Event'), $moduleTag->modelsEnabled);
 
         if ($enableTagSearch) {
-            $dataProvider->query->leftJoin('entitys_tags_mm e_tag', "e_tag.record_id=event.id AND e_tag.deleted_at IS NULL AND e_tag.classname='" . addslashes(Event::className()) . "'");
+            $dataProvider->query->leftJoin('entitys_tags_mm e_tag', "e_tag.record_id=event.id AND e_tag.deleted_at IS NULL AND e_tag.classname='" . addslashes($this->eventsModule->model('Event')) . "'");
 
             if (Yii::$app->db->schema->getTableSchema('tag__translation')) {
                 // Esiste la tabella delle traduzioni dei TAG. Uso quella per la ricerca
@@ -450,7 +456,6 @@ class EventSearch extends Event implements SearchModelInterface, CmsModelInterfa
 
             $dataProvider->query->leftJoin('tag t', "e_tag.tag_id=t.id");
         }
-
 
         foreach ($searchParamsArray as $searchString) {
             $orQueries = [
@@ -487,8 +492,7 @@ class EventSearch extends Event implements SearchModelInterface, CmsModelInterfa
      * @param object $model The model to convert into SearchResult
      * @return SearchResult
      */
-    public function convertToSearchResult($model)
-    {
+    public function convertToSearchResult($model) {
         $searchResult = new SearchResult();
         $searchResult->url = $model->getFullViewUrl();
         $searchResult->box_type = "image";
@@ -497,13 +501,14 @@ class EventSearch extends Event implements SearchModelInterface, CmsModelInterfa
         $searchResult->data_pubblicazione = $model->publication_date_begin;
         $searchResult->immagine = $model->getEventLogo();
         $searchResult->abstract = $model->summary;
+        
         return $searchResult;
     }
 
-
-    /***
+    /**
      * CmsModelInterface
-     */
+    **/
+
     /**
      * Search method useful to retrieve news to show in frontend (with cms)
      *
@@ -511,14 +516,17 @@ class EventSearch extends Event implements SearchModelInterface, CmsModelInterfa
      * @param int|null $limit
      * @return ActiveDataProvider
      */
-    public function cmsSearch($params, $limit = null)
-    {
+    public function cmsSearch($params, $limit = null) {
         $params = array_merge($params, Yii::$app->request->get());
-        $dataProvider = $this->search($params, $limit, 'all');
+        $dataProvider = $this->search($params, 'all', $limit);
 
         return $dataProvider;
     }
 
+    /**
+     * 
+     * @return array
+     */
     public function cmsViewFields() {
         $viewFields = [];
         array_push($viewFields, new CmsField("title", "TEXT", 'amosevents', $this->attributeLabels()["title"]));
@@ -527,12 +535,14 @@ class EventSearch extends Event implements SearchModelInterface, CmsModelInterfa
         array_push($viewFields, new CmsField("begin_date_hour", "DATE", 'amosevents', $this->attributeLabels()['begin_date_hour']));
         array_push($viewFields, new CmsField("end_date_hour", "DATE", 'amosevents', $this->attributeLabels()['end_date_hour']));
 
-
         return $viewFields;
     }
 
-    public function cmsSearchFields()
-    {
+    /**
+     * 
+     * @return array
+     */
+    public function cmsSearchFields() {
         $searchFields = [];
 
         array_push($searchFields, new CmsField("title", "TEXT"));
@@ -547,8 +557,7 @@ class EventSearch extends Event implements SearchModelInterface, CmsModelInterfa
      * @param type $id
      * @return boolean
      */
-    public function cmsIsVisible($id)
-    {
+    public function cmsIsVisible($id) {
         $retValue = true;
         if (isset($id)) {
             $md = $this->findOne($id);
@@ -556,6 +565,58 @@ class EventSearch extends Event implements SearchModelInterface, CmsModelInterfa
                 $retValue = $md->visible_in_the_calendar;
             }
         }
+        
         return $retValue;
+    }
+
+    /**
+     * @param array $params
+     * @param int $limit
+     * @return ActiveQuery
+     * @throws InvalidConfigException
+     * @throws NotInstantiableException
+     */
+    public function ultimeEventsQuery($params, $limit)
+    {
+        $query = $this->buildQuery($params, 'all', false);
+        $this->notificationOff($query);
+        $query
+            ->joinWith('eventType')
+            ->andFilterWhere([
+                'id' => $this->id,
+                'event_type_id' => $this->event_type_id,
+                'created_at' => $this->created_at,
+                'updated_at' => $this->updated_at,
+                'deleted_at' => $this->deleted_at,
+                'created_by' => $this->created_by,
+                'updated_by' => $this->updated_by,
+                'deleted_by' => $this->deleted_by,
+            ])
+            ->andFilterWhere(['like', self::tableName() . '.title', $this->title])
+            ->andFilterWhere(['like', self::tableName() . '.description', $this->description])
+            ->andFilterWhere(['>=', self::tableName() . '.begin_date_hour', $this->begin_date_hour])
+            ->andFilterWhere(['<=', self::tableName() . '.end_date_hour', $this->end_date_hour]);
+        return $query;
+    }
+
+    /**
+     * Method that search the latest research events validated, typically limit is $ 3.
+     *
+     * @param array $params
+     * @param int $limit
+     * @return ActiveDataProvider
+     */
+    public function ultimeEvents($params, $limit)
+    {
+        $query = $this->ultimeEventsQuery($params, $limit);
+        $provider = new ActiveDataProvider([
+            'query' => $query,
+            'sort' => [
+                'defaultOrder' => [
+                    'begin_date_hour' => SORT_DESC,
+                ]
+            ],
+        ]);
+        return $provider;
     }
 }

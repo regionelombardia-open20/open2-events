@@ -1,19 +1,19 @@
 <?php
 
 /**
- * Lombardia Informatica S.p.A.
+ * Aria S.p.A.
  * OPEN 2.0
  *
  *
- * @package    lispa\amos\events\views\event-type
+ * @package    open20\amos\events\views\event-type
  * @category   CategoryName
  */
 
-use lispa\amos\events\AmosEvents;
+use open20\amos\events\AmosEvents;
 
 /**
  * @var yii\web\View $this
- * @var lispa\amos\events\models\EventType $model
+ * @var open20\amos\events\models\EventType $model
  */
 
 $this->title = AmosEvents::t('amosevents', 'Create');

@@ -1,12 +1,12 @@
 <?php
 
-namespace lispa\amos\events\i18n\grammar;
+namespace open20\amos\events\i18n\grammar;
 
-use lispa\amos\core\interfaces\ModelGrammarInterface;
-use lispa\amos\events\AmosEvents;
+use open20\amos\core\interfaces\ModelGrammarInterface;
+use open20\amos\events\AmosEvents;
 
 /**
- * Lombardia Informatica S.p.A.
+ * Aria S.p.A.
  * OPEN 2.0
  *
  *

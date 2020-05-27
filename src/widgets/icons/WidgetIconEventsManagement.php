@@ -1,32 +1,34 @@
 <?php
 
 /**
- * Lombardia Informatica S.p.A.
+ * Aria S.p.A.
  * OPEN 2.0
  *
  *
- * @package    lispa\amos\events
+ * @package    open20\amos\events
  * @category   CategoryName
  */
 
-namespace lispa\amos\events\widgets\icons;
+namespace open20\amos\events\widgets\icons;
 
-use lispa\amos\core\widget\WidgetIcon;
-use lispa\amos\events\AmosEvents;
+use open20\amos\core\widget\WidgetIcon;
+use open20\amos\events\AmosEvents;
 use yii\helpers\ArrayHelper;
 
 /**
  * Class WidgetIconEventsManagement
- * @package lispa\amos\events\widgets\icons
+ * @package open20\amos\events\widgets\icons
  */
 class WidgetIconEventsManagement extends WidgetIcon
 {
+
     /**
      * @inheritdoc
      */
     public function init()
     {
         parent::init();
+
         $this->setLabel(AmosEvents::t('amosevents', 'Events management'));
         $this->setDescription(AmosEvents::t('amosevents', 'Events management'));
         $this->setIcon('table');
@@ -34,9 +36,16 @@ class WidgetIconEventsManagement extends WidgetIcon
         $this->setCode('EVENT_MANAGEMENT');
         $this->setModuleName('events');
         $this->setNamespace(__CLASS__);
-        $this->setClassSpan(ArrayHelper::merge($this->getClassSpan(), [
-            'bk-backgroundIcon',
-            'color-lightPrimary'
-        ]));
+
+        $this->setClassSpan(
+            ArrayHelper::merge(
+                $this->getClassSpan(),
+                [
+                    'bk-backgroundIcon',
+                    'color-lightPrimary'
+                ]
+            )
+        );
     }
+
 }

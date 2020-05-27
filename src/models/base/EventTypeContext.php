@@ -1,17 +1,17 @@
 <?php
 
 /**
- * Lombardia Informatica S.p.A.
+ * Aria S.p.A.
  * OPEN 2.0
  *
  *
- * @package    lispa\amos\events\models\base
+ * @package    open20\amos\events\models\base
  * @category   CategoryName
  */
 
-namespace lispa\amos\events\models\base;
+namespace open20\amos\events\models\base;
 
-use lispa\amos\events\AmosEvents;
+use open20\amos\events\AmosEvents;
 use yii\helpers\ArrayHelper;
 
 /**
@@ -22,11 +22,11 @@ use yii\helpers\ArrayHelper;
  * @property string $title
  * @property string $description
  *
- * @property \lispa\amos\events\models\EventType[] $eventTypes
+ * @property \open20\amos\events\models\EventType[] $eventTypes
  *
- * @package lispa\amos\events\models\base
+ * @package open20\amos\events\models\base
  */
-class EventTypeContext extends \lispa\amos\core\record\Record
+class EventTypeContext extends \open20\amos\core\record\Record
 {
     const EVENT_TYPE_CONTEXT_GENERIC = 1;
     const EVENT_TYPE_CONTEXT_PROJECT = 2;
@@ -69,6 +69,6 @@ class EventTypeContext extends \lispa\amos\core\record\Record
      */
     public function getEventTypes()
     {
-        return $this->hasMany(\lispa\amos\events\models\EventType::className(), ['id' => 'event_context_id']);
+        return $this->hasMany(AmosEvents::instance()->model('EventType'), ['id' => 'event_context_id']);
     }
 }

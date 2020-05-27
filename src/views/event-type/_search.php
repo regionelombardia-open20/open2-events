@@ -1,26 +1,31 @@
 <?php
 
 /**
- * Lombardia Informatica S.p.A.
+ * Aria S.p.A.
  * OPEN 2.0
  *
  *
- * @package    lispa\amos\events\views\event-type
+ * @package    open20\amos\events\views\event-type
  * @category   CategoryName
  */
 
-use lispa\amos\core\helpers\Html;
-use lispa\amos\events\AmosEvents;
-use lispa\amos\events\models\EventTypeContext;
+use open20\amos\core\helpers\Html;
+use open20\amos\events\AmosEvents;
+use open20\amos\events\models\EventTypeContext;
 use kartik\select2\Select2;
 use yii\helpers\ArrayHelper;
 use yii\widgets\ActiveForm;
 
 /**
  * @var yii\web\View $this
- * @var lispa\amos\events\models\search\EventTypeSearch $model
+ * @var open20\amos\events\models\search\EventTypeSearch $model
  * @var yii\widgets\ActiveForm $form
  */
+
+/** @var AmosEvents $eventsModule */
+$eventsModule = AmosEvents::instance();
+/** @var EventTypeContext $eventTypeContextModel */
+$eventTypeContextModel = $eventsModule->createModel('EventTypeContext');
 
 ?>
 <div class="event-type-search element-to-toggle" data-toggle-element="form-search">
@@ -48,7 +53,7 @@ use yii\widgets\ActiveForm;
 
     <div class="col-sm-6 col-lg-4">
         <?= $form->field($model, 'event_context_id')->widget(Select2::className(), [
-            'data' => ArrayHelper::map(EventTypeContext::find()->orderBy('id')->asArray()->all(), 'id', 'title'),
+            'data' => ArrayHelper::map($eventTypeContextModel::find()->orderBy('id')->asArray()->all(), 'id', 'title'),
             'language' => substr(Yii::$app->language, 0, 2),
             'options' => ['multiple' => false,
                 'placeholder' => AmosEvents::t('amosevents', 'Select/choose event context'),

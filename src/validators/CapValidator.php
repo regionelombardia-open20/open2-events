@@ -1,27 +1,27 @@
 <?php
 
 /**
- * Lombardia Informatica S.p.A.
+ * Aria S.p.A.
  * OPEN 2.0
  *
  *
- * @package    lispa\amos\events\validators
+ * @package    open20\amos\events\validators
  * @category   CategoryName
  */
 
-namespace lispa\amos\events\validators;
+namespace open20\amos\events\validators;
 
-use lispa\amos\events\AmosEvents;
+use open20\amos\events\AmosEvents;
 use yii\validators\Validator;
 
 /**
  * Class CapValidator
- * @package lispa\amos\events\validators
+ * @package open20\amos\events\validators
  */
 class CapValidator extends Validator
 {
     /**
-     * @param \lispa\amos\core\record\Record $model
+     * @param \open20\amos\core\record\Record $model
      * @param string $attribute
      * @return boolean
      */

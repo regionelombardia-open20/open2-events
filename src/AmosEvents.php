@@ -1,27 +1,33 @@
 <?php
 
 /**
- * Lombardia Informatica S.p.A.
+ * Aria S.p.A.
  * OPEN 2.0
  *
  *
- * @package    lispa\amos\events
+ * @package    open20\amos\events
  * @category   CategoryName
  */
 
-namespace lispa\amos\events;
+namespace open20\amos\events;
 
-use lispa\amos\core\interfaces\CmsModuleInterface;
-use lispa\amos\core\interfaces\SearchModuleInterface;
-use lispa\amos\core\module\AmosModule;
-use lispa\amos\core\module\ModuleInterface;
-use lispa\amos\events\models\Event;
-use lispa\amos\events\models\search\EventSearch;
+use open20\amos\core\interfaces\CmsModuleInterface;
+use open20\amos\core\interfaces\SearchModuleInterface;
+use open20\amos\core\module\AmosModule;
+use open20\amos\core\module\ModuleInterface;
+use open20\amos\events\models\Event;
+use open20\amos\events\models\search\EventSearch;
+use open20\amos\events\widgets\icons\WidgetIconEvents;
+use open20\amos\events\widgets\icons\WidgetIconEventsCreatedBy;
+use open20\amos\events\widgets\icons\WidgetIconEventsManagement;
+use open20\amos\events\widgets\icons\WidgetIconEventsToPublish;
+use open20\amos\events\widgets\icons\WidgetIconEventTypes;
+use open20\amos\events\widgets\InviteUserToEventWidget;
 use yii\helpers\ArrayHelper;
 
 /**
  * Class AmosEvents
- * @package lispa\amos\events
+ * @package open20\amos\events
  */
 class AmosEvents extends AmosModule implements ModuleInterface, SearchModuleInterface, CmsModuleInterface
 {
@@ -37,7 +43,7 @@ class AmosEvents extends AmosModule implements ModuleInterface, SearchModuleInte
     /**
      * @inheritdoc
      */
-    public $controllerNamespace = 'lispa\amos\events\controllers';
+    public $controllerNamespace = 'open20\amos\events\controllers';
 
     public $newFileMode = 0666;
     public $name = 'Events';
@@ -66,6 +72,15 @@ class AmosEvents extends AmosModule implements ModuleInterface, SearchModuleInte
      */
     public $enableExport = true;
 
+    /**
+     * This param enables enables multiple recording for the same event.
+     * @var bool $enableExport
+     */
+    public $multipleRecording = false;
+
+    /**
+     * @var array $eventsRequiredFields
+     */
     public $eventsRequiredFields = [
         'title',
         'summary',
@@ -88,34 +103,67 @@ class AmosEvents extends AmosModule implements ModuleInterface, SearchModuleInte
     public $eventMURequired = false;
 
     /**
+     * @var bool $forceEventCommentable
+     */
+    public $forceEventCommentable = '1';
+
+    /**
      * @inheritdoc
      */
     public $db_fields_translation = [
         [
-            'namespace' => 'lispa\amos\events\models\EventTypeContext',
-            'attributes' => ['title', 'description'],
-            'category' => 'amosevents'
-        ],
-        [
-            'namespace' => 'lispa\amos\events\models\EventLengthMeasurementUnit',
+            'namespace' => 'open20\amos\events\models\EventType',
             'attributes' => ['title'],
-            'category' => 'amosevents'
-        ],
-        [
-            'namespace' => 'lispa\amos\events\models\EventMembershipType',
-            'attributes' => ['title'],
-            'category' => 'amosevents'
+            'category' => 'amosevents',
         ],
     ];
 
+    public $viewPathEmailSummary = [
+        'open20\amos\events\models\Event' => '@vendor/open20/amos-events/src/views/email/notify_summary'
+    ];
+
+    public $viewPathEmailSummaryTitle = [
+        'open20\amos\events\models\Event' => '@vendor/open20/amos-events/src/views/email/notify_summary_title'
+    ];
+
     /**
-     * @return string
+     * @var bool $enableSeatsManagement
+     */
+    public $enableSeatsManagement = true;
+
+    /**
+     * @var bool $enableAutoInviteUsers If true enable the auto invite of the event recipients when the event is published.
+     */
+    public $enableAutoInviteUsers = false;
+
+    public $tempPath = '@backend/web/ticket_download';
+
+    /**
+     * @var bool $enableGdpr If true enable the GDPR in all the plugin.
+     */
+    public $enableGdpr = true;
+
+    /**
+     * @var bool $enableCommunitySections If true enable the community sections in all the plugin.
+     */
+    public $enableCommunitySections = true;
+
+    /**
+     * @var bool $actionCreatedByOnlyViewGrid If true the only list view for the action created by is the grid view.
+     */
+    public $actionCreatedByOnlyViewGrid = false;
+
+    /**
+     * @inheritdoc
      */
     public static function getModuleName()
     {
         return 'events';
     }
 
+    /**
+     * @inheritdoc
+     */
     public static function getModuleIconName()
     {
         return 'calendar';
@@ -128,9 +176,10 @@ class AmosEvents extends AmosModule implements ModuleInterface, SearchModuleInte
     {
         parent::init();
 
-        \Yii::setAlias('@lispa/amos/' . static::getModuleName() . '/controllers', __DIR__ . '/controllers/');
+        \Yii::setAlias('@open20/amos/' . static::getModuleName() . '/controllers', __DIR__ . '/controllers/');
         // custom initialization code goes here
-        \Yii::configure($this, require(__DIR__ . DIRECTORY_SEPARATOR . 'config' . DIRECTORY_SEPARATOR . 'config.php'));
+        $config = require(__DIR__ . DIRECTORY_SEPARATOR . 'config' . DIRECTORY_SEPARATOR . 'config.php');
+        \Yii::configure($this, ArrayHelper::merge($config, ["params" => $this->params]));
     }
 
     /**
@@ -138,7 +187,7 @@ class AmosEvents extends AmosModule implements ModuleInterface, SearchModuleInte
      */
     public function getWidgetGraphics()
     {
-        return NULL;
+        return null;
     }
 
     /**
@@ -147,33 +196,38 @@ class AmosEvents extends AmosModule implements ModuleInterface, SearchModuleInte
     public function getWidgetIcons()
     {
         return [
-            \lispa\amos\events\widgets\icons\WidgetIconEvents::className(),
-            \lispa\amos\events\widgets\icons\WidgetIconEventTypes::className(),
-            \lispa\amos\events\widgets\icons\WidgetIconEventsCreatedBy::className(),
-            \lispa\amos\events\widgets\icons\WidgetIconEventsToPublish::className(),
-            \lispa\amos\events\widgets\icons\WidgetIconEventsManagement::className(),
+            WidgetIconEvents::className(),
+            WidgetIconEventTypes::className(),
+            WidgetIconEventsCreatedBy::className(),
+            WidgetIconEventsToPublish::className(),
+            WidgetIconEventsManagement::className(),
         ];
     }
 
     /**
-     * Get default model classes
+     * @inheritdoc
      */
     protected function getDefaultModels()
     {
         return [
             'Event' => __NAMESPACE__ . '\\' . 'models\Event',
+            'EventAccreditationList' => __NAMESPACE__ . '\\' . 'models\EventAccreditationList',
+            'EventInvitation' => __NAMESPACE__ . '\\' . 'models\EventInvitation',
+            'EventInvitationPartner' => __NAMESPACE__ . '\\' . 'models\EventInvitationPartner',
+            'EventInvitationsUpload' => __NAMESPACE__ . '\\' . 'models\EventInvitationsUpload',
+            'EventLengthMeasurementUnit' => __NAMESPACE__ . '\\' . 'models\EventLengthMeasurementUnit',
+            'EventMembershipType' => __NAMESPACE__ . '\\' . 'models\EventMembershipType',
+            'EventParticipantCompanion' => __NAMESPACE__ . '\\' . 'models\EventParticipantCompanion',
+            'EventParticipantCompanionDynamic' => __NAMESPACE__ . '\\' . 'models\EventParticipantCompanionDynamic',
+            'EventSeats' => __NAMESPACE__ . '\\' . 'models\EventSeats',
+            'EventType' => __NAMESPACE__ . '\\' . 'models\EventType',
+            'EventTypeContext' => __NAMESPACE__ . '\\' . 'models\EventTypeContext',
+            'FormAssignSeat' => __NAMESPACE__ . '\\' . 'models\FormAssignSeat',
+            'RegisterGroupForm' => __NAMESPACE__ . '\\' . 'models\RegisterGroupForm',
+            'EventAccreditationListSearch' => __NAMESPACE__ . '\\' . 'models\search\EventAccreditationListSearch',
             'EventSearch' => __NAMESPACE__ . '\\' . 'models\search\EventSearch',
+            'EventTypeSearch' => __NAMESPACE__ . '\\' . 'models\search\EventTypeSearch',
         ];
-    }
-
-    /**
-     * This method return the session key that must be used to add in session
-     * the url from the user have started the content creation.
-     * @return string
-     */
-    public static function beginCreateNewSessionKey()
-    {
-        return 'beginCreateNewUrl_' . self::getModuleName();
     }
 
     /**
@@ -184,9 +238,10 @@ class AmosEvents extends AmosModule implements ModuleInterface, SearchModuleInte
      */
     public function synchronizeEvents($serviceGoogle, $calendarId, $message = '')
     {
-        $eventSearch = new EventSearch();
-        $all = $eventSearch->buildQuery('all', [])->select('event.id')->column();
-        $createdBy = $eventSearch->buildQuery('created-by', [])->select('event.id')->column();
+        /** @var EventSearch $eventSearch */
+        $eventSearch = $this->createModel('EventSearch');
+        $all = $eventSearch->buildQuery([], 'all')->select('event.id')->column();
+        $createdBy = $eventSearch->buildQuery([], 'created-by')->select('event.id')->column();
         /** @var Event[] $events */
         $events = $eventSearch->baseSearch([])->andWhere([
             'event.id' => ArrayHelper::merge($all, $createdBy)
@@ -239,9 +294,8 @@ class AmosEvents extends AmosModule implements ModuleInterface, SearchModuleInte
         return $message;
     }
 
-
     /**
-     * CmsModuleInterface
+     * @inheritdoc
      */
     public static function getModelSearchClassName()
     {
@@ -249,10 +303,46 @@ class AmosEvents extends AmosModule implements ModuleInterface, SearchModuleInte
     }
 
     /**
-     * @return string
+     * @inheritdoc
      */
     public static function getModelClassName()
     {
         return __NAMESPACE__ . '\models\Event';
+    }
+
+    /**
+     * Same as calling AmosEvents::t('amosevents', ...$args)
+     * @return string
+     */
+    public static function txt($txt, ...$args)
+    {
+        return self::t('amosevents', $txt, ...$args);
+    }
+
+    /**
+     * Same as calling AmosEvents::tHtml('amosevents', ...$args)
+     * @return string
+     */
+    public static function txtHtml($txt, ...$args)
+    {
+        return self::tHtml('amosevents', $txt, ...$args);
+    }
+
+    /**
+     * @param \open20\amos\admin\models\UserProfile $model
+     * @return string
+     * @throws \Exception
+     */
+    public function getInviteUserToEventWidget($model)
+    {
+        return InviteUserToEventWidget::widget(['model' => $model]);
+    }
+
+    /**
+     * @return bool|string
+     */
+    public function getTempPath()
+    {
+        return \Yii::getAlias($this->tempPath);
     }
 }

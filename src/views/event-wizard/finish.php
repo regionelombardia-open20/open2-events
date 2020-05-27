@@ -1,20 +1,20 @@
 <?php
 
 /**
- * Lombardia Informatica S.p.A.
+ * Aria S.p.A.
  * OPEN 2.0
  *
  *
- * @package    lispa\amos\events\views\event-wizard
+ * @package    open20\amos\events\views\event-wizard
  * @category   CategoryName
  */
 
-use lispa\amos\core\helpers\Html;
-use lispa\amos\events\AmosEvents;
+use open20\amos\core\helpers\Html;
+use open20\amos\events\AmosEvents;
 
 /**
  * @var yii\web\View $this
- * @var \lispa\amos\events\models\Event $model
+ * @var \open20\amos\events\models\Event $model
  * @var string $finishMessage
  */
 

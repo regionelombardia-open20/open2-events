@@ -1,26 +1,29 @@
 <?php
 
 /**
- * Lombardia Informatica S.p.A.
+ * Aria S.p.A.
  * OPEN 2.0
  *
  *
- * @package    lispa\amos\events\models\search
+ * @package    open20\amos\events\models\search
  * @category   CategoryName
  */
 
-namespace lispa\amos\events\models\search;
+namespace open20\amos\events\models\search;
 
-use lispa\amos\events\models\EventType;
-use lispa\amos\events\models\EventTypeContext;
+use open20\amos\events\AmosEvents;
+use open20\amos\events\models\EventType;
+use open20\amos\events\models\EventTypeContext;
+use open20\amos\events\utility\EventsUtility;
 use yii\base\Model;
 use yii\data\ActiveDataProvider;
 use yii\db\ActiveQuery;
+use yii\db\Query;
 
 /**
  * Class EventTypeSearch
- * EventTypeSearch represents the model behind the search form about `lispa\amos\events\models\EventType`.
- * @package lispa\amos\events\models\search
+ * EventTypeSearch represents the model behind the search form about `open20\amos\events\models\EventType`.
+ * @package open20\amos\events\models\search
  */
 class EventTypeSearch extends EventType
 {
@@ -46,7 +49,9 @@ class EventTypeSearch extends EventType
 
     public function search($params)
     {
-        $query = EventType::find();
+        /** @var EventType $eventTypeModel */
+        $eventTypeModel = $this->eventsModule->createModel('EventType');
+        $query = $eventTypeModel::find();
 
         $dataProvider = new ActiveDataProvider([
             'query' => $query,
@@ -93,12 +98,78 @@ class EventTypeSearch extends EventType
     }
 
     /**
+     * This method search all event types.
+     * @return Query
+     */
+    public static function searchAllEventTypesBaseQuery()
+    {
+        $query = new Query();
+        $query->from(EventType::tableName());
+        $query->andWhere(['deleted_at' => null]);
+        return $query;
+    }
+
+    /**
+     * This method search only the enabled event types.
+     * @return Query
+     */
+    public static function searchEnabledEventTypesQuery()
+    {
+        $query = static::searchAllEventTypesBaseQuery();
+        $query->andWhere(['enabled' => EventType::ENABLED]);
+        return $query;
+    }
+
+    /**
+     * This method search only the enabled event types ready for select.
+     * @return array
+     */
+    public static function searchAllEventTypesReadyForSelect()
+    {
+        $query = static::searchAllEventTypesBaseQuery();
+        $query->select(['title']);
+        $query->indexBy('id');
+        $eventTypesEnabled = $query->column();
+        $eventTypesEnabled = EventsUtility::translateArrayValues($eventTypesEnabled);
+        return $eventTypesEnabled;
+    }
+
+    /**
+     * This method search only the enabled event types ready for select.
+     * @param int $eventContextId
+     * @return array
+     */
+    public static function searchEnabledEventTypesReadyForSelect($eventContextId = 0)
+    {
+        $query = static::searchEnabledEventTypesQuery();
+        if ($eventContextId > 0) {
+            $query->andWhere(['event_context_id' => $eventContextId]);
+        }
+        $query->select(['title']);
+        $query->indexBy('id');
+        $eventTypesEnabled = $query->column();
+        $eventTypesEnabled = EventsUtility::translateArrayValues($eventTypesEnabled);
+        return $eventTypesEnabled;
+    }
+
+    /**
      * This method search only the event types of generic context.
      * @return ActiveQuery
      */
     public static function searchGenericContextEventTypes()
     {
-        return EventType::find()->andWhere(['event_context_id' => EventTypeContext::EVENT_TYPE_CONTEXT_GENERIC]);
+        /** @var EventType $eventTypeModel */
+        $eventTypeModel = AmosEvents::instance()->createModel('EventType');
+        return $eventTypeModel::find()->andWhere(['event_context_id' => EventTypeContext::EVENT_TYPE_CONTEXT_GENERIC]);
+    }
+
+    /**
+     * This method search only the enabled event types of generic context ready for select.
+     * @return array
+     */
+    public static function searchEnabledGenericContextEventTypesReadyForSelect()
+    {
+        return static::searchEnabledEventTypesReadyForSelect(EventTypeContext::EVENT_TYPE_CONTEXT_GENERIC);
     }
 
     /**
@@ -107,7 +178,18 @@ class EventTypeSearch extends EventType
      */
     public static function searchProjectContextEventTypes()
     {
-        return EventType::find()->andWhere(['event_context_id' => EventTypeContext::EVENT_TYPE_CONTEXT_PROJECT]);
+        /** @var EventType $eventTypeModel */
+        $eventTypeModel = AmosEvents::instance()->createModel('EventType');
+        return $eventTypeModel::find()->andWhere(['event_context_id' => EventTypeContext::EVENT_TYPE_CONTEXT_PROJECT]);
+    }
+
+    /**
+     * This method search only the enabled event types of generic context ready for select.
+     * @return array
+     */
+    public static function searchEnabledProjectContextEventTypesReadyForSelect()
+    {
+        return static::searchEnabledEventTypesReadyForSelect(EventTypeContext::EVENT_TYPE_CONTEXT_PROJECT);
     }
 
     /**
@@ -116,6 +198,17 @@ class EventTypeSearch extends EventType
      */
     public static function searchMatchmakingContextEventTypes()
     {
-        return EventType::find()->andWhere(['event_context_id' => EventTypeContext::EVENT_TYPE_CONTEXT_MATCHMAKING]);
+        /** @var EventType $eventTypeModel */
+        $eventTypeModel = AmosEvents::instance()->createModel('EventType');
+        return $eventTypeModel::find()->andWhere(['event_context_id' => EventTypeContext::EVENT_TYPE_CONTEXT_MATCHMAKING]);
+    }
+
+    /**
+     * This method search only the enabled event types of generic context ready for select.
+     * @return array
+     */
+    public static function searchEnabledMatchmakingContextEventTypesReadyForSelect()
+    {
+        return static::searchEnabledEventTypesReadyForSelect(EventTypeContext::EVENT_TYPE_CONTEXT_MATCHMAKING);
     }
 }
