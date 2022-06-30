@@ -253,6 +253,7 @@ return [
     '#PUBLISHED_label' => 'L\'evento è stato pubblicato con successo',
     'published' => 'pubblicato',
     'Published' => 'Pubblicato',
+    '#published_on' => 'Pubblicato il',
     'Publish In The Calendar' => 'Pubblica nel calendario',
     'Publish' => 'Pubblica',
     '#PUBLISHREQUEST_buttonLabel' => 'Richiedi pubblicazione',

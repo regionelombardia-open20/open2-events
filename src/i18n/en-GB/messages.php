@@ -256,6 +256,7 @@ return [
     '#PUBLISHED_label' => 'The event has been successfully published',
     'published' => 'published',
     'Published' => 'Published',
+    '#published_on' => 'Published on',
     'Publish In The Calendar' => 'Publish In The Calendar',
     'Publish' => 'Publish',
     '#PUBLISHREQUEST_buttonLabel' => 'Request publication',

@@ -63,10 +63,10 @@ $logoUrl =  Yii::$app->urlManager->createAbsoluteUrl($logoUrl);
                     <td style="background:#297A38" width="30%">
                         <table align="center" border="0" cellpadding="0" cellspacing="0" width="100%">
                             <tr>
-                                <td width="100%" valign="top" style="font-family: sans-serif; mso-height-rule: exactly; color: #FFFFFF; padding: 10px; text-align: center; text-transform: uppercase; font-size:18px;"><strong style="font-size:46px;"><?= !empty($beginDateHour) ? $beginDateHour->format('d') : ''?></strong>
+                                <td width="100%" valign="top" style="font-family: sans-serif; mso-height-rule: exactly; color: #FFFFFF; padding: 10px; text-align: center; text-transform: uppercase; font-size:18px;"><strong style="font-size:46px; line-height: 1"><?= !empty($beginDateHour) ? $beginDateHour->format('d') : ''?></strong>
                                     <br>
-                                    <?= !empty($beginDateHour) ? $beginDateHour->format('M') : ''?>&nbsp;
-                                    <?= !empty($beginDateHour) ? $beginDateHour->format('Y') : ''?>
+                                    <?= !empty($beginDateHour) ? Yii::$app->formatter->asDate($beginDateHour, 'MMM') : ''?>&nbsp;
+                                    <?= !empty($beginDateHour) ? Yii::$app->formatter->asDate($beginDateHour, 'YYY') : ''?>
                                 </td>
                             </tr>
                         </table>
@@ -105,10 +105,10 @@ $logoUrl =  Yii::$app->urlManager->createAbsoluteUrl($logoUrl);
             <table width="100%" cellspacing="0" cellpadding="0" border="0" align="center" style="margin: auto">
 
                 <tr>
-                    <?php if (!empty($closestEvent->community)) {?>
+                    <?php if (!empty($closestEvent->community)) {?> 
                         <td style="font-size: 12px; line-height: 16px; color: #ffffff; font-family: sans-serif; font-weight:bold;"><?= "Community ". $closestEvent->community->name?></td>
                     <?php } ?>
-                    <td align="right" width="85" valign="bottom" style="text-align: center; padding-left: 10px;"><a href="<?=Yii::$app->urlManager->createAbsoluteUrl($closestEvent->getFullViewUrl())?>" style="background: #297A38; border:3px solid #297A38; color: #ffffff; font-family: sans-serif; font-size: 11px; line-height: 22px; text-align: center; text-decoration: none; display: block; font-weight: bold; text-transform: uppercase; padding:1px;" class="button-a">
+                    <td align="right" width="85" valign="bottom" style="text-align: center; padding-left: 10px;"><a href="<?=Yii::$app->urlManager->createAbsoluteUrl($closestEvent->getFullViewUrl())?>" style="background: #297A38; border:3px solid #297A38; color: #ffffff; font-family: sans-serif; font-size: 11px; line-height: 22px; text-align: center; text-decoration: none; display: block; font-weight: bold; text-transform: uppercase; height: 20px;" class="button-a">
                             <!--[if mso]>&nbsp;&nbsp;&nbsp;&nbsp;<![endif]--><?= $text?><!--[if mso]>&nbsp;&nbsp;&nbsp;&nbsp;<![endif]-->
                         </a></td>
                 </tr>
@@ -143,7 +143,7 @@ $logoUrl =  Yii::$app->urlManager->createAbsoluteUrl($logoUrl);
                                                 <tr>
                                                     <td valign="top" style="font-family: sans-serif; mso-height-rule: exactly; color: #FFFFFF; padding: 10px; text-align: center; text-transform: uppercase; font-size:12px;"><strong style="font-size:34px;"><?= !empty($beginDateHour) ? $beginDateHour->format('d') : ''?></strong>
                                                         <br>
-                                                        <?= !empty($beginDateHour) ? $beginDateHour->format('M') : ''?> <?= !empty($beginDateHour) ? $beginDateHour->format('Y') : ''?>
+                                                        <?= !empty($beginDateHour) ? Yii::$app->formatter->asDate($beginDateHour, 'MMM') : ''?> <?= !empty($beginDateHour) ? Yii::$app->formatter->asDate($beginDateHour, 'YYY') : ''?>
                                                     </td>
                                                 </tr>
                                             </table>
@@ -161,12 +161,12 @@ $logoUrl =  Yii::$app->urlManager->createAbsoluteUrl($logoUrl);
                                                             </tr>
                                                         </table>
                                                         <table width="100%" cellspacing="0" cellpadding="0" border="0" align="center" style="margin: auto">
-
+    
                                                             <tr>
                                                                 <?php if (!empty($model->community)) {?>
                                                                     <td style="font-size: 11px; line-height: 16px; color: #ffffff; font-family: sans-serif;">Community <?= $model->community->name?></td>
                                                                 <?php } ?>
-                                                                <td align="right" width="85" valign="bottom" style="text-align: center; padding-left: 10px;"><a href="<?=Yii::$app->urlManager->createAbsoluteUrl($model->getFullViewUrl())?>" style="background: #297A38; border:3px solid #297A38; color: #ffffff; font-family: sans-serif; font-size: 11px; line-height: 22px; text-align: center; text-decoration: none; display: block; font-weight: bold; text-transform: uppercase; padding:1px;" class="button-a">
+                                                                <td align="right" width="85" valign="bottom" style="text-align: center; padding-left: 10px;"><a href="<?=Yii::$app->urlManager->createAbsoluteUrl($model->getFullViewUrl())?>" style="background: #297A38; border:3px solid #297A38; color: #ffffff; font-family: sans-serif; font-size: 11px; line-height: 22px; text-align: center; text-decoration: none; display: block; font-weight: bold; text-transform: uppercase; height: 20px;" class="button-a">
                                                                         <!--[if mso]>&nbsp;&nbsp;&nbsp;&nbsp;<![endif]--><?= $text ?><!--[if mso]>&nbsp;&nbsp;&nbsp;&nbsp;<![endif]-->
                                                                     </a></td>
                                                             </tr>
@@ -182,8 +182,7 @@ $logoUrl =  Yii::$app->urlManager->createAbsoluteUrl($logoUrl);
                     </table>
                 </td>
             </tr>
-
+        
         <?php }
     }
     ?>
-
