@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Aria S.p.A.
  * OPEN 2.0
@@ -9,18 +10,13 @@
 
 namespace open20\amos\events\controllers\base;
 
-use Yii;
-use open20\amos\events\models\EventCalendarsSlots;
-use open20\amos\events\models\search\EventCalendarsSlotsSearch;
 use open20\amos\core\controllers\CrudController;
-use open20\amos\core\module\BaseAmosModule;
-use yii\web\NotFoundHttpException;
-use yii\filters\VerbFilter;
-use open20\amos\core\icons\AmosIcons;
 use open20\amos\core\helpers\Html;
-use open20\amos\core\helpers\T;
+use open20\amos\core\icons\AmosIcons;
+use open20\amos\core\module\BaseAmosModule;
+use open20\amos\events\AmosEvents;
+use Yii;
 use yii\helpers\Url;
-
 
 /**
  * Class EventCalendarsSlotsController
@@ -33,16 +29,25 @@ use yii\helpers\Url;
  */
 class EventCalendarsSlotsController extends CrudController
 {
-
     /**
      * @var string $layout
      */
     public $layout = 'main';
 
+    /**
+     * @var AmosEvents $eventsModule
+     */
+    public $eventsModule = null;
+
+    /**
+     * @inheritdoc
+     */
     public function init()
     {
-        $this->setModelObj(new EventCalendarsSlots());
-        $this->setModelSearch(new EventCalendarsSlotsSearch());
+        $this->eventsModule = AmosEvents::instance();
+
+        $this->setModelObj($this->eventsModule->createModel('EventCalendarsSlots'));
+        $this->setModelSearch($this->eventsModule->createModel('EventCalendarsSlotsSearch'));
 
         $this->setAvailableViews([
             'grid' => [
@@ -113,7 +118,8 @@ class EventCalendarsSlotsController extends CrudController
     public function actionCreate()
     {
         $this->setUpLayout('form');
-        $this->model = new EventCalendarsSlots();
+
+        $this->model = $this->eventsModule->createModel('EventCalendarsSlots');
 
         if ($this->model->load(Yii::$app->request->post()) && $this->model->validate()) {
             if ($this->model->save()) {
@@ -140,14 +146,15 @@ class EventCalendarsSlotsController extends CrudController
     public function actionCreateAjax($fid, $dataField)
     {
         $this->setUpLayout('form');
-        $this->model = new EventCalendarsSlots();
+
+        $this->model = $this->eventsModule->createModel('EventCalendarsSlots');
 
         if (\Yii::$app->request->isAjax && $this->model->load(Yii::$app->request->post()) && $this->model->validate()) {
             if ($this->model->save()) {
-//Yii::$app->getSession()->addFlash('success', Yii::t('amoscore', 'Item created'));
+                //Yii::$app->getSession()->addFlash('success', Yii::t('amoscore', 'Item created'));
                 return json_encode($this->model->toArray());
             } else {
-//Yii::$app->getSession()->addFlash('danger', Yii::t('amoscore', 'Item not created, check data'));
+                //Yii::$app->getSession()->addFlash('danger', Yii::t('amoscore', 'Item not created, check data'));
             }
         }
 
@@ -167,6 +174,7 @@ class EventCalendarsSlotsController extends CrudController
     public function actionUpdate($id)
     {
         $this->setUpLayout('form');
+
         $this->model = $this->findModel($id);
 
         if ($this->model->load(Yii::$app->request->post()) && $this->model->validate()) {

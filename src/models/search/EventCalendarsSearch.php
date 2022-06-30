@@ -1,26 +1,43 @@
 <?php
 
+/**
+ * Aria S.p.A.
+ * OPEN 2.0
+ *
+ *
+ * @package    open20\amos\events
+ * @category   CategoryName
+ */
+
 namespace open20\amos\events\models\search;
 
-use Yii;
+use open20\amos\events\models\EventCalendars;
+use open20\amos\events\models\EventCalendars as EventCalendarsModel;
 use yii\base\Model;
 use yii\data\ActiveDataProvider;
-use open20\amos\events\models\EventCalendars as EventCalendarsModel;
+use yii\db\ActiveQuery;
 
 /**
+ * Class EventCalendarsSearch
  * EventCalendars represents the model behind the search form about `open20\amos\events\models\EventCalendars`.
+ * @package open20\amos\events\models\search
  */
 class EventCalendarsSearch extends EventCalendarsModel
 {
-
     public $isSearch;
 
+    /**
+     * @inheritdoc
+     */
     public function __construct(array $config = [])
     {
         $this->isSearch = true;
         parent::__construct($config);
     }
 
+    /**
+     * @inheritdoc
+     */
     public function rules()
     {
         return [
@@ -36,15 +53,22 @@ class EventCalendarsSearch extends EventCalendarsModel
         ];
     }
 
+    /**
+     * @inheritdoc
+     */
     public function scenarios()
     {
-// bypass scenarios() implementation in the parent class
+        // bypass scenarios() implementation in the parent class
         return Model::scenarios();
     }
 
     public function search($params)
     {
-        $query = EventCalendarsSearch::find();
+        /** @var EventCalendars $eventCalendarsModel */
+        $eventCalendarsModel = $this->eventsModule->createModel('EventCalendars');
+
+        /** @var ActiveQuery $query */
+        $query = $eventCalendarsModel::find();
 
         $dataProvider = new ActiveDataProvider([
             'query' => $query,

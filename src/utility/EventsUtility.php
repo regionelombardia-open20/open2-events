@@ -23,6 +23,7 @@ use open20\amos\community\utilities\CommunityUtil;
 use open20\amos\events\AmosEvents;
 use open20\amos\events\models\Event;
 use open20\amos\events\models\EventAccreditationList;
+use open20\amos\events\models\EventCalendars;
 use open20\amos\events\models\EventInvitation;
 use open20\amos\events\models\EventParticipantCompanion;
 use open20\amos\events\models\EventRoom;
@@ -627,7 +628,9 @@ class EventsUtility
      * @throws \yii\base\InvalidConfigException
      */
     public static function isLoggedUserPartner($event_calendars_id){
-        $count = \open20\amos\events\models\EventCalendars::find()
+        /** @var EventCalendars $eventCalendarsModel */
+        $eventCalendarsModel = AmosEvents::instance()->createModel('EventCalendars');
+        $count = $eventCalendarsModel::find()
             ->andWhere(['partner_user_id' => \Yii::$app->user->id])
             ->andWhere(['id' => $event_calendars_id])->count();
         return $count > 0;

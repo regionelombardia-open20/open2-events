@@ -30,6 +30,7 @@ use open20\amos\events\models\EventSeats;
 use open20\amos\events\models\EventType;
 use open20\amos\events\utility\EventsUtility;
 use open20\amos\events\widgets\CommunityEventMembersWidget;
+use open20\amos\events\widgets\InvitedToEventWidget;
 use yii\data\ArrayDataProvider;
 use yii\helpers\Url;
 use yii\widgets\Pjax;
@@ -38,7 +39,8 @@ use yii\widgets\Pjax;
  * @var yii\web\View $this
  * @var open20\amos\events\models\Event $model
  * @var string $position
- * @var ArrayDataProvider $dataProviderSeats
+ * @var ArrayDataProvider|null $dataProviderSeats
+ * @var ArrayDataProvider|null $dataProviderSlots
  */
 
 $this->title = strip_tags($model->title);
@@ -80,6 +82,8 @@ $this->registerJs(<<<JS
 });
 JS
     , \yii\web\View::POS_LOAD);
+
+$invitedGridId = 'pjax-invited-list-grid';
 
 ?>
 <div class="event-view col-xs-12 nop">
@@ -339,7 +343,7 @@ JS
                                 'btnText' => AmosEvents::t('amosevents', '#duplicate_content'),
                                 'btnLink' => Url::to(['/events/event/duplicate-content', 'id' => $model->id]),
                                 'btnOptions' => [
-                                    'title' => AmosEvents::t('amosevents', '#duplicate_content'), 
+                                    'title' => AmosEvents::t('amosevents', '#duplicate_content'),
                                     'class' => 'btn btn-primary pull-right m-l-20'
                                 ]
                             ]);
@@ -414,72 +418,72 @@ JS
     ?>
 
     <?php
-if(\Yii::$app->user->can('ADMIN')){
-	$this->beginBlock('organization'); ?>
-    <div class="col-xs-12 nop">
-        <h3><?= AmosIcons::show('info-outline') ?><?= AmosEvents::tHtml('amosevents', 'Event Organization') ?></h3>
-        <div class="col-sm-6">
-            <span><?= $model->getAttributeLabel('publish_in_the_calendar'); ?></span>
-            <span class="boxed-data"><?= ($model->publish_in_the_calendar) ? Yii::$app->getFormatter()->asBoolean($model->publish_in_the_calendar) : '-' ?></span>
-        </div>
-        <!--div class="col-sm-6">
+    if (\Yii::$app->user->can('ADMIN')) {
+        $this->beginBlock('organization'); ?>
+        <div class="col-xs-12 nop">
+            <h3><?= AmosIcons::show('info-outline') ?><?= AmosEvents::tHtml('amosevents', 'Event Organization') ?></h3>
+            <div class="col-sm-6">
+                <span><?= $model->getAttributeLabel('publish_in_the_calendar'); ?></span>
+                <span class="boxed-data"><?= ($model->publish_in_the_calendar) ? Yii::$app->getFormatter()->asBoolean($model->publish_in_the_calendar) : '-' ?></span>
+            </div>
+            <!--div class="col-sm-6">
             <span><?= $model->getAttributeLabel('event_management'); ?></span>
             <span class="boxed-data"><?= ($model->event_management) ? Yii::$app->getFormatter()->asBoolean($model->event_management) : '-' ?></span>
         </div-->
-        <div class="col-sm-6">
-            <span><?= $model->getAttributeLabel('registration_limit_date'); ?></span>
-            <span class="boxed-data"><?= ($model->registration_limit_date) ? Yii::$app->getFormatter()->asDate($model->registration_limit_date) : '-' ?></span>
+            <div class="col-sm-6">
+                <span><?= $model->getAttributeLabel('registration_limit_date'); ?></span>
+                <span class="boxed-data"><?= ($model->registration_limit_date) ? Yii::$app->getFormatter()->asDate($model->registration_limit_date) : '-' ?></span>
+            </div>
+            <div class="col-sm-6">
+                <span><?= $model->getAttributeLabel('seats_available'); ?></span>
+                <span class="boxed-data"><?= ($model->seats_available) ? $model->seats_available : '-' ?></span>
+            </div>
+            <div class="col-sm-6">
+                <span><?= $model->getAttributeLabel('eventMembershipType'); ?></span>
+                <span class="boxed-data"><?= (!is_null($model->eventMembershipType)) ? $model->eventMembershipType->title : '-' ?></span>
+            </div>
+            <div class="col-sm-6">
+                <span><?= $model->getAttributeLabel('paid_event'); ?></span>
+                <span class="boxed-data"><?= ($model->paid_event) ? Yii::$app->getFormatter()->asBoolean($model->paid_event) : '-' ?></span>
+            </div>
+            <div class="col-sm-6">
+                <span><?= $model->getAttributeLabel('visible_in_the_calendar'); ?></span>
+                <span class="boxed-data"><?= ($model->visible_in_the_calendar) ? Yii::$app->getFormatter()->asBoolean($model->visible_in_the_calendar) : '-' ?></span>
+            </div>
         </div>
-        <div class="col-sm-6">
-            <span><?= $model->getAttributeLabel('seats_available'); ?></span>
-            <span class="boxed-data"><?= ($model->seats_available) ? $model->seats_available : '-' ?></span>
-        </div>
-        <div class="col-sm-6">
-            <span><?= $model->getAttributeLabel('eventMembershipType'); ?></span>
-            <span class="boxed-data"><?= (!is_null($model->eventMembershipType)) ? $model->eventMembershipType->title : '-' ?></span>
-        </div>
-        <div class="col-sm-6">
-            <span><?= $model->getAttributeLabel('paid_event'); ?></span>
-            <span class="boxed-data"><?= ($model->paid_event) ? Yii::$app->getFormatter()->asBoolean($model->paid_event) : '-' ?></span>
-        </div>
-        <div class="col-sm-6">
-            <span><?= $model->getAttributeLabel('visible_in_the_calendar'); ?></span>
-            <span class="boxed-data"><?= ($model->visible_in_the_calendar) ? Yii::$app->getFormatter()->asBoolean($model->visible_in_the_calendar) : '-' ?></span>
-        </div>
-    </div>
-    <?php $this->endBlock(); ?>
+        <?php $this->endBlock(); ?>
 
-    <?php
-    $itemsTab[] = [
-        'label' => AmosEvents::t('amosevents', 'Event Organization'),
-        'content' => $this->blocks['organization'],
-        'options' => ['id' => 'tab-organization'],
-    ];
-}
+        <?php
+        $itemsTab[] = [
+            'label' => AmosEvents::t('amosevents', 'Event Organization'),
+            'content' => $this->blocks['organization'],
+            'options' => ['id' => 'tab-organization'],
+        ];
+    }
     ?>
 
     <?php
-if(!empty($model->eventAttachments)){
-	$this->beginBlock('attachments');?>
-    <div class="attachments col-xs-12 nop">
-        <!-- TODO sostituire il tag h3 con il tag p e applicare una classe per ridimensionare correttamente il testo per accessibilità -->
-        <h3><?= AmosEvents::tHtml('amosevents', 'Attachments') ?></h3>
-        <?= AttachmentsTable::widget([
-            'model' => $model,
-            'attribute' => 'eventAttachments',
-            'viewDeleteBtn' => false
-        ]) ?>
-    </div>
-    <?php $this->endBlock(); ?>
+    if (!empty($model->eventAttachments)) {
+        $this->beginBlock('attachments'); ?>
+        <div class="attachments col-xs-12 nop">
+            <!-- TODO sostituire il tag h3 con il tag p e applicare una classe per ridimensionare correttamente il testo per accessibilità -->
+            <h3><?= AmosEvents::tHtml('amosevents', 'Attachments') ?></h3>
+            <?= AttachmentsTable::widget([
+                'model' => $model,
+                'attribute' => 'eventAttachments',
+                'viewDeleteBtn' => false
+            ]) ?>
+        </div>
+        <?php $this->endBlock(); ?>
 
-    <?php
+        <?php
 
-    $itemsTab[] = [
-        'label' => AmosEvents::t('amosevents', 'Attachments'),
-        'content' => $this->blocks['attachments'],
-        'options' => ['id' => 'tab-attachments'],
-    ];
-}
+        $itemsTab[] = [
+            'label' => AmosEvents::t('amosevents', 'Attachments'),
+            'content' => $this->blocks['attachments'],
+            'options' => ['id' => 'tab-attachments'],
+        ];
+    }
     ?>
 
     <?php $this->beginBlock('publication'); ?>
@@ -496,37 +500,51 @@ if(!empty($model->eventAttachments)){
     //    ];
     ?>
 
+    <?php if ($eventsModule->showInvitationsInEventView && $hasPrivilegesLoggedUser && $model->validated_at_least_once): ?>
+        <?php $this->beginBlock('tab-invited-list'); ?>
+        <div class="col-xs-12 nop">
+            <?= InvitedToEventWidget::widget(['model' => $model]); ?>
+        </div>
+        <?php $this->endBlock();
+        ?>
+        <?php
+        $itemsTab[] = [
+            'label' => AmosEvents::t('amosevents', '#invited_list'),
+            'content' => $this->blocks['tab-invited-list'],
+            'options' => ['id' => 'tab-invited-list']
+        ];
+        ?>
+    <?php endif; ?>
+
     <?php if ($communityPresent && $model->validated_at_least_once): ?>
         <?php $this->beginBlock('tab-participants'); ?>
         <div class="col-xs-12 nop">
             <h3><?= AmosEvents::tHtml('amosevents', 'Participants') ?></h3>
 
             <?php
-            if (!$model->isNewRecord) {
-                Pjax::begin(['timeout' => 10000, 'id' => 'pjax-participants-widget', 'enablePushState' => false]);
-                echo CommunityEventMembersWidget::widget([
-                    'model' => $model,
-                    'showRoles' => [
-                        Event::EVENT_PARTICIPANT
-                    ],
-                    'checkManagerRole' => true,
-                    'showAdditionalAssociateButton' => $model->has_tickets,
-                    'targetUrlParams' => [
-                        'viewM2MWidgetGenericSearch' => true
-                    ],
-                    'pjaxId' => 'pjax-participants-widget',
-                    'pageUrl' => '/events/event/view?id=' . $model->id,
-                    'enableAdditionalButtons' => true,
-                    'showSearch' => true,
-                ]);
-                Pjax::end();
-            }
+            Pjax::begin(['timeout' => 10000, 'id' => 'pjax-participants-widget', 'enablePushState' => false]);
+            echo CommunityEventMembersWidget::widget([
+                'model' => $model,
+                'showRoles' => [
+                    Event::EVENT_PARTICIPANT
+                ],
+                'checkManagerRole' => true,
+                'showAdditionalAssociateButton' => $model->has_tickets,
+                'targetUrlParams' => [
+                    'viewM2MWidgetGenericSearch' => true
+                ],
+                'pjaxId' => 'pjax-participants-widget',
+                'pageUrl' => '/events/event/view?id=' . $model->id,
+                'enableAdditionalButtons' => true,
+                'showSearch' => true,
+            ]);
+            Pjax::end();
             ?>
         </div>
         <?php $this->endBlock(); ?>
 
         <?php
-        if (EventsUtility::hasPrivilegesLoggedUser($model)) {
+        if ($hasPrivilegesLoggedUser) {
             $itemsTab[] = [
                 'label' => AmosEvents::t('amosevents', 'Participants'),
                 'content' => $this->blocks['tab-participants'],
@@ -582,7 +600,7 @@ if(!empty($model->eventAttachments)){
                         [
                             'attribute' => 'short_description',
                             'label' => AmosEvents::t('amosevents', 'Partner'),
-							'format' => 'html',
+                            'format' => 'html',
                         ],
 //                        [
 //                            'value' => function ($model) {
@@ -661,16 +679,14 @@ if(!empty($model->eventAttachments)){
     }
     ?>
 
-
-
-    <?php if ($model->seats_management && EventsUtility::hasPrivilegesLoggedUser($model)) { ?>
+    <?php if ($model->seats_management && $hasPrivilegesLoggedUser) { ?>
         <?php $this->beginBlock('seats_management'); ?>
         <div class="attachments col-xs-12 nop">
             <h2><?= AmosEvents::tHtml('amosevents', 'Seats management') ?></h2>
             <?php
             $totSeats = $model->getEventSeats()->count();
             $totEmptySeats = $model->getEventSeats()
-                ->andWhere(['status' => [EventSeats::STATUS_EMPTY, \open20\amos\events\models\EventSeats::STATUS_TO_REASSIGN]])->count();
+                ->andWhere(['status' => [EventSeats::STATUS_EMPTY, EventSeats::STATUS_TO_REASSIGN]])->count();
             ?>
 
 

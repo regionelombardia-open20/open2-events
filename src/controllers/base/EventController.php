@@ -29,7 +29,6 @@ use open20\amos\events\utility\EventsUtility;
 use Yii;
 use yii\data\ActiveDataProvider;
 use yii\data\ArrayDataProvider;
-use yii\db\ActiveQuery;
 use yii\db\Query;
 use yii\helpers\Json;
 use yii\helpers\Url;
@@ -257,9 +256,9 @@ class EventController extends CrudController
 
     /**
      * Get latitude and longitude of a place.
-     * @deprecated
      * @param string $position
      * @return array
+     * @deprecated
      */
     public function getMapPosition($position)
     {
@@ -318,9 +317,9 @@ class EventController extends CrudController
     public function actionView($id)
     {
         Url::remember();
-        if(!empty(\Yii::$app->params['dashboardEngine']) && \Yii::$app->params['dashboardEngine'] == WidgetAbstract::ENGINE_ROWS) {
+        if (!empty(\Yii::$app->params['dashboardEngine']) && \Yii::$app->params['dashboardEngine'] == WidgetAbstract::ENGINE_ROWS) {
             $this->setUpLayout('main_events');
-        } else{
+        } else {
             $this->setUpLayout('main');
         }
 
@@ -338,14 +337,19 @@ class EventController extends CrudController
             ->andWhere(['event_seats.deleted_at' => null])
             ->groupBy('sector');
 
-        $dataProviderSeats = new ArrayDataProvider([
-            'allModels' => $query->all()
-        ]);
+        $dataProviderSeats = null;
+        if ($model->seats_management) {
+            $dataProviderSeats = new ArrayDataProvider([
+                'allModels' => $query->all()
+            ]);
+        }
 
-        $dataProviderSlots = new ActiveDataProvider([
-            'query' => $this->model->getEventCalendars()
-            ->orderBy('group')
-        ]);
+        $dataProviderSlots = null;
+        if ($model->slots_calendar_management) {
+            $dataProviderSlots = new ActiveDataProvider([
+                'query' => $this->model->getEventCalendars()->orderBy('group')
+            ]);
+        }
         //$this->doSendInvitations($model);
 
         $resetScope = Yii::$app->request->get('resetscope');
@@ -432,7 +436,7 @@ class EventController extends CrudController
                 $accreditamentoList = $this->eventsModule->createModel('EventAccreditationList');
                 $accreditamentoList->event_id = $model->id;
                 $accreditamentoList->position = 1;
-                $accreditamentoList->title =  "Generica";
+                $accreditamentoList->title = "Generica";
                 $accreditamentoList->save();
                 Yii::$app->getSession()->addFlash('success', AmosEvents::t('amosevents', 'Element successfully created.'));
                 return $this->redirect(['/events/event/update', 'id' => $model->id]);
@@ -440,9 +444,9 @@ class EventController extends CrudController
                 Yii::$app->getSession()->addFlash('danger', AmosEvents::t('amosevents', 'Element not created, check the data entered.'));
             }
         }
-        
+
         return $this->render(
-            'create', 
+            'create',
             [
                 'model' => $model,
                 'fid' => NULL,
@@ -473,7 +477,7 @@ class EventController extends CrudController
                 return json_encode($model->toArray());
             }
         }
-        
+
         return $this->renderAjax('_formAjax', [
             'model' => $model,
             'fid' => $fid,
@@ -502,11 +506,10 @@ class EventController extends CrudController
 
         if (Yii::$app->request->post()) {
             if ($model->load(Yii::$app->request->post())) {
-                if($model->seats_management){
-                    if(is_null($model->seats_available)) {
+                if ($model->seats_management) {
+                    if (is_null($model->seats_available)) {
                         $model->seats_available = 0;
-                    }
-                    else {
+                    } else {
                         $model->seats_available = $model->getEventSeats()->count();
                     }
                 }
@@ -525,33 +528,32 @@ class EventController extends CrudController
 
                     if ($model->status != Event::EVENTS_WORKFLOW_STATUS_DRAFT) {
                         // if ($model->event_management) {
-                        if (true) {
-                            if (is_null($model->community_id)) {
-                                $managerStatus = CommunityUserMm::STATUS_ACTIVE;//$this->getManagerStatus($model, $oldAttributes);
-                                $ok = EventsUtility::createCommunity($model, $managerStatus);
-                            } else {
-                                $ok = EventsUtility::updateCommunity($model);
-                            }
-                            if ($ok && ($model->status == Event::EVENTS_WORKFLOW_STATUS_PUBLISHED)) {
-                                if (($oldAttributes['validated_at_least_once'] == 0) && ($model->validated_at_least_once == 1)) {
-                                    // If it's the first validation, check if the logged user is the same as the manager.
-                                    // In that case set the manager in the active status.
-                                    $eventManagers = EventsUtility::findEventManagers($model);
-                                    foreach ($eventManagers as $eventManager) {
-                                        /** @var CommunityUserMm $eventManager */
-                                        if (($eventManager->user_id == Yii::$app->getUser()->getId()) && ($eventManager->status != CommunityUserMm::STATUS_ACTIVE)) {
-                                            $eventManager->status = CommunityUserMm::STATUS_ACTIVE;
-                                            $eventManager->save();
-                                        }
+                        if (is_null($model->community_id)) {
+                            $managerStatus = CommunityUserMm::STATUS_ACTIVE;//$this->getManagerStatus($model, $oldAttributes);
+                            $ok = EventsUtility::createCommunity($model, $managerStatus);
+                        } else {
+                            $ok = EventsUtility::updateCommunity($model);
+                        }
+                        if ($ok && ($model->status == Event::EVENTS_WORKFLOW_STATUS_PUBLISHED)) {
+                            if (($oldAttributes['validated_at_least_once'] == 0) && ($model->validated_at_least_once == 1)) {
+                                // If it's the first validation, check if the logged user is the same as the manager.
+                                // In that case set the manager in the active status.
+                                $eventManagers = EventsUtility::findEventManagers($model);
+                                foreach ($eventManagers as $eventManager) {
+                                    /** @var CommunityUserMm $eventManager */
+                                    if (($eventManager->user_id == Yii::$app->getUser()->getId()) && ($eventManager->status != CommunityUserMm::STATUS_ACTIVE)) {
+                                        $eventManager->status = CommunityUserMm::STATUS_ACTIVE;
+                                        $eventManager->save();
                                     }
                                 }
+                            }
 
-                                $ok = EventsUtility::checkOneConfirmedManagerPresence($model);
-                                if (!$ok) {
-                                    Yii::$app->getSession()->addFlash('danger', AmosEvents::t('amosevents', 'The event can not be published. There must be at least one confirmed manager.'));
-                                }
+                            $ok = EventsUtility::checkOneConfirmedManagerPresence($model);
+                            if (!$ok) {
+                                Yii::$app->getSession()->addFlash('danger', AmosEvents::t('amosevents', 'The event can not be published. There must be at least one confirmed manager.'));
                             }
                         }
+//                        }
                         if ($this->eventsModule->enableAutoInviteUsers && ($model->status == Event::EVENTS_WORKFLOW_STATUS_PUBLISHED) && ($model->eventType->event_type != EventType::TYPE_INFORMATIVE)) {
                             $this->doAddUsersInvitations($model);
                             $invitationsData = $model->getInvitationsData(true);

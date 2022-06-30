@@ -167,7 +167,8 @@ class EventCalendars extends \open20\amos\events\models\base\EventCalendars
 
         $i = 0;
         while($timeStart < $timeEnd){
-            $slot = new EventCalendarsSlots();
+            /** @var EventCalendarsSlots $eventCalendarsSlotsModel */
+            $slot = $this->eventsModule->createModel('EventCalendarsSlots');
             $slot->event_calendars_id = $this->id;
             $slot->date = $timeStart->format('Y-m-d');
             $slot->hour_start = $timeStart->format('H:i:s');
@@ -199,7 +200,9 @@ class EventCalendars extends \open20\amos\events\models\base\EventCalendars
      * @throws \yii\base\InvalidConfigException
      */
     public function hasUserBookedSlot($user_id){
-        $count = EventCalendarsSlots::find()
+        /** @var EventCalendarsSlots $eventCalendarsSlotsModel */
+        $eventCalendarsSlotsModel = $this->eventsModule->createModel('EventCalendarsSlots');
+        $count = $eventCalendarsSlotsModel::find()
             ->andWhere(['event_calendars_id' => $this->id])
             ->andWhere(['user_id' => $user_id])->count();
         return $count > 0;

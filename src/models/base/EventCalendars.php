@@ -1,11 +1,21 @@
 <?php
 
+/**
+ * Aria S.p.A.
+ * OPEN 2.0
+ *
+ *
+ * @package    open20\amos\events\models\base
+ * @category   CategoryName
+ */
+
 namespace open20\amos\events\models\base;
 
-use open20\amos\core\user\User;
+use open20\amos\events\AmosEvents;
 use Yii;
 
 /**
+ * Class EventCalendars
  * This is the base-model class for table "event_calendars".
  *
  * @property integer $id
@@ -29,10 +39,23 @@ use Yii;
  * @property integer $deleted_by
  *
  * @property \open20\amos\events\models\Event $event
+ * @package open20\amos\events\models\base
  */
-class  EventCalendars extends \open20\amos\core\record\Record
+class EventCalendars extends \open20\amos\core\record\Record
 {
+    /**
+     * @var AmosEvents $eventsModule
+     */
+    public $eventsModule = null;
 
+    /**
+     * @inheritdoc
+     */
+    public function init()
+    {
+        $this->eventsModule = AmosEvents::instance();
+        parent::init();
+    }
 
     /**
      * @inheritdoc
@@ -48,12 +71,12 @@ class  EventCalendars extends \open20\amos\core\record\Record
     public function rules()
     {
         return [
-            [['event_id','title', 'date_start', 'hour_start', 'hour_end', 'slot_duration'], 'required'],
-            [['event_id', 'slot_duration', 'created_by', 'updated_by', 'deleted_by','partner_user_id'], 'integer'],
-            [['description','short_description','group','ecosystem'], 'string'],
+            [['event_id', 'title', 'date_start', 'hour_start', 'hour_end', 'slot_duration'], 'required'],
+            [['event_id', 'slot_duration', 'created_by', 'updated_by', 'deleted_by', 'partner_user_id'], 'integer'],
+            [['description', 'short_description', 'group', 'ecosystem'], 'string'],
             [['date_start', 'date_end', 'hour_start', 'hour_end', 'created_at', 'updated_at', 'deleted_at'], 'safe'],
             [['title'], 'string', 'max' => 255],
-            [['event_id'], 'exist', 'skipOnError' => true, 'targetClass' => \open20\amos\events\models\Event::className(), 'targetAttribute' => ['event_id' => 'id']],
+            [['event_id'], 'exist', 'skipOnError' => true, 'targetClass' => $this->eventsModule->model('Event'), 'targetAttribute' => ['event_id' => 'id']],
         ];
     }
 
@@ -90,7 +113,7 @@ class  EventCalendars extends \open20\amos\core\record\Record
      */
     public function getEvent()
     {
-        return $this->hasOne(\open20\amos\events\models\Event::className(), ['id' => 'event_id']);
+        return $this->hasOne($this->eventsModule->model('Event'), ['id' => 'event_id']);
     }
 
     /**
@@ -98,7 +121,7 @@ class  EventCalendars extends \open20\amos\core\record\Record
      */
     public function getEventCalendarsSlots()
     {
-        return $this->hasMany(\open20\amos\events\models\EventCalendarsSlots::className(), [ 'event_calendars_id' => 'id']);
+        return $this->hasMany($this->eventsModule->model('EventCalendarsSlots'), ['event_calendars_id' => 'id']);
     }
 
     /**
@@ -106,6 +129,6 @@ class  EventCalendars extends \open20\amos\core\record\Record
      */
     public function getPartnerUser()
     {
-        return $this->hasOne(User::className(), ['id'=> 'partner_user_id']);
+        return $this->hasOne(\open20\amos\core\user\User::className(), ['id' => 'partner_user_id']);
     }
 }

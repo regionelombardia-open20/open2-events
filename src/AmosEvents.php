@@ -50,17 +50,20 @@ class AmosEvents extends AmosModule implements ModuleInterface, SearchModuleInte
 
     /**
      * If this attribute is true the validation of the publication date is active
-     * @var boolean
+     * @var boolean $validatePublicationDateEnd
      */
     public $validatePublicationDateEnd = true;
+
     /**
      * @var bool|false $enableGoogleMap
      */
     public $enableGoogleMap = true;
+
     /**
-     * @var bool|false $hidePubblicationDate
+     * @var bool|false $enableInvitationManagement
      */
     public $enableInvitationManagement = true;
+
     /**
      * @var bool|false $hidePubblicationDate
      */
@@ -74,7 +77,7 @@ class AmosEvents extends AmosModule implements ModuleInterface, SearchModuleInte
 
     /**
      * This param enables enables multiple recording for the same event.
-     * @var bool $enableExport
+     * @var bool $multipleRecording
      */
     public $multipleRecording = false;
 
@@ -179,6 +182,16 @@ class AmosEvents extends AmosModule implements ModuleInterface, SearchModuleInte
     public $enableEventRooms = false;
 
     /**
+     * @var bool $showInvitationsInEventView With this parameter true, the plugin show the invitations list in event view.
+     */
+    public $showInvitationsInEventView = false;
+
+    /**
+     * @var bool $saveExternalInvitations With this parameter true, the plugin save the external excel invitations, like old style plugin.
+     */
+    public $saveExternalInvitations = false;
+
+    /**
      * @inheritdoc
      */
     public static function getModuleName()
@@ -238,6 +251,7 @@ class AmosEvents extends AmosModule implements ModuleInterface, SearchModuleInte
             'Event' => __NAMESPACE__ . '\\' . 'models\Event',
             'EventAccreditationList' => __NAMESPACE__ . '\\' . 'models\EventAccreditationList',
             'EventCalendars' => __NAMESPACE__ . '\\' . 'models\EventCalendars',
+            'EventCalendarsSlots' => __NAMESPACE__ . '\\' . 'models\EventCalendarsSlots',
             'EventInvitation' => __NAMESPACE__ . '\\' . 'models\EventInvitation',
             'EventInvitationPartner' => __NAMESPACE__ . '\\' . 'models\EventInvitationPartner',
             'EventInvitationsUpload' => __NAMESPACE__ . '\\' . 'models\EventInvitationsUpload',
@@ -252,6 +266,8 @@ class AmosEvents extends AmosModule implements ModuleInterface, SearchModuleInte
             'FormAssignSeat' => __NAMESPACE__ . '\\' . 'models\FormAssignSeat',
             'RegisterGroupForm' => __NAMESPACE__ . '\\' . 'models\RegisterGroupForm',
             'EventAccreditationListSearch' => __NAMESPACE__ . '\\' . 'models\search\EventAccreditationListSearch',
+            'EventCalendarsSearch' => __NAMESPACE__ . '\\' . 'models\search\EventCalendarsSearch',
+            'EventCalendarsSlotsSearch' => __NAMESPACE__ . '\\' . 'models\search\EventCalendarsSlotsSearch',
             'EventRoomSearch' => __NAMESPACE__ . '\\' . 'models\search\EventRoomSearch',
             'EventSearch' => __NAMESPACE__ . '\\' . 'models\search\EventSearch',
             'EventTypeSearch' => __NAMESPACE__ . '\\' . 'models\search\EventTypeSearch',
@@ -322,7 +338,7 @@ class AmosEvents extends AmosModule implements ModuleInterface, SearchModuleInte
         return $message;
     }
 
-     /**
+    /**
      * @inheritdoc
      */
     public static function getModelSearchClassName()

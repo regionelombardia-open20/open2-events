@@ -124,8 +124,12 @@ class EventCalendarsSlotsController extends \open20\amos\events\controllers\base
      */
     public function actionMyBooking($eventId){
         $this->setUpLayout('list');
-        $event = Event::findOne($eventId);
-        $modelSearch = new EventCalendarsSlotsSearch();
+        /** @var Event $eventModel */
+        $eventModel = $this->eventsModule->createModel('Event');
+        /** @var Event $event */
+        $event = $eventModel::findOne($eventId);
+        /** @var EventCalendarsSlotsSearch $modelSearch */
+        $modelSearch = $this->eventsModule->createModel('EventCalendarsSlotsSearch');
         $modelSearch->event = $eventId;
         $dataProvider = $modelSearch->mySlotsAllSearch([]);
 

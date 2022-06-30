@@ -1,11 +1,21 @@
 <?php
 
+/**
+ * Aria S.p.A.
+ * OPEN 2.0
+ *
+ *
+ * @package    open20\amos\events\models\base
+ * @category   CategoryName
+ */
+
 namespace open20\amos\events\models\base;
 
-use open20\amos\core\user\User;
+use open20\amos\events\AmosEvents;
 use Yii;
 
 /**
+ * Class EventCalendarsSlots
  * This is the base-model class for table "event_calendars_slots".
  *
  * @property integer $id
@@ -24,11 +34,24 @@ use Yii;
  * @property integer $updated_by
  * @property integer $deleted_by
  *
- * @property User $user
+ * @property \open20\amos\core\user\User $user
+ * @package open20\amos\events\models\base
  */
 class  EventCalendarsSlots extends \open20\amos\core\record\Record
 {
+    /**
+     * @var AmosEvents $eventsModule
+     */
+    public $eventsModule = null;
 
+    /**
+     * @inheritdoc
+     */
+    public function init()
+    {
+        $this->eventsModule = AmosEvents::instance();
+        parent::init();
+    }
 
     /**
      * @inheritdoc
@@ -44,10 +67,10 @@ class  EventCalendarsSlots extends \open20\amos\core\record\Record
     public function rules()
     {
         return [
-            [['event_calendars_id', 'date','hour_start','hour_end'], 'required'],
+            [['event_calendars_id', 'date', 'hour_start', 'hour_end'], 'required'],
             [['event_calendars_id', 'user_id', 'created_by', 'updated_by', 'deleted_by'], 'integer'],
             [['cellphone', 'affiliation', 'booked_at', 'hour_start', 'hour_end', 'created_at', 'updated_at', 'deleted_at'], 'safe'],
-            [['user_id'], 'exist', 'skipOnError' => true, 'targetClass' => User::className(), 'targetAttribute' => ['user_id' => 'id']],
+            [['user_id'], 'exist', 'skipOnError' => true, 'targetClass' => \open20\amos\core\user\User::className(), 'targetAttribute' => ['user_id' => 'id']],
         ];
     }
 
@@ -80,14 +103,14 @@ class  EventCalendarsSlots extends \open20\amos\core\record\Record
      */
     public function getUser()
     {
-        return $this->hasOne(User::className(), ['id' => 'user_id']);
+        return $this->hasOne(\open20\amos\core\user\User::className(), ['id' => 'user_id']);
     }
+
     /**
      * @return \yii\db\ActiveQuery
      */
     public function getEventCalendars()
     {
-        return $this->hasOne(\open20\amos\events\models\EventCalendars::className(), [ 'id' =>'event_calendars_id']);
+        return $this->hasOne($this->eventsModule->model('EventCalendars'), ['id' => 'event_calendars_id']);
     }
-
 }

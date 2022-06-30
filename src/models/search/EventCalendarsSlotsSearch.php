@@ -1,34 +1,48 @@
 <?php
 
+/**
+ * Aria S.p.A.
+ * OPEN 2.0
+ *
+ *
+ * @package    open20\amos\events
+ * @category   CategoryName
+ */
+
 namespace open20\amos\events\models\search;
 
-use Yii;
+use open20\amos\events\models\EventCalendarsSlots;
 use yii\base\Model;
 use yii\data\ActiveDataProvider;
-use open20\amos\events\models\EventCalendarsSlots;
+use yii\db\ActiveQuery;
 
 /**
+ * Class EventCalendarsSlotsSearch
  * EventCalendarsSlotsSearch represents the model behind the search form about `open20\amos\events\models\EventCalendarsSlots`.
+ * @package open20\amos\events\models\search
  */
 class EventCalendarsSlotsSearch extends EventCalendarsSlots
 {
-
-//private $container; 
-
-   public $event;
+    public $event;
     public $isSearch;
 
+    /**
+     * @inheritdoc
+     */
     public function __construct(array $config = [])
     {
         $this->isSearch = true;
         parent::__construct($config);
     }
 
+    /**
+     * @inheritdoc
+     */
     public function rules()
     {
         return [
             [['id', 'event_calendars_id', 'user_id', 'created_by', 'updated_by', 'deleted_by'], 'integer'],
-            [['date','event', 'hour_start', 'hour_end', 'created_at', 'updated_at', 'deleted_at'], 'safe'],
+            [['date', 'event', 'hour_start', 'hour_end', 'created_at', 'updated_at', 'deleted_at'], 'safe'],
             [[
                 'date_from',
                 'date_to',
@@ -37,15 +51,22 @@ class EventCalendarsSlotsSearch extends EventCalendarsSlots
         ];
     }
 
+    /**
+     * @inheritdoc
+     */
     public function scenarios()
     {
-// bypass scenarios() implementation in the parent class
+        // bypass scenarios() implementation in the parent class
         return Model::scenarios();
     }
 
     public function search($params)
     {
-        $query = EventCalendarsSlots::find();
+        /** @var EventCalendarsSlots $eventCalendarsSlotsModel */
+        $eventCalendarsSlotsModel = $this->eventsModule->createModel('EventCalendarsSlots');
+
+        /** @var ActiveQuery $query */
+        $query = $eventCalendarsSlotsModel::find();
 
         $dataProvider = new ActiveDataProvider([
             'query' => $query,
@@ -111,10 +132,15 @@ class EventCalendarsSlotsSearch extends EventCalendarsSlots
      * @return ActiveDataProvider
      * @throws \yii\base\InvalidConfigException
      */
-    public function mySlotsAllSearch($params){
+    public function mySlotsAllSearch($params)
+    {
+        /** @var EventCalendarsSlots $eventCalendarsSlotsModel */
+        $eventCalendarsSlotsModel = $this->eventsModule->createModel('EventCalendarsSlots');
 
-        $query = EventCalendarsSlots::find()
-            ->innerJoinWith('eventCalendars')
+        /** @var ActiveQuery $query */
+        $query = $eventCalendarsSlotsModel::find();
+
+        $query->innerJoinWith('eventCalendars')
             ->andWhere(['user_id' => \Yii::$app->user->id])
             ->andFilterWhere(['event_id' => $this->event]);
 

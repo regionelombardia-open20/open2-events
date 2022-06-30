@@ -8,6 +8,7 @@
 
 namespace open20\amos\events\utility;
 
+use open20\amos\admin\models\UserProfile;
 use open20\amos\core\user\User;
 use open20\amos\core\utilities\Email;
 use open20\amos\events\AmosEvents;
@@ -149,17 +150,15 @@ class EventMailUtility
     }
 
     /**
-     *
      * @param UserProfile $model
-     * @param type $subject
-     * @param type $contentView
-     * @param type $from
-     * @param type $layout
+     * @param string $subject
+     * @param string $contentView
+     * @param string|null $from
+     * @param string|null $layout
      * @param \open20\amos\community\models\Community $community
-     * @return boolean
+     * @return bool
      */
-    public static function sendCredentialsMail($model, $subject, $contentView, $from = null, $layout = null,
-                                               $community = null)
+    public static function sendCredentialsMail($model, $subject, $contentView, $from = null, $layout = null, $community = null)
     {
         try {
             $model->user->generatePasswordResetToken();

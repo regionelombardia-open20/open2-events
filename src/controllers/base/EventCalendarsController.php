@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Aria S.p.A.
  * OPEN 2.0
@@ -9,18 +10,16 @@
 
 namespace open20\amos\events\controllers\base;
 
+use open20\amos\core\controllers\CrudController;
+use open20\amos\core\helpers\Html;
+use open20\amos\core\icons\AmosIcons;
+use open20\amos\core\module\BaseAmosModule;
+use open20\amos\events\AmosEvents;
 use open20\amos\events\models\Event;
-use Yii;
 use open20\amos\events\models\EventCalendars;
 use open20\amos\events\models\search\EventCalendarsSearch;
-use open20\amos\core\controllers\CrudController;
-use open20\amos\core\module\BaseAmosModule;
+use Yii;
 use yii\data\ActiveDataProvider;
-use yii\web\NotFoundHttpException;
-use yii\filters\VerbFilter;
-use open20\amos\core\icons\AmosIcons;
-use open20\amos\core\helpers\Html;
-use open20\amos\core\helpers\T;
 use yii\helpers\Url;
 
 
@@ -35,16 +34,25 @@ use yii\helpers\Url;
  */
 class EventCalendarsController extends CrudController
 {
-
     /**
      * @var string $layout
      */
     public $layout = 'main';
 
+    /**
+     * @var AmosEvents $eventsModule
+     */
+    public $eventsModule = null;
+
+    /**
+     * @inheritdoc
+     */
     public function init()
     {
-        $this->setModelObj(new EventCalendars());
-        $this->setModelSearch(new EventCalendarsSearch());
+        $this->eventsModule = AmosEvents::instance();
+
+        $this->setModelObj($this->eventsModule->createModel('EventCalendars'));
+        $this->setModelSearch($this->eventsModule->createModel('EventCalendarsSearch'));
 
         $this->setAvailableViews([
             'grid' => [
@@ -123,9 +131,15 @@ class EventCalendarsController extends CrudController
     public function actionCreate($id = null)
     {
         $this->setUpLayout('form');
-        $this->model = new EventCalendars();
-        $event = Event::find()->andWhere(['id' => $id])->one();
-        if($event){
+
+        $this->model = $this->eventsModule->createModel('EventCalendars');
+
+        /** @var Event $eventModel */
+        $eventModel = $this->eventsModule->createModel('Event');
+
+        /** @var Event $event */
+        $event = $eventModel::find()->andWhere(['id' => $id])->one();
+        if ($event) {
             $this->model->event_id = $id;
         }
 
@@ -156,14 +170,15 @@ class EventCalendarsController extends CrudController
     public function actionCreateAjax($fid, $dataField)
     {
         $this->setUpLayout('form');
-        $this->model = new EventCalendars();
+
+        $this->model = $this->eventsModule->createModel('EventCalendars');
 
         if (\Yii::$app->request->isAjax && $this->model->load(Yii::$app->request->post()) && $this->model->validate()) {
             if ($this->model->save()) {
-//Yii::$app->getSession()->addFlash('success', Yii::t('amoscore', 'Item created'));
+                //Yii::$app->getSession()->addFlash('success', Yii::t('amoscore', 'Item created'));
                 return json_encode($this->model->toArray());
             } else {
-//Yii::$app->getSession()->addFlash('danger', Yii::t('amoscore', 'Item not created, check data'));
+                //Yii::$app->getSession()->addFlash('danger', Yii::t('amoscore', 'Item not created, check data'));
             }
         }
 
@@ -189,10 +204,9 @@ class EventCalendarsController extends CrudController
             'query' => $this->model->getEventCalendarsSlots()
         ]);
 
-
         if ($this->model->load(Yii::$app->request->post()) && $this->model->validate()) {
             if ($this->model->save()) {
-                if($dataProviderSlots->count == 0) {
+                if ($dataProviderSlots->count == 0) {
                     $this->model->generateSlots();
                 }
 

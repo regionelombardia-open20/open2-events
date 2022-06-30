@@ -1,10 +1,11 @@
 <?php
+
 /**
  * Aria S.p.A.
  * OPEN 2.0
  *
  *
- * @package    openinnovation\organizations\controllers
+ * @package    open20\amos\events\models
  * @category   CategoryName
  */
 
@@ -14,18 +15,28 @@ use open20\amos\events\AmosEvents;
 use yii\base\Model;
 use yii\web\UploadedFile;
 
+/**
+ * Class EventInvitationsUpload
+ * @package open20\amos\events\models
+ */
 class EventInvitationsUpload extends Model
 {
-
     public $excelFile;
 
+    /**
+     * @inheritdoc
+     */
     public function rules()
     {
         return [
             [['excelFile'], 'file', 'extensions' => 'xls, xlsx', 'checkExtensionByMimeType' => false],
         ];
     }
-    
+
+    /**
+     * @return array|bool|string
+     * @throws \PhpOffice\PhpSpreadsheet\Exception
+     */
     public function parse()
     {
         $this->excelFile = UploadedFile::getInstance($this, 'excelFile');
@@ -36,6 +47,7 @@ class EventInvitationsUpload extends Model
                 $highestRow = $worksheet->getHighestDataRow();
                 // $highestColumn = $worksheet->getHighestColumn();
                 // $highestColumnIndex = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::columnIndexFromString($highestColumn);
+                $rows = [];
                 for ($r = 2; $r <= $highestRow; ++$r) { // Skip first row
                     $rows[] = [
                         'email' => $worksheet->getCellByColumnAndRow(3, $r)->getValue(),
@@ -53,7 +65,10 @@ class EventInvitationsUpload extends Model
         }
     }
 
-   public function attributeLabels()
+    /**
+     * @inheritdoc
+     */
+    public function attributeLabels()
     {
         return [
             'excelFile' => AmosEvents::txt('#invitations_excel_file'),
