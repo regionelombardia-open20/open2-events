@@ -25,4 +25,15 @@ use open20\amos\events\AmosEvents;
 
 Partecipi? <a href="<?= $url_yes ?>">Sì</a>, <a href="<?= $url_no ?>">no</a>
 
+<br><br>
 
+<?php if(isset(\Yii::$app->params['googleApi'])): ?>
+<a href="<?= \yii\helpers\Url::to(['/events/wallet/save-to-google', 'id' => $event->id], 'https'); ?>">
+    <?= AmosEvents::t('amosevents', 'Save To Google Pay'); ?>
+</a>
+<?php endif; ?>
+<?php if(isset(\Yii::$app->params['appleApi'])): ?>
+<a href="<?= \yii\helpers\Url::to(['/events/wallet/save-to-ios', 'id' => $event->id], 'https'); ?>">
+    <?= AmosEvents::t('amosevents', 'Save To Apple Wallet'); ?>
+</a>
+<?php endif; ?>

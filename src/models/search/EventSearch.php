@@ -11,6 +11,8 @@
 
 namespace open20\amos\events\models\search;
 
+use open20\amos\community\AmosCommunity;
+use open20\amos\community\models\Community;
 use open20\amos\community\models\CommunityUserMm;
 use open20\amos\core\interfaces\CmsModelInterface;
 use open20\amos\core\interfaces\SearchModelInterface;
@@ -275,6 +277,35 @@ class EventSearch extends Event implements SearchModelInterface, CmsModelInterfa
     }
 
     /**
+     * Search the events the logged user is subscribed to.
+     *
+     * @param array $params $_GET search parametrs
+     * @param int|null $limit Query limit
+     * @return ActiveDataProvider
+     */
+    public function searchSubscribedEvents($params, $limit = null)
+    {
+        /** @var AmosCommunity $communityModule */
+        $communityModule = AmosCommunity::instance();
+
+        /** @var Community $communityModel */
+        $communityModel = $communityModule->createModel('Community');
+        $communityTable = $communityModel::tableName();
+        $communityUserMmTable = CommunityUserMm::tableName();
+
+        $dataProvider = $this->search($params, 'all', $limit);
+        $dataProvider->query->innerJoin($communityTable, $communityTable . '.id = ' . self::tableName() . '.community_id');
+        $dataProvider->query->innerJoin($communityUserMmTable, $communityUserMmTable . '.community_id = ' . self::tableName() . '.community_id');
+        $dataProvider->query->andWhere([$communityTable . '.deleted_at' => null]);
+        $dataProvider->query->andWhere([$communityUserMmTable . '.deleted_at' => null]);
+        $dataProvider->query->andWhere([$communityUserMmTable . '.user_id' => Yii::$app->user->id]);
+        $dataProvider->query->andWhere([$communityUserMmTable . '.status' => CommunityUserMm::STATUS_ACTIVE]);
+        $dataProvider->query->andWhere([$communityUserMmTable . '.role' => $this->getBaseRole()]);
+
+        return $dataProvider;
+    }
+
+    /**
      * Search for events visible by the logged user and published on the calendar
      *
      * @param array $params $_GET search parametrs
@@ -329,8 +360,8 @@ class EventSearch extends Event implements SearchModelInterface, CmsModelInterfa
             $moduleCwh->setCwhScopeFromSession();
             $cwhActiveQuery = new CwhActiveQuery(
                 $classname, [
-                'queryBase' => $query
-            ]
+                    'queryBase' => $query
+                ]
             );
         }
 
@@ -547,7 +578,7 @@ class EventSearch extends Event implements SearchModelInterface, CmsModelInterfa
      * CmsModelInterface
      **/
 
-     /**
+    /**
      * get the query used by the related searchHomepageNews method
      * return just the query in case data provider/query itself needs editing
      *
@@ -565,14 +596,14 @@ class EventSearch extends Event implements SearchModelInterface, CmsModelInterfa
             ])
             ->andWhere(['<=', 'publication_date_begin', $now])
             ->andWhere(['or',
-                ['>=', 'publication_date_end', $now],
-                ['publication_date_end' => null]]
+                    ['>=', 'publication_date_end', $now],
+                    ['publication_date_end' => null]]
             );
 
         return $query;
     }
 
-     /**
+    /**
      * Search method useful to retrieve news to show in frontend (with cms)
      *
      * @param $params

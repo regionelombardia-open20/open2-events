@@ -1,5 +1,4 @@
 <?php
-
 /**
  * Aria S.p.A.
  * OPEN 2.0
@@ -14,9 +13,8 @@ namespace open20\amos\events\widgets\icons;
 use open20\amos\core\widget\WidgetIcon;
 use open20\amos\core\widget\WidgetAbstract;
 use open20\amos\core\icons\AmosIcons;
-
 use open20\amos\events\AmosEvents;
-
+use open20\amos\utility\models\BulletCounters;
 use Yii;
 use yii\helpers\ArrayHelper;
 
@@ -57,37 +55,15 @@ class WidgetIconEvents extends WidgetIcon
 
         $this->setClassSpan(
             ArrayHelper::merge(
-                $this->getClassSpan(),
-                $paramsClassSpan
+                $this->getClassSpan(), $paramsClassSpan
             )
         );
 
         if ($this->disableBulletCounters == false) {
+            $widgetAll = \Yii::createObject(['class' => WidgetIconAllEvents::className(), 'saveMicrotime' => false]);
             $this->setBulletCount(
-                $this->makeBulletCounter(
-                    Yii::$app->getUser()->getId()
-                )
+                $widgetAll->getBulletCount()
             );
         }
     }
-
-    /**
-     * 
-     * @param type $userId
-     * @param type $className
-     * @param type $externalQuery
-     * @return type
-     */
-    public function makeBulletCounter($userId = null, $className = null, $externalQuery = null)
-    {
-//        $widgetAll = new WidgetIconEventOwnInterest();
-//        $widgetCreatedBy = new WidgetIconEventsCreatedBy();
-//
-//        return $widgetAll->getBulletCount() + $widgetCreatedBy->getBulletCount();
-
-        $widgetAll = new WidgetIconAllEvents();
-
-        return $widgetAll->getBulletCount();
-    }
-
 }

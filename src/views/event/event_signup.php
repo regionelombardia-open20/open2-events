@@ -11,6 +11,7 @@
 
 use open20\amos\core\forms\ActiveForm;
 use open20\amos\core\helpers\Html;
+use open20\amos\core\icons\AmosIcons;
 use open20\amos\events\AmosEvents;
 use yii\bootstrap\Alert;
 
@@ -53,20 +54,38 @@ $getData = Yii::$app->request->get();
 
     <div class="header-form_caption">
         <div class="form_caption_date text-center">
-
-            <h2 class="event-day"><?= date("d", strtotime($event->begin_date_hour)) ?></h2>
+            <?php $beginDateHourTimeStamp = strtotime($event->begin_date_hour); ?>
+            <h2 class="event-day"><?= date("d", $beginDateHourTimeStamp) ?></h2>
             <p class="event-month"><?= Yii::$app->formatter->asDate($event->begin_date_hour, 'MMM') ?></p>
-            <p class="event-year"><?= date("Y", strtotime($event->begin_date_hour)) ?></p>
+            <p class="event-year"><?= date("Y", $beginDateHourTimeStamp) ?></p>
+            <?php if ($event->begin_date_hour): ?>
+                <p class="event-year"><?= Yii::$app->getFormatter()->asTime($event->begin_date_hour) ?></p>
+            <?php endif; ?>
 
             <!--                    < ?= \Yii::$app->getFormatter()->asDatetime($event->begin_date_hour) ?> <br>-->
             <!--                    < ?= ($event->end_date_hour ? \Yii::$app->getFormatter()->asDatetime($event->end_date_hour) : '-') ?> <br>-->
         </div>
-        <div class="form_caption_title">
-            <span><?= ($event->cityLocation) ? $event->cityLocation->nome : '-' ?> </span> <span> | </span>
-            <span><?= ($event->countryLocation) ? $event->countryLocation->nome : '-' ?></span>
+        <div class="form_caption_title event-network-container">
             <h2><?= $event->title ?></h2>
             <!--                    <p>< ?= $event->summary ?></p>-->
             <!--                    <p>< ?= $event->description ?></p>-->
+            <div class="control-address"><div class="pointer"><?= AmosIcons::show('map-marker', ['class' => 'am-2'], AmosIcons::DASH) ?></div></div>
+            <p class="boxed-data">
+                <?php
+                $eventLocation = '-';
+                if ($event->event_location) {
+                    if ($event->hasMethod('getShortEventLocation')) {
+                        $eventLocation = $event->getShortEventLocation();
+                    } else {
+                        $eventLocation = $event->event_location;
+                    }
+                }
+                ?>
+                <span class="bold"><?= $eventLocation ?></span>
+            </p>
+            <p class="boxed-data">
+                <span><?= $event->getCompleteAddress() ?></span>
+            </p>
         </div>
     </div>
 

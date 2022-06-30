@@ -12,6 +12,7 @@ namespace open20\amos\events\models;
 
 use open20\amos\admin\models\UserProfile;
 use open20\amos\admin\utility\UserProfileUtility;
+use open20\amos\core\helpers\Html;
 use open20\amos\core\utilities\DuplicateContentUtility;
 use open20\amos\notificationmanager\behaviors\NotifyBehavior;
 use open20\amos\seo\behaviors\SeoContentBehavior;
@@ -806,14 +807,54 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
         if ($this->event_address) {
             $address .= $this->event_address;
             if ($this->event_address_house_number) {
-                $address .= ' '.$this->event_address_house_number;
+                $address .= ', ' . $this->event_address_house_number;
             }
         }
         if ($this->event_address_cap) {
-            $address .= ($this->event_address ? ', ' : ' ').$this->event_address_cap;
+            $address .= ($this->event_address ? ', ' : ' ') . $this->event_address_cap;
         }
+        $cityProvinceText = '';
         if (!is_null($this->cityLocation)) {
-            $address .= (strlen($address) > 0 ? ' ' : '').$this->cityLocation->nome;
+            $cityProvinceText .= (strlen($address) > 0 ? ' ' : '') . $this->cityLocation->nome;
+        }
+        if (!is_null($this->provinceLocation)) {
+            $cityProvinceText .= ((strlen($cityProvinceText) > 0) ? ' (' . $this->provinceLocation->sigla . ')' : $this->provinceLocation->nome);
+        }
+        $address .= $cityProvinceText;
+        if (!is_null($this->countryLocation)) {
+            $address .= (strlen($address) > 0 ? ', ' : '') . $this->countryLocation->nome;
+        }
+        return $address;
+    }
+
+    /**
+     * @return string
+     */
+    public function getCompleteAddressForView()
+    {
+        $address = '';
+        if ($this->event_address) {
+            $addressAndNumber = $this->event_address;
+            if ($this->event_address_house_number) {
+                $addressAndNumber .= ', ' . $this->event_address_house_number;
+            }
+            $address = Html::tag('span', $addressAndNumber);
+        }
+        if ($this->event_address_cap) {
+            $address .= Html::tag('span', ((strlen($address) > 0) ? ', ' : ' ') . $this->event_address_cap) . ' ';
+        }
+        $cityProvinceText = '';
+        if (!is_null($this->cityLocation)) {
+            $cityProvinceText = $this->cityLocation->nome;
+        }
+        if (!is_null($this->provinceLocation)) {
+            $cityProvinceText .= ((strlen($cityProvinceText) > 0) ? ' (' . $this->provinceLocation->sigla . ')' : $this->provinceLocation->nome);
+        }
+        if (strlen($cityProvinceText) > 0) {
+            $address .= Html::tag('span', $cityProvinceText);
+        }
+        if (!is_null($this->countryLocation)) {
+            $address .= Html::tag('span', ((strlen($cityProvinceText) > 0) ? ', ' : ' ') . $this->countryLocation->nome) . ' ';
         }
         return $address;
     }

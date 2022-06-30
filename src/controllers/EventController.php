@@ -100,6 +100,7 @@ class EventController extends base\EventController
                             'actions' => [
                                 'own-interest',
                                 'all-events',
+                                'subscribed-events',
                                 'download-import-file-example'
                             ],
                             'roles' => ['EVENTS_READER']
@@ -432,6 +433,34 @@ class EventController extends base\EventController
     }
 
     /**
+     * Lists all Event models.
+     * @return string
+     */
+    public function actionSubscribedEvents()
+    {
+        $moduleNotify = \Yii::$app->getModule('notify');
+        if ($moduleNotify) {
+            /** @var \open20\amos\notificationmanager\AmosNotify $moduleNotify */
+            $this->modelSearch->setNotifier($moduleNotify);
+        }
+        $this->setAvailableViews([
+            'grid' => [
+                'name' => 'grid',
+                'label' => AmosEvents::t('amosevents',
+                    '{tableIcon}'.Html::tag('p', AmosEvents::t('amosevents', 'Table')),
+                    [
+                        'tableIcon' => AmosIcons::show('view-list-alt')
+                    ]),
+                'url' => '?currentView=grid'
+            ]
+        ]);
+        $this->setCurrentView($this->getAvailableView('grid'));
+        $this->setDataProvider($this->modelSearch->searchSubscribedEvents(Yii::$app->request->getQueryParams()));
+
+        return $this->baseListsAction(AmosEvents::t('amosevents', '#subscribed_events'));
+    }
+
+    /**
      * @return string|\yii\web\Response
      * @throws \yii\base\InvalidConfigException
      */
@@ -728,8 +757,8 @@ class EventController extends base\EventController
         $communityId = $event->community_id;
 
         $defaultAction = [
-            '/events/event/associate-user-to-event-m2m', 
-            'id' => $userProfile->id, 
+            '/events/event/associate-user-to-event-m2m',
+            'id' => $userProfile->id,
             'viewM2MWidgetGenericSearch' => true
         ];
 
@@ -756,10 +785,10 @@ class EventController extends base\EventController
             ? CommunityUserMm::STATUS_ACTIVE
             : CommunityUserMm::STATUS_WAITING_OK_COMMUNITY_MANAGER
         ;
-        
+
         $communityUserMm->status = $status;
         $communityUserMm->role = Event::EVENT_PARTICIPANT;
-        
+
         $ok = $communityUserMm->save();
         if ($ok) {
             $event->community->setCwhAuthAssignments($communityUserMm);
@@ -781,7 +810,7 @@ class EventController extends base\EventController
             ? '#user_forced_user_to_event_email_subject'
             : '#user_invite_user_to_event_email_subject'
         ;
-        
+
         $subject = AmosEvents::t('amosevents', $subjectMessage, [
             'nameSurname' => $loggedUser->userProfile->nomeCognome,
             'eventTitle' => $event->title
@@ -990,11 +1019,11 @@ class EventController extends base\EventController
         $eventModel = $this->eventsModule->createModel('Event');
         $event      = $eventModel::findOne(['id' => $eid]);
 
+        // Sets sender
+        $from = $this->getFromMail($event);
+
         foreach ($rows as $r => $row) {
             try {
-                // Sets sender
-                $from = $this->getFromMail($event);
-
                 EventMailUtility::setLayoutMail($event->email_ticket_layout_custom);
                 if ($this->eventsModule->enableAutoInviteUsers && ($row['type'] == EventInvitation::INVITATION_TYPE_REGISTERED)) {
                     $user           = User::findOne($row['user_id']);

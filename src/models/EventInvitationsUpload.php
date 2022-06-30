@@ -22,7 +22,7 @@ class EventInvitationsUpload extends Model
     public function rules()
     {
         return [
-            [['excelFile'], 'file', 'extensions' => 'xls, xlsx'],
+            [['excelFile'], 'file', 'extensions' => 'xls, xlsx', 'checkExtensionByMimeType' => false],
         ];
     }
     

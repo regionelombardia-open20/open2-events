@@ -379,6 +379,17 @@ class EventController extends CrudController
     }
 
     /**
+     * Override this method to make operations after the creation
+     * of a new Event model in the create and create-ajax actions.
+     * @param Event $model
+     * @return Event
+     */
+    protected function afterCreateNewEventModel($model)
+    {
+        return $model;
+    }
+
+    /**
      * Creates a new Event model.
      * If creation is successful, the browser will be redirected to the 'view' page.
      * @return mixed
@@ -397,7 +408,8 @@ class EventController extends CrudController
             $model = $this->eventsModule->createModel('Event', ['scenario' => Event::SCENARIO_CREATE]);
             $model->setScenario(Event::SCENARIO_CREATE);
         }
-        
+
+        $model = $this->afterCreateNewEventModel($model);
         $model->detachBehavior('seoBehavior');
 
         if ($model->load(Yii::$app->request->post()) && $model->validate()) {
@@ -453,6 +465,8 @@ class EventController extends CrudController
 
         /** @var Event $model */
         $model = $this->eventsModule->createModel('Event', ['scenario' => Event::SCENARIO_CREATE]);
+
+        $model = $this->afterCreateNewEventModel($model);
 
         if (\Yii::$app->request->isAjax && $model->load(Yii::$app->request->post()) && $model->validate()) {
             if ($model->save()) {

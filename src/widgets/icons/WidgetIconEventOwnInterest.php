@@ -1,5 +1,4 @@
 <?php
-
 /**
  * Aria S.p.A.
  * OPEN 2.0
@@ -12,10 +11,10 @@
 namespace open20\amos\events\widgets\icons;
 
 use open20\amos\core\widget\WidgetIcon;
-
 use open20\amos\events\AmosEvents;
-use open20\amos\events\models\search\EventSearch;
-
+//use open20\amos\events\models\Event;
+//use open20\amos\events\models\search\EventSearch;
+use open20\amos\utility\models\BulletCounters;
 use Yii;
 use yii\helpers\ArrayHelper;
 
@@ -25,6 +24,7 @@ use yii\helpers\ArrayHelper;
  */
 class WidgetIconEventOwnInterest extends WidgetIcon
 {
+
     /**
      * @inheritdoc
      */
@@ -32,8 +32,6 @@ class WidgetIconEventOwnInterest extends WidgetIcon
     {
         parent::init();
 
-        $this->setLabel(AmosEvents::t('amosevents', 'Own Interest Events'));
-        $this->setDescription(AmosEvents::t('amosevents', 'Own Interest Events'));
         $this->setLabel(AmosEvents::t('amosevents', '#widget_icon_event_own_interest_label'));
         $this->setDescription(AmosEvents::t('amosevents', '#widget_icon_event_own_interest_description'));
         $this->setIcon('calendar');
@@ -46,22 +44,18 @@ class WidgetIconEventOwnInterest extends WidgetIcon
             ArrayHelper::merge(
                 $this->getClassSpan(),
                 [
-                    'bk-backgroundIcon',
-                    'color-lightPrimary'
+                'bk-backgroundIcon',
+                'color-lightPrimary'
                 ]
             )
         );
 
+        // Read and reset counter from bullet_counters table, bacthed calculated!
         if ($this->disableBulletCounters == false) {
-            /** @var AmosEvents $eventsModule */
-            $eventsModule = AmosEvents::instance();
-            /** @var EventSearch $search */
-            $search = $eventsModule->createModel('EventSearch');
             $this->setBulletCount(
-                $this->makeBulletCounter(
-                    Yii::$app->getUser()->getId(),
-                    $eventsModule->model('Event'),
-                    $search->buildQuery([], 'own-interest')
+                BulletCounters::getAmosWidgetIconCounter(
+                    Yii::$app->getUser()->getId(), AmosEvents::getModuleName(), $this->getNamespace(),
+                    $this->resetBulletCount(), WidgetIconAllEvents::className()
                 )
             );
         }

@@ -750,9 +750,14 @@ class CommunityEventMembersWidget extends Widget
 
             if($joinQueryForCompanions) {
                 $query->union($queryForCompanions->createCommand()->rawSql);
-            }
+            } 
 
         }
+
+//        if(empty(Yii::$app->request->getQueryParams()['sort'])){
+//            $query->orderBy("user_profile.cognome, user_profile.nome");
+//        }
+        
         $contextObject = $model;
         $community = $model->getCommunityModel();
         $roles = $contextObject->getContextRoles();

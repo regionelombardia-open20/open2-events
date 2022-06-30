@@ -30,6 +30,7 @@ use open20\amos\events\models\search\EventTypeSearch;
 use open20\amos\events\utility\EventsUtility;
 use open20\amos\workflow\widgets\WorkflowTransitionButtonsWidget;
 use open20\amos\workflow\widgets\WorkflowTransitionStateDescriptorWidget;
+use kartik\alert\Alert;
 use kartik\datecontrol\DateControl;
 use kartik\grid\GridView;
 use kartik\select2\Select2;
@@ -1051,7 +1052,11 @@ WorkflowTransitionStateDescriptorWidget::widget([
             <?php else: ?>
                 <div class="row">
                     <div class="col-xs-12">
-                        <?= AmosEvents::t('amosevents', '#import_if_published_message'); ?>
+                        <?= Alert::widget([
+                            'type' => Alert::TYPE_WARNING,
+                            'body' => AmosEvents::t('amosevents', '#import_if_published_message'),
+                            'closeButton' => false
+                        ]); ?>
                     </div>
                 </div>
             <?php endif; ?>

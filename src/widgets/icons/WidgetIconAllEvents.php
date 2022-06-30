@@ -1,5 +1,4 @@
 <?php
-
 /**
  * Aria S.p.A.
  * OPEN 2.0
@@ -14,10 +13,10 @@ namespace open20\amos\events\widgets\icons;
 use open20\amos\core\widget\WidgetIcon;
 use open20\amos\core\widget\WidgetAbstract;
 use open20\amos\core\icons\AmosIcons;
-
 use open20\amos\events\AmosEvents;
-use open20\amos\events\models\search\EventSearch;
-
+//use open20\amos\events\models\Event;
+//use open20\amos\events\models\search\EventSearch;
+use open20\amos\utility\models\BulletCounters;
 use Yii;
 use yii\helpers\ArrayHelper;
 
@@ -27,6 +26,7 @@ use yii\helpers\ArrayHelper;
  */
 class WidgetIconAllEvents extends WidgetIcon
 {
+
     /**
      * @inheritdoc
      */
@@ -39,8 +39,8 @@ class WidgetIconAllEvents extends WidgetIcon
             'color-primary'
         ];
 
-        $this->setLabel(AmosEvents::tHtml('amosevents', 'Tutti gli eventi'));
-        $this->setDescription(AmosEvents::t('amosevents', 'Visualizza tutti gli eventi'));
+        $this->setLabel(AmosEvents::tHtml('amosevents', '#widget_icon_all_events_label'));
+        $this->setDescription(AmosEvents::t('amosevents', '#widget_icon_all_events_description'));
 
         if (!empty(Yii::$app->params['dashboardEngine']) && Yii::$app->params['dashboardEngine'] == WidgetAbstract::ENGINE_ROWS) {
             $this->setIconFramework(AmosIcons::IC);
@@ -57,21 +57,16 @@ class WidgetIconAllEvents extends WidgetIcon
 
         $this->setClassSpan(
             ArrayHelper::merge(
-                $this->getClassSpan(),
-                $paramsClassSpan
+                $this->getClassSpan(), $paramsClassSpan
             )
         );
-  
-        if ($this->disableBulletCounters == false) {
-            /** @var AmosEvents $eventsModule */
-            $eventsModule = AmosEvents::instance();
-            /** @var EventSearch $search */
-            $search = $eventsModule->createModel('EventSearch');
+
+        // Read and reset counter from bullet_counters table, bacthed calculated!
+        if ($this->disableBulletCounters == false) {           
             $this->setBulletCount(
-                $this->makeBulletCounter(
-                    Yii::$app->getUser()->getId(),
-                    $eventsModule->model('Event'),
-                    $search->searchAllEvents([])->query
+                BulletCounters::getAmosWidgetIconCounter(
+                    Yii::$app->getUser()->getId(), AmosEvents::getModuleName(), $this->getNamespace(),
+                    $this->resetBulletCount(), null, WidgetIconEventOwnInterest::className(), $this->saveMicrotime
                 )
             );
         }
@@ -85,8 +80,7 @@ class WidgetIconAllEvents extends WidgetIcon
     public function getOptions()
     {
         return ArrayHelper::merge(
-            parent::getOptions(),
-            ['children' => []]
+                parent::getOptions(), ['children' => []]
         );
     }
 }

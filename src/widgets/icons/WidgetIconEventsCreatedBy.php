@@ -1,5 +1,4 @@
 <?php
-
 /**
  * Aria S.p.A.
  * OPEN 2.0
@@ -22,6 +21,7 @@ use yii\helpers\ArrayHelper;
  */
 class WidgetIconEventsCreatedBy extends WidgetIcon
 {
+
     /**
      * @inheritdoc
      */
@@ -41,26 +41,10 @@ class WidgetIconEventsCreatedBy extends WidgetIcon
             ArrayHelper::merge(
                 $this->getClassSpan(),
                 [
-                    'bk-backgroundIcon',
-                    'color-lightPrimary'
+                'bk-backgroundIcon',
+                'color-lightPrimary'
                 ]
             )
         );
-
-//        /** @var AmosEvents $eventsModule */
-//        $eventsModule = AmosEvents::instance();
-//        /** @var EventSearch $search */
-//        $search = $eventsModule->createModel('EventSearch');
-//        $dataProvider = $search->searchCreatedBy([]);
-//        /** @var AmosEvents $eventsModule */
-//        $eventsModule = AmosEvents::instance();
-//
-//        $this->setBulletCount(
-//            $this->makeBulletCounter(
-//                Yii::$app->getUser()->getId(),
-//                $eventsModule->model('Event'),
-//                $dataProvider->query
-//            )
-//        );
     }
 }
