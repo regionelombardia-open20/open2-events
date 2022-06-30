@@ -154,6 +154,21 @@ class AmosEvents extends AmosModule implements ModuleInterface, SearchModuleInte
     public $actionCreatedByOnlyViewGrid = false;
 
     /**
+     * @var bool
+     */
+    public $enableCalendarsManagement = false;
+
+    /**
+     * @var bool $forceEventSubscription if true the user is immediatly subscribed to event
+     */
+    public $forceEventSubscription = false;
+
+    /**
+     * @var bool $viewEventSignupLinkInForm If true enable a read only field that show the event sign-up generic link
+     */
+    public $viewEventSignupLinkInForm = false;
+
+    /**
      * @inheritdoc
      */
     public static function getModuleName()

@@ -1,14 +1,9 @@
 <?php
-
 /**
- * Aria S.p.A.
- * OPEN 2.0
- *
- *
- * @package    Open20Package
- * @category   CategoryName
- */
-/**
+ * Created by PhpStorm.
+ * User: michele.lafrancesca
+ * Date: 04/10/2019
+ * Time: 15:39
  */
 
 namespace open20\amos\events\models;

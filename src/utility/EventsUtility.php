@@ -399,7 +399,7 @@ class EventsUtility
         if ($type == 'participant') {
             if ($event && $invitation) {
                 $url = Url::base(true) . Url::toRoute(['register-participant', 'eid' => $event->id,
-                        'pid' => $invitation->user_id, 'iid' => $invitation->id]);
+                        'pid' => (empty($invitation->user_id)? '' : $invitation->user_id), 'iid' => $invitation->id]);
             }
         } elseif ($type == 'companion') {
             if ($event && $invitation) {
@@ -599,5 +599,34 @@ class EventsUtility
                 EventsUtility::checkManager($model)
             )
         );
+    }
+
+    /**
+     * @param $event_id
+     * @param $user_id
+     * @return mixed
+     * @throws \yii\base\InvalidConfigException
+     */
+    public static function isEventParticipant($event_id, $user_id){
+        $event = Event::findOne($event_id);
+        if($event){
+            $count = CommunityUserMm::find()
+                ->andWhere(['community_id' => $event->community_id])
+                ->andWhere(['user_id' => $user_id])
+                ->andWhere(['status' => CommunityUserMm::STATUS_ACTIVE])->count();
+        }
+        return $count;
+    }
+
+    /**
+     * @param $event_calendars_id
+     * @return bool
+     * @throws \yii\base\InvalidConfigException
+     */
+    public static function isLoggedUserPartner($event_calendars_id){
+        $count = \open20\amos\events\models\EventCalendars::find()
+            ->andWhere(['partner_user_id' => \Yii::$app->user->id])
+            ->andWhere(['id' => $event_calendars_id])->count();
+        return $count > 0;
     }
 }

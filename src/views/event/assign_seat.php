@@ -1,13 +1,4 @@
 <?php
-
-/**
- * Aria S.p.A.
- * OPEN 2.0
- *
- *
- * @package    Open20Package
- * @category   CategoryName
- */
 /** @var $modelForm \open20\amos\events\models\FormAssignSeat
  * @var $model \open20\amos\events\models\Event
  */

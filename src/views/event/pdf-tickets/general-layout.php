@@ -1,13 +1,4 @@
-<?php
-
-/**
- * Aria S.p.A.
- * OPEN 2.0
- *
- *
- * @package    Open20Package
- * @category   CategoryName
- */ $dateBegin = new \DateTime($eventData->begin_date_hour);?>
+<?php $dateBegin = new \DateTime($eventData->begin_date_hour);?>
 <?php $dateEnd = new \DateTime($eventData->end_date_hour);?>
 <table cellpadding="0" cellspacing="0" border="0" height="100%" width="100%" bgcolor="#e0e0e0" style="border-collapse: collapse;-ms-text-size-adjust: 100%;-webkit-text-size-adjust: 100%;mso-table-lspace: 0pt !important;mso-table-rspace: 0pt !important;border-spacing: 0 !important;table-layout: fixed !important;margin: 0 auto !important;">
     <tr style="-ms-text-size-adjust: 100%;-webkit-text-size-adjust: 100%;">

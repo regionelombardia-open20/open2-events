@@ -348,6 +348,11 @@ WorkflowTransitionStateDescriptorWidget::widget([
         <div>
             <h4><strong><?= $model->getAttributeLabel('eventType') ?>:</strong> <?= $eventTypePresent ? $eventType->title : '-' ?></h4>
         </div>
+        <?php if ($moduleEvents->viewEventSignupLinkInForm && ($model->status == Event::EVENTS_WORKFLOW_STATUS_PUBLISHED)): ?>
+            <div>
+                <h4><strong><?= AmosEvents::t('amosevents', '#external_link_register') ?>:</strong> <?= Url::base(true) . Url::toRoute(['event-signup', 'eid' => $model->id]); ?></h4>
+            </div>
+        <?php endif; ?>
         <div class="row">
             <div class="col-md-8 col-xs-12">
                 <?= $this->render('boxes/box_custom_fields_begin', ['form' => $form, 'model' => $model]); ?>
@@ -650,6 +655,7 @@ WorkflowTransitionStateDescriptorWidget::widget([
                 <?php endif; ?>
             <?php } ?>
 
+
             <div class="col-lg-4 col-sm-4">
                 <?=
                 $form->field($model, 'has_qr_code')->dropDownList(
@@ -658,6 +664,17 @@ WorkflowTransitionStateDescriptorWidget::widget([
                 )
                 ?>
             </div>
+
+            <?php if ($moduleEvents->enableCalendarsManagement): ?>
+                <div id="container-seats-management" class="col-lg-4 col-sm-4">
+                    <?=
+                    $form->field($model, 'slots_calendar_management')->dropDownList(
+                        Html::getBooleanFieldsValues(),
+                        ['prompt' => AmosEvents::t('amosevents', 'Select/Choose' . '...'), 'disabled' => false,]
+                    )
+                    ?>
+                </div>
+            <?php endif; ?>
 
 
         </div>
@@ -813,6 +830,41 @@ WorkflowTransitionStateDescriptorWidget::widget([
         <div class="row">
             <div class="col-xs-12">
                 <?= $form->field($model, 'email_subscribe_view')->textInput() ?>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-xs-12">
+                <?= $form->field($model, 'sent_credential')->checkbox([0 => AmosEvents::t('amosevents', 'Non inviare credenziali'), 1 => AmosEvents::t('amosevents', 'Invia credenziali')]) ?>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-xs-12">
+                <?= $form->field($model, 'email_credential_view')->textInput() ?>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-xs-12">
+                <?= $form->field($model, 'email_credential_subject')->textInput() ?>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-xs-12">
+                <?= $form->field($model, 'email_invitation_custom')->textInput() ?>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-xs-12">
+                <?= $form->field($model, 'thank_you_page_already_registered_view')->textInput() ?>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-xs-12">
+                <?= $form->field($model, 'use_token')->checkbox([0 => AmosEvents::t('amosevents', 'Non usare token di accesso'), 1 => AmosEvents::t('amosevents', 'Usa token di accesso')]) ?>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-xs-12">
+                <?= $form->field($model, 'token_group_string_code')->textInput() ?>
             </div>
         </div>
         <?php $this->endBlock(); ?>

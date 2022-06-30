@@ -66,6 +66,8 @@ if ($eventsModule->enableAutoInviteUsers) {
 
 // $communityPresent = ($model->event_management && !is_null($model->community) && is_null($model->community->deleted_at));
 $communityPresent = (!is_null($model->community) && is_null($model->community->deleted_at));
+$enableCalendarsManagement = $eventsModule->enableCalendarsManagement;
+$hasPrivilegesLoggedUser = EventsUtility::hasPrivilegesLoggedUser($model);
 
 $this->registerJs(<<<JS
     $(document).on("pjax:timeout", function(event) {
@@ -238,12 +240,12 @@ JS
                     <div class="col-xs-12">
                         <?php
                         $showButton = (
-                                $communityPresent &&
-                                ($model->status == Event::EVENTS_WORKFLOW_STATUS_PUBLISHED) &&
-                                (
-                                    (!$eventsModule->enableAutoInviteUsers && ($model->event_type_id != EventType::TYPE_UPON_INVITATION)) ||
-                                    ($eventsModule->enableAutoInviteUsers && !is_null($loggedUserRegisteredInvitation) && ($model->event_type_id != EventType::TYPE_INFORMATIVE))
-                                )
+                            $communityPresent &&
+                            ($model->status == Event::EVENTS_WORKFLOW_STATUS_PUBLISHED) &&
+                            (
+                                (!$eventsModule->enableAutoInviteUsers && ($model->event_type_id != EventType::TYPE_UPON_INVITATION)) ||
+                                ($eventsModule->enableAutoInviteUsers && !is_null($loggedUserRegisteredInvitation) && ($model->event_type_id != EventType::TYPE_INFORMATIVE))
+                            )
                         ); //&& $model->show_community);
                         $showButtonSignup = ($communityPresent && ($model->status == Event::EVENTS_WORKFLOW_STATUS_PUBLISHED) && $model->has_tickets);
                         $button = [
@@ -393,7 +395,9 @@ JS
     ];
     ?>
 
-    <?php $this->beginBlock('organization'); ?>
+    <?php
+if(\Yii::$app->user->can('ADMIN')){
+	$this->beginBlock('organization'); ?>
     <div class="col-xs-12 nop">
         <h3><?= AmosIcons::show('info-outline') ?><?= AmosEvents::tHtml('amosevents', 'Event Organization') ?></h3>
         <div class="col-sm-6">
@@ -433,9 +437,12 @@ JS
         'content' => $this->blocks['organization'],
         'options' => ['id' => 'tab-organization'],
     ];
+}
     ?>
 
-    <?php $this->beginBlock('attachments'); ?>
+    <?php
+if(!empty($model->eventAttachments)){
+	$this->beginBlock('attachments');?>
     <div class="attachments col-xs-12 nop">
         <!-- TODO sostituire il tag h3 con il tag p e applicare una classe per ridimensionare correttamente il testo per accessibilità -->
         <h3><?= AmosEvents::tHtml('amosevents', 'Attachments') ?></h3>
@@ -448,11 +455,13 @@ JS
     <?php $this->endBlock(); ?>
 
     <?php
+
     $itemsTab[] = [
         'label' => AmosEvents::t('amosevents', 'Attachments'),
         'content' => $this->blocks['attachments'],
         'options' => ['id' => 'tab-attachments'],
     ];
+}
     ?>
 
     <?php $this->beginBlock('publication'); ?>
@@ -523,6 +532,119 @@ JS
     //    ];
     ?>
 
+    <?php
+    if ($model->slots_calendar_management && (EventsUtility::isEventParticipant($model->id, \Yii::$app->user->id) || $hasPrivilegesLoggedUser)) {
+        $this->beginBlock('calendars'); ?>
+        <div class="attachments col-xs-12 nop">
+            <div class="col-xs-12">
+                <h3><?= AmosEvents::tHtml('amosevents', 'Calendars') ?></h3>
+            </div>
+            <?php if ($hasPrivilegesLoggedUser) { ?>
+                <div class="col-xs-12">
+                    <?php echo \yii\helpers\Html::a(AmosEvents::t('amosevents', "Aggiungi calendario"), ['/events/event-calendars/create', 'id' => $model->id], [
+                        'class' => 'btn btn-primary pull-left'
+                    ]) ?>
+                </div>
+            <?php } ?>
+            <div class="col-xs-12">
+                <?php echo AmosGridView::widget([
+                    'dataProvider' => $dataProviderSlots,
+                    'columns' => [
+                        [
+                            'attribute' => 'group',
+                            'group' => true,
+                            'format' => 'html',
+                            'label' => AmosEvents::t('amosevents', 'Area'),
+                        ],
+                        [
+                            'attribute' => 'title',
+                            'label' => AmosEvents::t('amosevents', 'Progetto'),
+                            'format' => 'html',
+                        ],
+                        [
+                            'attribute' => 'short_description',
+                            'label' => AmosEvents::t('amosevents', 'Partner'),
+							'format' => 'html',
+                        ],
+//                        [
+//                            'value' => function ($model) {
+//                                return $model->getTotNumberSlots();
+//                            },
+//                            'label' => AmosEvents::t('amosevents', 'Number of slot')
+//                        ],
+                        [
+                            'value' => function ($model) {
+                                return $model->getNumberEmptySlots();
+                            },
+                            'label' => AmosEvents::t('amosevents', 'Number of available slot')
+                        ],
+                        [
+                            'controller' => 'event-calendars',
+                            'class' => ActionColumn::className(),
+                            'template' => '{view}{update}{delete}',
+                            'buttons' => [
+                                'view' => function ($url, $model) {
+                                    return Html::a(AmosIcons::show('calendar-check-o', [], 'dash'), $url, [
+                                        'class' => 'btn btn-tools-secondary',
+                                        'title' => AmosEvents::t('amosevents', "Vedi/Prenota slot")
+                                    ]);
+                                },
+                                'update' => function ($url, $model) use ($hasPrivilegesLoggedUser) {
+                                    if ($hasPrivilegesLoggedUser) {
+                                        return Html::a(AmosIcons::show('edit'), $url, [
+                                            'class' => 'btn btn-tools-secondary',
+                                            'title' => AmosEvents::t('amosevents', "Aggiorna calendario"),
+                                        ]);
+                                    }
+                                },
+                                'delete' => function ($url, $model) use ($hasPrivilegesLoggedUser) {
+                                    if ($hasPrivilegesLoggedUser) {
+                                        return Html::a(AmosIcons::show('delete'), $url, [
+                                            'class' => 'btn btn-danger-inverse',
+                                            'data-confirm' => AmosEvents::t('amosevents', "Sei sicuro di eliminare l'intero calendario?"),
+                                            'title' => AmosEvents::t('amosevents', "Elimina calendario"),
+
+                                        ]);
+                                    }
+                                },
+                            ]
+                        ]
+                    ]
+                ]) ?>
+            </div>
+        </div>
+        <?php $this->endBlock();
+
+        $itemsTab[] = [
+            'label' => AmosEvents::t('amosevents', 'Calendars'),
+            'content' => $this->blocks['calendars'],
+            'options' => ['id' => 'tab-calendars'],
+        ];
+
+        $this->beginBlock('mybooking'); ?>
+
+        <?php
+        $modelSearch = new \open20\amos\events\models\search\EventCalendarsSlotsSearch();
+        $modelSearch->event = $model->id;
+        $dataProvider = $modelSearch->mySlotsAllSearch([]);
+        echo $this->render('../event-calendars-slots/my-booking', [
+            'event' => $model,
+            'dataProvider' => $dataProvider,
+        ]);
+        ?>
+
+        <?php $this->endBlock();
+        $itemsTab[] = [
+            'label' => AmosEvents::t('amosevents', 'My calendar'),
+            'content' => $this->blocks['mybooking'],
+            'options' => ['id' => 'tab-mybooking'],
+        ];
+
+    }
+    ?>
+
+
+
     <?php if ($model->seats_management && EventsUtility::hasPrivilegesLoggedUser($model)) { ?>
         <?php $this->beginBlock('seats_management'); ?>
         <div class="attachments col-xs-12 nop">
@@ -562,7 +684,7 @@ JS
                                 'value' => function ($model) use ($eventSeatsModel) {
                                     $count = $eventSeatsModel::find()
                                         ->andWhere(['sector' => $model['sector']])
-                                        ->andWhere(['event_id'=> $model['event_id']])
+                                        ->andWhere(['event_id' => $model['event_id']])
                                         ->groupBy('sector, [[row]]')->count();
                                     return ($count);
                                 },

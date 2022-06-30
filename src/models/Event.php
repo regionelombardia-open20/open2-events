@@ -1,5 +1,4 @@
 <?php
-
 /**
  * Aria S.p.A.
  * OPEN 2.0
@@ -33,6 +32,8 @@ use yii\db\Query;
 use yii\helpers\ArrayHelper;
 use yii\helpers\Url;
 use open20\amos\seo\interfaces\SeoModelInterface;
+use open20\amos\admin\models\TokenUsers;
+use open20\amos\admin\models\TokenGroup;
 
 /**
  * Class Event
@@ -42,14 +43,15 @@ use open20\amos\seo\interfaces\SeoModelInterface;
  *
  * @package open20\amos\events\models
  */
-class Event extends \open20\amos\events\models\base\Event implements ContentModelInterface, CommunityContextInterface, CommentInterface, ViewModelInterface, SeoModelInterface
+class Event extends \open20\amos\events\models\base\Event implements ContentModelInterface, CommunityContextInterface,
+    CommentInterface, ViewModelInterface, SeoModelInterface
 {
     /**
      * Constants for community roles
      */
-    const EVENT_MANAGER = 'EVENT_MANAGER';
+    const EVENT_MANAGER     = 'EVENT_MANAGER';
     const EVENT_PARTICIPANT = 'EVENT_PARTICIPANT';
-    const EVENTS_CHECK_IN = 'EVENTS_CHECK_IN';
+    const EVENTS_CHECK_IN   = 'EVENTS_CHECK_IN';
 
     /**
      * @var string
@@ -101,7 +103,6 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
      */
     private $landingHeader;
 
-
     /**
      * @inheritdoc
      */
@@ -116,10 +117,10 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
                     $this->registration_date_end = '9999-12-31';
                 }
                 $this->registration_date_begin = date('Y-m-d');
-            }     
+            }
         }
     }
-    
+
     /**
      * @inheritdoc
      */
@@ -152,38 +153,39 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
     public function afterFind()
     {
         parent::afterFind();
-        $this->eventLogo = $this->getEventLogo();
-        $this->eventAttachments = $this->getEventAttachments()->one();
+        $this->eventLogo                   = $this->getEventLogo();
+        $this->eventAttachments            = $this->getEventAttachments()->one();
         $this->eventAttachmentsForItemView = $this->getEventAttachments()->all();
-        $this->landingHeader = $this->getLandingHeader();
+        $this->landingHeader               = $this->getLandingHeader();
     }
 
     /**
      * @inheritdoc
      */
-    public function scenarios() {
+    public function scenarios()
+    {
         $scenarios = ArrayHelper::merge(
-                        parent::scenarios(),
-                        $this->wizardScenarios()
+                parent::scenarios(), $this->wizardScenarios()
         );
         return $scenarios;
     }
 
     public function behaviors()
     {
-        return ArrayHelper::merge(parent::behaviors(), [
-            'SeoContentBehavior' => [
-                'class' => SeoContentBehavior::className(),
-                'titleAttribute' => 'title',
-                'descriptionAttribute' => 'description',
-                'imageAttribute' => 'eventLogo',
-                'defaultOgType' => 'article',
-                'schema' => 'NewsArticle'
-            ],
-            'NotifyBehavior' => [
-                'class' => NotifyBehavior::className(),
-                'conditions' => []
-            ]
+        return ArrayHelper::merge(parent::behaviors(),
+                [
+                'SeoContentBehavior' => [
+                    'class' => SeoContentBehavior::className(),
+                    'titleAttribute' => 'title',
+                    'descriptionAttribute' => 'description',
+                    'imageAttribute' => 'eventLogo',
+                    'defaultOgType' => 'article',
+                    'schema' => 'NewsArticle'
+                ],
+                'NotifyBehavior' => [
+                    'class' => NotifyBehavior::className(),
+                    'conditions' => []
+                ]
         ]);
     }
 
@@ -255,7 +257,6 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
         return $this->eventLogo;
     }
 
-
     /**
      *
      * @param type $image
@@ -277,7 +278,6 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
         return $this->landingHeader;
     }
 
-
     /**
      *
      * @param type $image
@@ -293,7 +293,7 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
      */
     public function getEventAttachments()
     {
-        $query = $this->hasMultipleFiles('eventAttachments');
+        $query           = $this->hasMultipleFiles('eventAttachments');
         $query->multiple = false;
         return $query;
     }
@@ -303,62 +303,64 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
      */
     public function rules()
     {
-        
-        $rules = ArrayHelper::merge(parent::rules(), [
-            [['eventAttachments'], 'file', 'maxFiles' => 0],
-            [['eventLogo'], 'file', 'extensions' => 'jpeg, jpg, png, gif'],
-            ['seats_available', 'canChangeStatus'],
 
-            // [['eventLogo'], 'required', 'when' => function ($model) {
-            //     /** @var \open20\amos\events\models\Event $model */
-            //     if ($this->bypassEventLogoValidation) {
-            //         return false;
-            //     }
-            //     if (is_null($this->eventType)) {
-            //         return false;
-            //     }
-            //     return ($model->eventType->logoRequested == 1 ? true : false);
-            // }, 'whenClient' => "function (attribute, value) {
-            //     return " . (!is_null($this->eventType) ? $this->eventType->logoRequested : 0) . ";
-            // }"],
-
+        $rules = ArrayHelper::merge(parent::rules(),
+                [
+                [['eventAttachments'], 'file', 'maxFiles' => 0],
+                [['eventLogo'], 'file', 'extensions' => 'jpeg, jpg, png, gif'],
+                ['seats_available', 'canChangeStatus'],
+                // [['eventLogo'], 'required', 'when' => function ($model) {
+                //     /** @var \open20\amos\events\models\Event $model */
+                //     if ($this->bypassEventLogoValidation) {
+                //         return false;
+                //     }
+                //     if (is_null($this->eventType)) {
+                //         return false;
+                //     }
+                //     return ($model->eventType->logoRequested == 1 ? true : false);
+                // }, 'whenClient' => "function (attribute, value) {
+                //     return " . (!is_null($this->eventType) ? $this->eventType->logoRequested : 0) . ";
+                // }"],
 //            [['registration_date_begin', 'registration_date_end'], 'required', 'when' => function($model) {
 //                return (bool)($this->eventType && $this->eventType->event_type != EventType::TYPE_INFORMATIVE);
 //            }, 'whenClient' => 'function(attribute, value) { return ' . ($this->eventType && $this->eventType->event_type != EventType::TYPE_INFORMATIVE ? 'true' : 'false') . '}'],
-                    
-            
-            ['show_community', 'integer'],
-            ['show_on_frontend', 'integer'],
-            ['has_tickets', 'integer'],
-            ['has_qr_code', 'integer'],
-
-            ['gdpr_question_1', 'string'],
-            ['gdpr_question_2', 'string'],
-            ['gdpr_question_3', 'string'],
-            ['gdpr_question_4', 'string'],
-            ['gdpr_question_5', 'string'],
-            
-            // ['landingHeader', 'file', 'extensions' => 'jpeg, jpg, png, gif'],
+                ['show_community', 'integer'],
+                ['show_on_frontend', 'integer'],
+                ['has_tickets', 'integer'],
+                ['has_qr_code', 'integer'],
+                ['gdpr_question_1', 'string'],
+                ['gdpr_question_2', 'string'],
+                ['gdpr_question_3', 'string'],
+                ['gdpr_question_4', 'string'],
+                ['gdpr_question_5', 'string'],
+                // ['landingHeader', 'file', 'extensions' => 'jpeg, jpg, png, gif'],
         ]);
 
 
         if ((!empty($this->registration_date_begin) && !empty($this->registration_date_end))) {
-            $rules = ArrayHelper::merge($rules, [
-                        ['registration_date_begin', 'compare', 'compareAttribute' => 'registration_date_end', 'operator' => '<=', 'when' => function($model) {
-                                return (bool) ($this->eventType && $this->eventType->event_type != EventType::TYPE_INFORMATIVE);
-                            }, 'whenClient' => 'function(attribute, value) { return ' . ($this->eventType && $this->eventType->event_type != EventType::TYPE_INFORMATIVE ? 'true' : 'false') . '}'],
-                        ['registration_date_end', 'compare', 'compareAttribute' => 'registration_date_begin', 'operator' => '>=', 'when' => function($model) {
-                                return (bool) ($this->eventType && $this->eventType->event_type != EventType::TYPE_INFORMATIVE);
-                            }, 'whenClient' => 'function(attribute, value) { return ' . ($this->eventType && $this->eventType->event_type != EventType::TYPE_INFORMATIVE ? 'true' : 'false') . '}'],
-                        ['registration_date_begin', 'checkDate', 'when' => function($model) {
-                                return (bool) ($this->eventType && $this->eventType->event_type != EventType::TYPE_INFORMATIVE);
-                            }, 'whenClient' => 'function(attribute, value) { return ' . ($this->eventType && $this->eventType->event_type != EventType::TYPE_INFORMATIVE ? 'true' : 'false') . '}'],
-                        ['registration_date_end', 'checkDate', 'when' => function($model) {
-                                return (bool) ($this->eventType && $this->eventType->event_type != EventType::TYPE_INFORMATIVE);
-                            }, 'whenClient' => 'function(attribute, value) { return ' . ($this->eventType && $this->eventType->event_type != EventType::TYPE_INFORMATIVE ? 'true' : 'false') . '}'],
+            $rules       = ArrayHelper::merge($rules,
+                    [
+                    ['registration_date_begin', 'compare', 'compareAttribute' => 'registration_date_end', 'operator' => '<=',
+                        'when' => function($model) {
+                            return (bool) ($this->eventType && $this->eventType->event_type != EventType::TYPE_INFORMATIVE);
+                        }, 'whenClient' => 'function(attribute, value) { return '.($this->eventType && $this->eventType->event_type
+                        != EventType::TYPE_INFORMATIVE ? 'true' : 'false').'}'],
+                    ['registration_date_end', 'compare', 'compareAttribute' => 'registration_date_begin', 'operator' => '>=',
+                        'when' => function($model) {
+                            return (bool) ($this->eventType && $this->eventType->event_type != EventType::TYPE_INFORMATIVE);
+                        }, 'whenClient' => 'function(attribute, value) { return '.($this->eventType && $this->eventType->event_type
+                        != EventType::TYPE_INFORMATIVE ? 'true' : 'false').'}'],
+                    ['registration_date_begin', 'checkDate', 'when' => function($model) {
+                            return (bool) ($this->eventType && $this->eventType->event_type != EventType::TYPE_INFORMATIVE);
+                        }, 'whenClient' => 'function(attribute, value) { return '.($this->eventType && $this->eventType->event_type
+                        != EventType::TYPE_INFORMATIVE ? 'true' : 'false').'}'],
+                    ['registration_date_end', 'checkDate', 'when' => function($model) {
+                            return (bool) ($this->eventType && $this->eventType->event_type != EventType::TYPE_INFORMATIVE);
+                        }, 'whenClient' => 'function(attribute, value) { return '.($this->eventType && $this->eventType->event_type
+                        != EventType::TYPE_INFORMATIVE ? 'true' : 'false').'}'],
             ]);
         }
-         return $rules;
+        return $rules;
     }
 
     /**
@@ -366,37 +368,43 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
      */
     public function attributeLabels()
     {
-        return ArrayHelper::merge(parent::attributeLabels(), [
-            'eventLogo' => AmosEvents::t('amosevents', 'Logo'),
-            'begin_date_hour_from' => AmosEvents::t('amosevents', 'From begin date and hour'),
-            'begin_date_hour_to' => AmosEvents::t('amosevents', 'To begin date and hour'),
-            'end_date_hour_from' => AmosEvents::t('amosevents', 'From end date and hour'),
-            'end_date_hour_to' => AmosEvents::t('amosevents', 'To end date and hour'),
-            'landingHeader' => AmosEvents::t('amosevents', '#landing_header_label'),
-            'has_tickets' => AmosEvents::t('amosevents', '#has_tickets_label'),
-            'has_qr_code' => AmosEvents::t('amosevents', '#has_qr_code_label'),
-            'gdpr_question_1' => AmosEvents::t('amosevents', '#gdpr_question_1_label'),
-            'gdpr_question_2' => AmosEvents::t('amosevents', '#gdpr_question_2_label'),
-            'gdpr_question_3' => AmosEvents::t('amosevents', '#gdpr_question_3_label'),
-            'gdpr_question_4' => AmosEvents::t('amosevents', '#gdpr_question_4_label'),
-            'gdpr_question_5' => AmosEvents::t('amosevents', '#gdpr_question_5_label'),
+        return ArrayHelper::merge(parent::attributeLabels(),
+                [
+                'eventLogo' => AmosEvents::t('amosevents', 'Logo'),
+                'begin_date_hour_from' => AmosEvents::t('amosevents', 'From begin date and hour'),
+                'begin_date_hour_to' => AmosEvents::t('amosevents', 'To begin date and hour'),
+                'end_date_hour_from' => AmosEvents::t('amosevents', 'From end date and hour'),
+                'end_date_hour_to' => AmosEvents::t('amosevents', 'To end date and hour'),
+                'landingHeader' => AmosEvents::t('amosevents', '#landing_header_label'),
+                'has_tickets' => AmosEvents::t('amosevents', '#has_tickets_label'),
+                'has_qr_code' => AmosEvents::t('amosevents', '#has_qr_code_label'),
+                'gdpr_question_1' => AmosEvents::t('amosevents', '#gdpr_question_1_label'),
+                'gdpr_question_2' => AmosEvents::t('amosevents', '#gdpr_question_2_label'),
+                'gdpr_question_3' => AmosEvents::t('amosevents', '#gdpr_question_3_label'),
+                'gdpr_question_4' => AmosEvents::t('amosevents', '#gdpr_question_4_label'),
+                'gdpr_question_5' => AmosEvents::t('amosevents', '#gdpr_question_5_label'),
         ]);
     }
 
     /**
      * @param $attribute
      */
-    public function canChangeStatus($attribute){
-        if($this->seats_management){
-            if($this->status == Event::EVENTS_WORKFLOW_STATUS_PUBLISHED || $this->status == Event::EVENTS_WORKFLOW_STATUS_PUBLISHREQUEST ){
-                if($this->getEventSeats()->count() == 0){
+    public function canChangeStatus($attribute)
+    {
+        if ($this->seats_management) {
+            if ($this->status == Event::EVENTS_WORKFLOW_STATUS_PUBLISHED || $this->status == Event::EVENTS_WORKFLOW_STATUS_PUBLISHREQUEST) {
+                if ($this->getEventSeats()->count() == 0) {
                     /** @var Event $eventModel */
                     $eventModel = $this->eventsModule->createModel('Event');
-                    $eventOnDB = $eventModel::findOne($this->id);
-                    if($eventOnDB->seats_management){
-                        $this->addError($attribute, AmosEvents::t("amosevents", "E' necessario effettuare l'importazione dei posti tramite excel"));
+                    $eventOnDB  = $eventModel::findOne($this->id);
+                    if ($eventOnDB->seats_management) {
+                        $this->addError($attribute,
+                            AmosEvents::t("amosevents",
+                                "E' necessario effettuare l'importazione dei posti tramite excel"));
                     } else {
-                        $this->addError($attribute, AmosEvents::t("amosevents", "E' necessario salvare in bozza prima di effettuare l'importazione dei posti tramite excel"));
+                        $this->addError($attribute,
+                            AmosEvents::t("amosevents",
+                                "E' necessario salvare in bozza prima di effettuare l'importazione dei posti tramite excel"));
                     }
                 }
             }
@@ -415,7 +423,8 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
     /**
      * Restituisce l'url per il calendario dell'attività
      */
-    public function getEventUrl() {
+    public function getEventUrl()
+    {
 //        $linkreferrer = \Yii::$app->request->url;
 //        if (!empty($linkreferrer) && strpos($linkreferrer, 'dashboard') !== false) {
 //            return \yii\helpers\Url::to(\Yii::$app->params['platform']['backendUrl'] . '/events/event/view?id=' . $this->id, true);
@@ -754,7 +763,7 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
      */
     public function getFullViewUrl()
     {
-        return Url::toRoute(["/" . $this->getViewUrl(), "id" => $this->id]);
+        return Url::toRoute(["/".$this->getViewUrl(), "id" => $this->id]);
     }
 
     /**
@@ -798,24 +807,24 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
         if ($this->event_address) {
             $address .= $this->event_address;
             if ($this->event_address_house_number) {
-                $address .= ' ' . $this->event_address_house_number;
+                $address .= ' '.$this->event_address_house_number;
             }
         }
         if ($this->event_address_cap) {
-            $address .= ($this->event_address ? ', ' : ' ') . $this->event_address_cap;
+            $address .= ($this->event_address ? ', ' : ' ').$this->event_address_cap;
         }
         if (!is_null($this->cityLocation)) {
-            $address .= (strlen($address) > 0 ? ' ' : '') . $this->cityLocation->nome;
+            $address .= (strlen($address) > 0 ? ' ' : '').$this->cityLocation->nome;
         }
         return $address;
     }
 
-    public function setPublicationScenario(){
+    public function setPublicationScenario()
+    {
         $moduleNews = \Yii::$app->getModule(AmosEvents::getModuleName());
-        if($moduleNews->hidePubblicationDate == true){
+        if ($moduleNews->hidePubblicationDate == true) {
             $this->setScenario(Event::SCENARIO_ORG_HIDE_PUBBLICATION_DATE);
-        }
-        else {
+        } else {
             $this->setScenario(Event::SCENARIO_ORGANIZATIONALDATA);
         }
     }
@@ -827,9 +836,9 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
     public function getAssociationTargetQuery($communityId)
     {
         $this->community_id = $communityId;
-        $userCommunityIds = $this->community->getCommunityUserMms()->select('user_profile.user_id');
+        $userCommunityIds   = $this->community->getCommunityUserMms()->select('user_profile.user_id');
         /** @var ActiveQuery $userQuery */
-        $userQuery = User::find()->andFilterWhere(['not in', User::tableName() . '.id', $userCommunityIds]);
+        $userQuery          = User::find()->andFilterWhere(['not in', User::tableName().'.id', $userCommunityIds]);
         $userQuery->joinWith('userProfile');
         $userQuery->andWhere('user_profile.id is not null');
 
@@ -839,23 +848,24 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
         return $userQuery;
     }
 
-    public function getEndDateHour(){
-        $beginDateHour = $this->begin_date_hour? $this->begin_date_hour: null;
-        $lengthValue = $this->length ? $this->length : null;
-        $lengthMUId = $this->length_mu_id ? $this->length_mu_id : null;
+    public function getEndDateHour()
+    {
+        $beginDateHour = $this->begin_date_hour ? $this->begin_date_hour : null;
+        $lengthValue   = $this->length ? $this->length : null;
+        $lengthMUId    = $this->length_mu_id ? $this->length_mu_id : null;
         if ($beginDateHour && $lengthValue && $lengthMUId) {
-            $dbDateTimeFormat = 'Y-m-d H:i:s';
-            $dateTime = \DateTime::createFromFormat($dbDateTimeFormat, $beginDateHour);
+            $dbDateTimeFormat                = 'Y-m-d H:i:s';
+            $dateTime                        = \DateTime::createFromFormat($dbDateTimeFormat, $beginDateHour);
             /** @var EventLengthMeasurementUnit $eventLengthMeasurementUnitModel */
             $eventLengthMeasurementUnitModel = $this->eventsModule->createModel('EventLengthMeasurementUnit');
-            $eventLengthMU = $eventLengthMeasurementUnitModel::findOne($lengthMUId);
+            $eventLengthMU                   = $eventLengthMeasurementUnitModel::findOne($lengthMUId);
             if (!is_null($dateTime) && !is_null($eventLengthMU) && is_numeric($lengthValue)) {
-                $interval = 'P';
+                $interval   = 'P';
                 $timePeriod = ['H', 'M', 'S'];
                 if (in_array($eventLengthMU->date_interval_period, $timePeriod)) {
                     $interval .= 'T';
                 }
-                $interval .= $lengthValue . $eventLengthMU->date_interval_period;
+                $interval       .= $lengthValue.$eventLengthMU->date_interval_period;
                 $dateTime->add(new \DateInterval($interval));
                 $retValDateTime = $dateTime->format($dbDateTimeFormat);
                 return $retValDateTime;
@@ -873,19 +883,19 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
     {
         $timeZone = \Yii::$app->timeZone;
         if (is_null($eventCalendar)) {
-            $eventCalendar = new \Google_Service_Calendar_Event();
+            $eventCalendar        = new \Google_Service_Calendar_Event();
             $eventCalendarCreator = new \Google_Service_Calendar_EventCreator();
             $eventCalendarCreator->setDisplayName($this->createdUserProfile->getNomeCognome());
             $eventCalendar->setCreator($eventCalendarCreator);
         }
         $eventCalendar->setColorId('10');
         $eventCalendar->setSummary($this->getTitle());
-        $eventCalendar->setDescription($this->summary);;
+        $eventCalendar->setDescription($this->summary);
+        ;
         $eventCalendarStart = new \Google_Service_Calendar_EventDateTime();
         $eventCalendarStart->setTimeZone($timeZone);
 
-        $eventCalendarStart->setDateTime(str_replace(' ', 'T',
-            $this->begin_date_hour));
+        $eventCalendarStart->setDateTime(str_replace(' ', 'T', $this->begin_date_hour));
         $eventCalendar->setStart($eventCalendarStart);
         $endDateHour = !is_null($this->end_date_hour) ? $this->end_date_hour : $this->getEndDateHour();
         if (!empty($endDateHour)) {
@@ -908,15 +918,15 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
     public function afterSave($insert, $changedAttributes)
     {
         parent::afterSave($insert, $changedAttributes);
-        if(is_null($this->deleted_at) && is_null($this->deleted_by) && !is_null($this->begin_date_hour)) {
+        if (is_null($this->deleted_at) && is_null($this->deleted_by) && !is_null($this->begin_date_hour)) {
             $socialAuth = \Yii::$app->getModule('socialauth');
-            if(!is_null($socialAuth)) {
-                $userIds = [$this->created_by];
+            if (!is_null($socialAuth)) {
+                $userIds       = [$this->created_by];
                 $eventCalendar = $this->getGoogleEvent();
                 if ($this->status == $this->getValidatedStatus()) {
                     if ($this->isEnabledCwh()) {
                         $recipientsIds = $this->getRecipientsQuery()->select('user_id')->column();
-                        $userIds = ArrayHelper::merge($userIds, $recipientsIds);
+                        $userIds       = ArrayHelper::merge($userIds, $recipientsIds);
                     }
                 }
                 foreach ($userIds as $userId) {
@@ -925,7 +935,8 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
                         $serviceGoogle = EventsUtility::getGoogleServiceCalendar($service);
                         if (!is_null($serviceGoogle)) {
                             $calendarId = $service->service_id;
-                            $saved = EventsUtility::insertOrUpdateGoogleEvent($serviceGoogle, $calendarId, $eventCalendar);
+                            $saved      = EventsUtility::insertOrUpdateGoogleEvent($serviceGoogle, $calendarId,
+                                    $eventCalendar);
                         }
                     }
                 }
@@ -941,17 +952,17 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
         if (!is_null($this->begin_date_hour)) {
             $socialAuth = \Yii::$app->getModule('socialauth');
             if (!is_null($socialAuth)) {
-                $eventId = $this->getGoogleEventId();
+                $eventId  = $this->getGoogleEventId();
                 $services = \open20\amos\socialauth\models\SocialAuthServices::find()->andWhere([
-                    'and',
-                    ['service' => 'calendar'],
-                    ['not', ['service_id' => null]]
-                ])->all();
+                        'and',
+                        ['service' => 'calendar'],
+                        ['not', ['service_id' => null]]
+                    ])->all();
                 foreach ($services as $service) {
                     $serviceGoogle = EventsUtility::getGoogleServiceCalendar($service);
                     if (!is_null($serviceGoogle)) {
                         $calendarId = $service->service_id;
-                        $deleted = EventsUtility::deleteGoogleEvent($serviceGoogle, $calendarId, $eventId);
+                        $deleted    = EventsUtility::deleteGoogleEvent($serviceGoogle, $calendarId, $eventId);
                     }
                 }
             }
@@ -970,18 +981,18 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
             return 0;
         }
         $remainingSeats = 0;
-        $eventType = $this->eventType;
+        $eventType      = $this->eventType;
         if (!is_null($eventType) && $eventType->limited_seats) {
             $community = $this->getCommunityModel();
-            $query = $community->getCommunityUserMms()->andWhere(['<>', CommunityUserMm::tableName() . '.status', CommunityUserMm::STATUS_REJECTED]);
-            $query->innerJoin(User::tableName(), User::tableName() . '.id = ' . CommunityUserMm::tableName() . '.user_id');
-            $query->andWhere([User::tableName() . '.deleted_at' => null]);
-            $query->andWhere(['not like', User::tableName() . '.username', UserProfileUtility::DELETED_ACCOUNT_USERNAME_PREFIX]);
+            $query     = $community->getCommunityUserMms()->andWhere(['<>', CommunityUserMm::tableName().'.status', CommunityUserMm::STATUS_REJECTED]);
+            $query->innerJoin(User::tableName(), User::tableName().'.id = '.CommunityUserMm::tableName().'.user_id');
+            $query->andWhere([User::tableName().'.deleted_at' => null]);
+            $query->andWhere(['not like', User::tableName().'.username', UserProfileUtility::DELETED_ACCOUNT_USERNAME_PREFIX]);
             if ($excludeEventManagers) {
-                $query->andWhere(['<>', CommunityUserMm::tableName() . '.role', CommunityUserMm::ROLE_COMMUNITY_MANAGER]);
+                $query->andWhere(['<>', CommunityUserMm::tableName().'.role', CommunityUserMm::ROLE_COMMUNITY_MANAGER]);
             }
             $notRejectedMembers = $query->count();
-            $remainingSeats = (int)($this->seats_available - $notRejectedMembers);
+            $remainingSeats     = (int) ($this->seats_available - $notRejectedMembers);
         }
         return $remainingSeats;
     }
@@ -1051,7 +1062,6 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
         return $stats;
     }
 
-
     /**
      * Gets invitations upon cwh preferences.
      * return array Array of users data
@@ -1065,7 +1075,7 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
         $invUids = $eventInvitationModel::find()
             ->select('user_id')
             ->where(['event_id' => $this->id])
-            ->andWhere('user_id IS NOT NULL') 
+            ->andWhere('user_id IS NOT NULL')
             ->column();
         // Get involved user ids
         $cwhUids = $this->getRecipientsQuery()
@@ -1090,38 +1100,38 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
 
         // Gets all invited users (they will be all external ones)
         /** @var ActiveQuery $query */
-        $query = $eventInvitationModel::find();
+        $query       = $eventInvitationModel::find();
         $query->andWhere([
             'event_id' => $this->id,
             'state' => EventInvitation::INVITATION_STATE_INVITED,
             'invitation_sent_on' => null
         ]);
         $invitations = $query->all();
-        $rows = [];
+        $rows        = [];
         foreach ($invitations as $invitation) {
             if ($withUserData) {
-                $query = new Query();
+                $query      = new Query();
                 $query->select([
-                    User::tableName() . '.email',
-                    UserProfile::tableName() . '.nome',
-                    UserProfile::tableName() . '.cognome',
-                    UserProfile::tableName() . '.codice_fiscale'
+                    User::tableName().'.email',
+                    UserProfile::tableName().'.nome',
+                    UserProfile::tableName().'.cognome',
+                    UserProfile::tableName().'.codice_fiscale'
                 ]);
                 $query->from(UserProfile::tableName());
-                $query->innerJoin(User::tableName(), User::tableName() . '.id = ' . UserProfile::tableName() . '.user_id');
-                $query->andWhere([User::tableName() . '.id' => $invitation->user_id]);
-                $query->andWhere([User::tableName() . '.deleted_at' => null]);
-                $query->andWhere([UserProfile::tableName() . '.deleted_at' => null]);
-                $userData = $query->one();
-                $email = (!empty($invitation->email) ? $invitation->email : $userData['email']);
+                $query->innerJoin(User::tableName(), User::tableName().'.id = '.UserProfile::tableName().'.user_id');
+                $query->andWhere([User::tableName().'.id' => $invitation->user_id]);
+                $query->andWhere([User::tableName().'.deleted_at' => null]);
+                $query->andWhere([UserProfile::tableName().'.deleted_at' => null]);
+                $userData   = $query->one();
+                $email      = (!empty($invitation->email) ? $invitation->email : $userData['email']);
                 $fiscalCode = (!empty($invitation->fiscal_code) ? $invitation->fiscal_code : $userData['codice_fiscale']);
-                $name = (!empty($invitation->name) ? $invitation->name : $userData['nome']);
-                $surname = (!empty($invitation->surname) ? $invitation->surname : $userData['cognome']);
+                $name       = (!empty($invitation->name) ? $invitation->name : $userData['nome']);
+                $surname    = (!empty($invitation->surname) ? $invitation->surname : $userData['cognome']);
             } else {
-                $email = $invitation->email;
+                $email      = $invitation->email;
                 $fiscalCode = $invitation->fiscal_code;
-                $name = $invitation->name;
-                $surname = $invitation->surname;
+                $name       = $invitation->name;
+                $surname    = $invitation->surname;
             }
             $rows[] = [
                 'id' => $invitation->id,
@@ -1134,7 +1144,7 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
                 'user_id' => $invitation->user_id,
             ];
         }
-        return (array)$rows;
+        return (array) $rows;
     }
 
     /**
@@ -1149,15 +1159,15 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
     public function getFullAddress($separator = '')
     {
         // Address
-        $location = ($this->event_location) ? $this->event_location . $separator : ''; //'-';
-        $address = ($this->event_address) ? $this->event_address . ', ' : ''; //'-';
-        $addressNumber = ($this->event_address_house_number) ? $this->event_address_house_number . ' ' : ''; //'-';
-        $cap = ($this->event_address_cap) ? $separator . $this->event_address_cap . ' ' : ' ';//'-';
-        $city = ($this->cityLocation) ? $this->cityLocation->nome . ' ' : ''; //'-';
-        $province = ($this->provinceLocation) ? ' (' . $this->provinceLocation->sigla . ') ' : ''; //'-';
-        $country = ($this->countryLocation) ? $separator .$this->countryLocation->nome : ' '; //'-' ;
+        $location      = ($this->event_location) ? $this->event_location.$separator : ''; //'-';
+        $address       = ($this->event_address) ? $this->event_address.', ' : ''; //'-';
+        $addressNumber = ($this->event_address_house_number) ? $this->event_address_house_number.' ' : ''; //'-';
+        $cap           = ($this->event_address_cap) ? $separator.$this->event_address_cap.' ' : ' '; //'-';
+        $city          = ($this->cityLocation) ? $this->cityLocation->nome.' ' : ''; //'-';
+        $province      = ($this->provinceLocation) ? ' ('.$this->provinceLocation->sigla.') ' : ''; //'-';
+        $country       = ($this->countryLocation) ? $separator.$this->countryLocation->nome : ' '; //'-' ;
 
-        return $location . $address . $addressNumber . $cap . $city . $province . $country;
+        return $location.$address.$addressNumber.$cap.$city.$province.$country;
     }
 
     /**
@@ -1165,7 +1175,8 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
      * @return bool
      * @throws \yii\base\InvalidConfigException
      */
-    public function isUserSubscribedToEvent($user_id){
+    public function isUserSubscribedToEvent($user_id)
+    {
         $count = CommunityUserMm::find()
             ->andWhere(['community_id' => $this->community_id])
             ->andWhere(['user_id' => $user_id])
@@ -1173,39 +1184,36 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
         return ($count > 0);
     }
 
-
     /**
      * @param $idDomanda
      * @throws \PHPExcel_Exception
      * @throws \PHPExcel_Reader_Exception
      */
-    public function import(){
+    public function import()
+    {
         $submitImport = \Yii::$app->request->post('submit-import');
-        $count = 0;
+        $count        = 0;
         if (!empty($submitImport)) {
             if ((isset($_FILES['import-file']['tmp_name']) && (!empty($_FILES['import-file']['tmp_name'])))) {
                 $transaction = \Yii::$app->db->beginTransaction();
                 try {
                     $inputFileName = $_FILES['import-file']['tmp_name'];
                     $inputFileType = \PHPExcel_IOFactory::identify($inputFileName);
-                    $objReader = \PHPExcel_IOFactory::createReader($inputFileType);
-                    $objPHPExcel = $objReader->load($inputFileName);
+                    $objReader     = \PHPExcel_IOFactory::createReader($inputFileType);
+                    $objPHPExcel   = $objReader->load($inputFileName);
 
-                    $sheet = $objPHPExcel->getSheet(0);
-                    $highestRow = $sheet->getHighestRow();
+                    $sheet         = $objPHPExcel->getSheet(0);
+                    $highestRow    = $sheet->getHighestRow();
                     $highestColumn = $sheet->getHighestColumn();
-                    $ret['file'] = true;
-                    $i = 1;
+                    $ret['file']   = true;
+                    $i             = 1;
                     for ($row = 2; $row <= $highestRow; $row++) {
-                        $rowData = $sheet->rangeToArray('A' . $row . ':' . $highestColumn . $row,
-                            NULL,
-                            TRUE,
-                            FALSE);
-                        $Array = $rowData[0];
-                        $sector = $Array[0];
-                        $rowSeat = $Array[1];
-                        $seat = $Array[2];
-                        $automatic = $Array[3];
+                        $rowData              = $sheet->rangeToArray('A'.$row.':'.$highestColumn.$row, NULL, TRUE, FALSE);
+                        $Array                = $rowData[0];
+                        $sector               = $Array[0];
+                        $rowSeat              = $Array[1];
+                        $seat                 = $Array[2];
+                        $automatic            = $Array[3];
                         $available_for_groups = $Array[4];
                         if (!empty($sector) && !empty($rowSeat) && !empty($seat) && isset($automatic) && isset($available_for_groups)) {
 
@@ -1213,24 +1221,26 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
                             $eventSeatsModel = $this->eventsModule->createModel('EventSeats');
 
                             $structureSeats = $eventSeatsModel::find()
-                                ->andWhere(['event_id' =>  $this->id])
-                                ->andWhere(['sector' =>  $sector])
-                                ->andWhere(['row' =>  $rowSeat])
-                                ->andWhere(['seat' =>  $seat])->one();
-                            if(empty($structureSeats)) {
+                                    ->andWhere(['event_id' => $this->id])
+                                    ->andWhere(['sector' => $sector])
+                                    ->andWhere(['row' => $rowSeat])
+                                    ->andWhere(['seat' => $seat])->one();
+                            if (empty($structureSeats)) {
                                 /** @var EventSeats $structureSeats */
                                 $structureSeats = $this->eventsModule->createModel('EventSeats');
                             }
-                            $structureSeats->event_id = $this->id;
-                            $structureSeats->sector = $sector;
-                            $structureSeats->row = $rowSeat;
-                            $structureSeats->seat = $seat;
-                            $structureSeats->automatic = $automatic;
+                            $structureSeats->event_id             = $this->id;
+                            $structureSeats->sector               = $sector;
+                            $structureSeats->row                  = $rowSeat;
+                            $structureSeats->seat                 = $seat;
+                            $structureSeats->automatic            = $automatic;
                             $structureSeats->available_for_groups = $available_for_groups;
-                            $ok = $structureSeats->save();
-                            if($structureSeats->getErrors()){
+                            $ok                                   = $structureSeats->save();
+                            if ($structureSeats->getErrors()) {
                                 $errorMessage = implode("<br>", $structureSeats->getErrorSummary());
-                                throw new Exception($errorMessage . "<br>" .AmosEvents::t('amosevents', "Errore in riga {n}", [
+                                throw new Exception($errorMessage."<br>".AmosEvents::t('amosevents',
+                                    "Errore in riga {n}",
+                                    [
                                     'n' => $row
                                 ])
                                 );
@@ -1239,19 +1249,21 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
                                 $count++;
                                 $i++;
                             }
-                        }
-                        else {
-                            throw new Exception(AmosEvents::t('amosevents', "E' neccessario compilare tutti i dati del tracciato, errore in riga {n}", [
+                        } else {
+                            throw new Exception(AmosEvents::t('amosevents',
+                                "E' neccessario compilare tutti i dati del tracciato, errore in riga {n}",
+                                [
                                 'n' => $row
-                                ])
+                            ])
                             );
                         }
                     }
 
                     $transaction->commit();
-                    \Yii::$app->session->addFlash('success', AmosEvents::t('amosevents', "Sono stati inseriti {n} posti.", ['n' => $count]));
+                    \Yii::$app->session->addFlash('success',
+                        AmosEvents::t('amosevents', "Sono stati inseriti {n} posti.", ['n' => $count]));
                     return true;
-                } catch (\Exception $e){
+                } catch (\Exception $e) {
                     $transaction->rollBack();
                     \Yii::$app->session->addFlash('danger', $e->getMessage());
                     return false;
@@ -1264,14 +1276,15 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
      * @return mixed
      * @throws \yii\base\InvalidConfigException
      */
-    public function getSectorsAvailableForGroups() {
+    public function getSectorsAvailableForGroups()
+    {
         /** @var EventSeats $eventSeatsModel */
         $eventSeatsModel = $this->eventsModule->createModel('EventSeats');
-        $sectors = $eventSeatsModel::find()
-            ->andWhere(['event_id' => $this->id])
-            ->andWhere(['available_for_groups' => true])
-            ->andWhere(['status' => EventSeats::STATUS_EMPTY])
-            ->groupBy('sector')->all();
+        $sectors         = $eventSeatsModel::find()
+                ->andWhere(['event_id' => $this->id])
+                ->andWhere(['available_for_groups' => true])
+                ->andWhere(['status' => EventSeats::STATUS_EMPTY])
+                ->groupBy('sector')->all();
         return $sectors;
     }
 
@@ -1280,10 +1293,11 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
      * @return mixed
      * @throws \yii\base\InvalidConfigException
      */
-    public function getSeatsAvailableForGroups($sector = null) {
+    public function getSeatsAvailableForGroups($sector = null)
+    {
         /** @var EventSeats $eventSeatsModel */
         $eventSeatsModel = $this->eventsModule->createModel('EventSeats');
-        $seats = $eventSeatsModel::find()
+        $seats           = $eventSeatsModel::find()
             ->andWhere(['event_id' => $this->id])
             ->andWhere(['available_for_groups' => true])
             ->andFilterWhere(['sector' => $sector])
@@ -1298,13 +1312,14 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
      * @return bool
      * @throws \yii\base\InvalidConfigException
      */
-    public function canSubscribeGroup($n) {
+    public function canSubscribeGroup($n)
+    {
         /** @var EventSeats $eventSeatsModel */
         $eventSeatsModel = $this->eventsModule->createModel('EventSeats');
-        $count = $eventSeatsModel::find()
-            ->andWhere(['event_id' => $this->id])
-            ->andWhere(['available_for_groups' => true])
-            ->andWhere(['status' => EventSeats::STATUS_EMPTY])->count();
+        $count           = $eventSeatsModel::find()
+                ->andWhere(['event_id' => $this->id])
+                ->andWhere(['available_for_groups' => true])
+                ->andWhere(['status' => EventSeats::STATUS_EMPTY])->count();
         return $n <= $count;
     }
 
@@ -1313,43 +1328,44 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
      * @return bool
      * @throws \yii\base\InvalidConfigException
      */
-    public function canSubscribeAutomatic() {
+    public function canSubscribeAutomatic()
+    {
         /** @var EventSeats $eventSeatsModel */
         $eventSeatsModel = $this->eventsModule->createModel('EventSeats');
-        $count = $eventSeatsModel::find()
-            ->andWhere(['event_id' => $this->id])
-            ->andWhere(['automatic' => true])
-            ->andWhere(['status' => EventSeats::STATUS_EMPTY])->count();
+        $count           = $eventSeatsModel::find()
+                ->andWhere(['event_id' => $this->id])
+                ->andWhere(['automatic' => true])
+                ->andWhere(['status' => EventSeats::STATUS_EMPTY])->count();
         return $count > 0;
     }
-
 
     /**
      * @param $user_id
      * @return EventSeats
      */
-    public function assignAutomaticSeats($user_id) {
-        /** @var  $seat EventSeats*/
+    public function assignAutomaticSeats($user_id)
+    {
+        /** @var  $seat EventSeats */
         $seat = $this->getEventSeats()
-            ->andWhere(['status' => EventSeats::STATUS_EMPTY])
-            ->andWhere(['automatic' => true])->one();
+                ->andWhere(['status' => EventSeats::STATUS_EMPTY])
+                ->andWhere(['automatic' => true])->one();
 
-        if($seat) {
-            $seat->user_id = $user_id;
+        if ($seat) {
+            $seat->user_id                      = $user_id;
             $seat->type_of_assigned_participant = 1;
-            $seat->status = EventSeats::STATUS_ASSIGNED;
+            $seat->status                       = EventSeats::STATUS_ASSIGNED;
             $seat->save(false);
         }
         return $seat;
     }
-
 
     /**
      *
      * @param integer $eid
      * @return integer
      */
-    public function checkParticipantsQuantity() {
+    public function checkParticipantsQuantity()
+    {
         $count = 0;
 
         /** @var EventInvitation $eventInvitationModel */
@@ -1383,7 +1399,8 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
      * @return array
      * @throws \yii\base\InvalidConfigException
      */
-    public function getSectors($empty = true){
+    public function getSectors($empty = true)
+    {
 
         /** @var EventSeats $eventSeatsModel */
         $eventSeatsModel = $this->eventsModule->createModel('EventSeats');
@@ -1392,7 +1409,7 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
         $query = $eventSeatsModel::find()
             ->andWhere(['event_id' => $this->id])
             ->groupBy('sector');
-        if($empty){
+        if ($empty) {
             $query->andWhere(['status' => [EventSeats::STATUS_EMPTY, EventSeats::STATUS_TO_REASSIGN]]);
         }
         return $query->all();
@@ -1401,12 +1418,14 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
     /**
      * @return bool
      */
-    public function isSubscribtionsOpened(){
-        if(($this->registration_date_begin == null || date('Y-m-d H:i:s') >= date($this->registration_date_begin)) &&
+    public function isSubscribtionsOpened()
+    {
+        if (($this->registration_date_begin == null || date('Y-m-d H:i:s') >= date($this->registration_date_begin)) &&
             (
-            !empty($this->registration_date_end) ? date('Y-m-d H:i:s') <= date($this->registration_date_end) : date('Y-m-d H:i:s') <= date($this->begin_date_hour)
+            !empty($this->registration_date_end) ? date('Y-m-d H:i:s') <= date($this->registration_date_end) : date('Y-m-d H:i:s')
+                <= date($this->begin_date_hour)
             )
-        ){
+        ) {
             return true;
         }
         return false;
@@ -1415,11 +1434,33 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
     /**
      * @return string
      */
-    public function getFullLocationString(){
-        $position = ($this->event_address_house_number ? $this->event_address_house_number . ' ' : '');
-        $position .= ($this->event_address ? $this->event_address . ', ' : '');
-        $position .= (!is_null($this->cityLocation) ? $this->cityLocation->nome . ', ' : '');
+    public function getFullLocationString()
+    {
+        $position = ($this->event_address_house_number ? $this->event_address_house_number.' ' : '');
+        $position .= ($this->event_address ? $this->event_address.', ' : '');
+        $position .= (!is_null($this->cityLocation) ? $this->cityLocation->nome.', ' : '');
         $position .= (!is_null($this->countryLocation) ? $this->countryLocation->nome : '');
         return $position;
+    }
+
+    /**
+     *
+     * @param integer $user_id
+     * @param string $event_string
+     * @return string
+     */
+    public function getLinkWithToken($user_id, $event_string)
+    {
+        $link       = null;
+        $tokengroup = TokenGroup::getTokenGroup($event_string);
+
+        if ($tokengroup) {
+
+            $tokenUser = $tokengroup->generateSingleTokenUser($user_id);
+            if (!empty($tokenUser)) {
+                $link = $tokenUser->getBackendTokenLink();
+            }
+        }
+        return $link;
     }
 }

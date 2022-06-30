@@ -1,14 +1,5 @@
 <?php
 
-/**
- * Aria S.p.A.
- * OPEN 2.0
- *
- *
- * @package    Open20Package
- * @category   CategoryName
- */
-
 use open20\amos\core\migration\AmosMigrationPermissions;
 use open20\amos\events\rules\DeleteOwnEventsRule;
 use open20\amos\events\rules\UpdateOwnEventsRule;

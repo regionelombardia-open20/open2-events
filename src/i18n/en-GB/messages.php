@@ -130,6 +130,7 @@ return [
     'Event Type' => 'Event Type',
     'Event Type ID' => 'Event Type ID',
     'Event Types' => 'Event Types',
+    '#external_link_register' => 'External link to invite users',
     'Feedback' => 'Feedback',
     'File deleted' => 'File deleted',
     'Finish and save' => 'Finish and save',
@@ -290,7 +291,12 @@ return [
     'Update' => 'Update',
     'User ID' => 'User ID',
     'User' => 'User',
+    
     '#user_invite_user_to_event_email_subject' => "User {nameSurname} invited you to the event {eventTitle}",
+    '#user_forced_user_to_event_email_subject' => "User {nameSurname} has signed up for the event {eventTitle}",
+    '#sign_to_accept_or_reject' => 'Sign into the event to accept or reject the request.',
+    '#view_event_details' => 'View course details',
+    
     'Validated At Least Once' => 'Validated At Least Once',
     'Validation request for event' => 'Validation request for event',
     'View event' => 'View event',
@@ -339,4 +345,5 @@ return [
     "Email referente gruppo" => "Email team referent",
     'Number of empty seats' => 'Number of empty seats',
     '#import_if_published_message' => 'You can only invite if the event is published',
+    '#short_description_calendar' => 'Short description',
 ];

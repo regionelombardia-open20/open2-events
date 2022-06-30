@@ -67,6 +67,7 @@ use Yii;
  * @property integer $community_id
  * @property integer $seats_management
  * @property integer $has_tickets
+ * @property integer $slots_calendar_management
  * @property integer $has_qr_code
  * @property integer $abilita_codice_fiscale_in_form
  * @property integer $numero_max_accompagnatori
@@ -77,6 +78,8 @@ use Yii;
  * @property string $ticket_layout_view
  * @property string $email_view
  * @property string $email_subscribe_view
+ * @property string $sent_credential
+ * @property string $email_credential_view
  * @property string $created_at
  * @property string $updated_at
  * @property string $deleted_at
@@ -214,6 +217,7 @@ abstract class Event extends ContentModel implements CommunityInterface
                 'event_full_page_view',
                 'ticket_layout_view',
                 'email_subscribe_view',
+                'email_credential_view',
                 'registration_date_begin',
                 'registration_date_end',
                 'seats_management'
@@ -235,10 +239,13 @@ abstract class Event extends ContentModel implements CommunityInterface
                 'updated_by',
                 'deleted_by',
                 'numero_max_accompagnatori',
+                'slots_calendar_management',
+                'sent_credential',
+                'use_token',
             ], 'integer'],
             [['length'], 'number', 'min' => 1, 'integerOnly' => true],
             [['title', 'event_address'], 'string', 'max' => 100],
-            [['summary', 'status', 'event_location'], 'string', 'max' => 255],
+            [['summary', 'status', 'event_location', 'email_credential_subject', 'email_invitation_custom', 'thank_you_page_already_registered_view', 'token_group_string_code'], 'string', 'max' => 255],
             [['description', 'email_ticket_layout_custom', 'email_ticket_sender', 'email_ticket_subject'], 'string'],
             [['event_address_cap'], CapValidator::className()],
             [['event_address_cap'], 'string', 'max' => 5],
@@ -416,13 +423,16 @@ abstract class Event extends ContentModel implements CommunityInterface
             'publish_in_the_calendar' => AmosEvents::t('amosevents', 'Publish In The Calendar'),
             'visible_in_the_calendar' => AmosEvents::t('amosevents', 'Visible In The Calendar'),
             'event_commentable' => AmosEvents::t('amosevents', 'Event Commentable'),
+            'email_credential_view' => AmosEvents::t('amosevents', 'View custom della mail delle credenziali'),
             'event_management' => AmosEvents::t('amosevents', 'Event Management'),
             'validated_at_least_once' => AmosEvents::t('amosevents', 'Validated At Least Once'),
             'seats_management' => AmosEvents::t('amosevents', 'Gestione posti'),
+            'sent_credential' => AmosEvents::t('amosevents', 'Invia le credenziali'),
             'country_location_id' => AmosEvents::t('amosevents', 'Country Location'),
             'province_location_id' => AmosEvents::t('amosevents', 'Province Location'),
             'city_location_id' => AmosEvents::t('amosevents', 'City Location'),
             'event_membership_type_id' => AmosEvents::t('amosevents', 'Event Membership Type ID'),
+            'email_credential_subject' => AmosEvents::t('amosevents', 'Soggetto della mail delle credenziali'),
             'length_mu_id' => AmosEvents::t('amosevents', 'Length Measurement Unit ID'),
             'event_type_id' => AmosEvents::t('amosevents', 'Event Type'),
             'community_id' => AmosEvents::t('amosevents', 'Community ID'),
@@ -437,10 +447,14 @@ abstract class Event extends ContentModel implements CommunityInterface
             'eventType' => AmosEvents::t('amosevents', 'Event Type'),
             'eventLengthMeasurementUnit' => AmosEvents::t('amosevents', 'Length Measurement Unit'),
             'eventMembershipType' => AmosEvents::t('amosevents', 'Event Membership Type'),
-            'subscribe_form_page_view' => AmosEvents::t('amosevents', 'subscribe_form_page_view'),
-            'thank_you_page_view' => AmosEvents::t('amosevents', 'thank_you_page_view'),
+            'subscribe_form_page_view' => AmosEvents::t('amosevents', 'Custom view form di iscrizione'),
+            'thank_you_page_view' => AmosEvents::t('amosevents', 'Thank you page custom'),
+            'use_token' => AmosEvents::t('amosevents', 'Usa token di accesso'),
+            'token_group_string_code' => AmosEvents::t('amosevents', 'Codice del gruppo di token'),
+            'thank_you_page_already_registered_view' => AmosEvents::t('amosevents', 'Thank you page custom per utenti già registrati'),
             'email_view' => AmosEvents::t('amosevents', 'email_view'),
             'email_ticket_layout_custom' => AmosEvents::t('amosevents', 'Layout della mail del ticket'),
+            'email_invitation_custom' => AmosEvents::t('amosevents', 'View custom della mail di invito'),
             'email_ticket_sender' => AmosEvents::t('amosevents', 'Sender della mail del ticket'),
             'email_ticket_subject' => AmosEvents::t('amosevents', 'Soggetto della mail del ticket'),
             'event_closed_page_view' => AmosEvents::t('amosevents', 'event_closed_page_view'),
@@ -557,5 +571,13 @@ abstract class Event extends ContentModel implements CommunityInterface
     public function getEventSeats()
     {
         return $this->hasMany($this->eventsModule->model('EventSeats'), ['event_id' => 'id']);
+    }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
+    public function getEventCalendars()
+    {
+        return $this->hasMany(\open20\amos\events\models\EventCalendars::className(), [ 'event_id' => 'id']);
     }
 }

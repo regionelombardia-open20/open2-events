@@ -1,17 +1,21 @@
 <?php
 
 /**
- * Aria S.p.A.
+ * Lombardia Informatica S.p.A.
  * OPEN 2.0
  *
+ * @see http://example.com Developers'community
+ * @license GPLv3
+ * @license https://opensource.org/licenses/gpl-3.0.html GNU General Public License version 3
  *
- * @package    open20\amos\events\migrations
+ * @package    elitedivision\amos\events\migrations
  * @category   CategoryName
+ * @author     Lombardia Informatica S.p.A.
  */
 
-use open20\amos\core\migration\AmosMigrationPermissions;
-use open20\amos\events\rules\DeleteOwnEventsRule;
-use open20\amos\events\rules\UpdateOwnEventsRule;
+use elitedivision\amos\core\migration\AmosMigrationPermissions;
+use elitedivision\amos\events\rules\DeleteOwnEventsRule;
+use elitedivision\amos\events\rules\UpdateOwnEventsRule;
 use yii\rbac\Permission;
 
 /**
@@ -30,7 +34,7 @@ class m190605_191901_update_events_permissions extends AmosMigrationPermissions
                 'name' => 'EVENT_UPDATE',
                 'update' => true,
                 'newValues' => [
-                    'addParents' => [\open20\amos\events\rules\EventsUpdateRule::className()]
+                    'addParents' => [\elitedivision\amos\events\rules\EventsUpdateRule::className()]
                 ],
             ],
         ];

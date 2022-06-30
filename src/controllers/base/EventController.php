@@ -313,8 +313,14 @@ class EventController extends CrudController
             ->andWhere(['event_id' => $id])
             ->andWhere(['event_seats.deleted_at' => null])
             ->groupBy('sector');
+
         $dataProviderSeats = new ArrayDataProvider([
             'allModels' => $query->all()
+        ]);
+
+        $dataProviderSlots = new ActiveDataProvider([
+            'query' => $this->model->getEventCalendars()
+            ->orderBy('group')
         ]);
         //$this->doSendInvitations($model);
 
@@ -342,7 +348,8 @@ class EventController extends CrudController
             [
                 'model' => $model,
                 'position' => $latLngOriginStr,
-                'dataProviderSeats' => $dataProviderSeats
+                'dataProviderSeats' => $dataProviderSeats,
+                'dataProviderSlots' => $dataProviderSlots
             ]
         );
     }

@@ -133,9 +133,9 @@ $getData = Yii::$app->request->get();
             <?php endif; ?>
 
             <?php if(!isset($getData['pEmail'])) : ?>
-                <?= $form->field($eventParticipantModel, 'email')->textInput(['placeholder' => AmosEvents::txt('#participant_email'), 'value' => $userData['email']]); ?>
+                <?= $form->field($eventParticipantModel, 'email')->textInput(['placeholder' => AmosEvents::txt('#participant_email'), 'value' => str_replace(array("\n","\r"), "", $userData['email'])]); ?>
             <?php else : ?>
-                <?= $form->field($eventParticipantModel, 'email')->hiddenInput(['placeholder' => AmosEvents::txt('#participant_email'), 'value' => $userData['email']]); ?>
+                <?= $form->field($eventParticipantModel, 'email')->hiddenInput(['placeholder' => AmosEvents::txt('#participant_email'), 'value' => str_replace(array("\n","\r"), "", $userData['email'])]); ?>
                 <label><?= $userData['email'] ?></label>
             <?php endif; ?>
 
