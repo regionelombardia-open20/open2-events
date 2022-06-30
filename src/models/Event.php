@@ -431,7 +431,7 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
 //        if (!empty($linkreferrer) && strpos($linkreferrer, 'dashboard') !== false) {
 //            return \yii\helpers\Url::to(\Yii::$app->params['platform']['backendUrl'] . '/events/event/view?id=' . $this->id, true);
 //        }
-        return NULL; //da personalizzare magari con Yii::$app->urlManager->createUrl([]);
+        return $this->getFullViewUrl(); //da personalizzare magari con Yii::$app->urlManager->createUrl([]);
     }
     
     /**
