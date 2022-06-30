@@ -18,11 +18,12 @@ use open20\amos\comments\models\CommentInterface;
 use open20\amos\community\models\CommunityContextInterface;
 use open20\amos\community\models\CommunityUserMm;
 use open20\amos\core\behaviors\SoftDeleteByBehavior;
+use open20\amos\core\components\PlacesComponents;
 use open20\amos\core\helpers\Html;
 use open20\amos\core\interfaces\ContentModelInterface;
 use open20\amos\core\interfaces\NewsletterInterface;
-use open20\amos\core\interfaces\PublicationDateFieldsInterface;
 use open20\amos\core\interfaces\ViewModelInterface;
+use open20\amos\core\models\MapWidgetPlaces;
 use open20\amos\core\user\User;
 use open20\amos\core\utilities\DuplicateContentUtility;
 use open20\amos\events\AmosEvents;
@@ -44,10 +45,11 @@ use yii\helpers\Url;
  * This is the model class for table "event".
  *
  * @property-read string $completeAddress
+ * @property \open20\amos\core\models\MapWidgetPlaces $agidGeolocationPlace
  *
  * @package open20\amos\events\models
  */
-class Event extends \open20\amos\events\models\base\Event implements ContentModelInterface, CommunityContextInterface, CommentInterface, ViewModelInterface, SeoModelInterface, NewsletterInterface, PublicationDateFieldsInterface
+class Event extends \open20\amos\events\models\base\Event implements ContentModelInterface, CommunityContextInterface, CommentInterface, ViewModelInterface, SeoModelInterface, NewsletterInterface
 {
     /**
      * Constants for community roles
@@ -107,6 +109,21 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
     private $landingHeader;
     
     /**
+     * @var $agidRelatedEventsMm
+     */
+    public $agidRelatedEventsMm;
+    
+    /**
+     * @var $agidAdministrativePersonsMm
+     */
+    public $agidAdministrativePersonsMm;
+    
+    /**
+     * @var $agidEventDocumentsMm
+     */
+    public $agidEventDocumentsMm;
+    
+    /**
      * @inheritdoc
      */
     public function init()
@@ -122,6 +139,8 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
                 $this->registration_date_begin = date('Y-m-d');
             }
         }
+        
+        $this->on(self::EVENT_BEFORE_VALIDATE, [$this, 'eventBeforeValidate']);
     }
     
     /**
@@ -337,6 +356,11 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
                 ['gdpr_question_4', 'string'],
                 ['gdpr_question_5', 'string'],
                 // ['landingHeader', 'file', 'extensions' => 'jpeg, jpg, png, gif'],
+                [[
+                    'agidRelatedEventsMm',
+                    'agidAdministrativePersonsMm',
+                    'agidEventDocumentsMm',
+                ], 'safe']
             ]);
         
         
@@ -367,26 +391,43 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
     }
     
     /**
+     * Before validate method useful to exec some checks.
+     */
+    public function eventBeforeValidate()
+    {
+        // This method validate the places fields and save the new address if it's necessary.
+        $ok = PlacesComponents::checkPlace($this->agid_geolocation);
+        // TODO restore this code when enable billing on social account for the projects
+//        if (!$ok) {
+//            $this->addError('agid_geolocation', AmosEvents::t('amosevents', '#agid_geolocation_error'));
+//        }
+    }
+    
+    /**
      * @inheritdoc
      */
     public function attributeLabels()
     {
-        return ArrayHelper::merge(parent::attributeLabels(),
-            [
-                'eventLogo' => AmosEvents::t('amosevents', 'Logo'),
-                'begin_date_hour_from' => AmosEvents::t('amosevents', 'From begin date and hour'),
-                'begin_date_hour_to' => AmosEvents::t('amosevents', 'To begin date and hour'),
-                'end_date_hour_from' => AmosEvents::t('amosevents', 'From end date and hour'),
-                'end_date_hour_to' => AmosEvents::t('amosevents', 'To end date and hour'),
-                'landingHeader' => AmosEvents::t('amosevents', '#landing_header_label'),
-                'has_tickets' => AmosEvents::t('amosevents', '#has_tickets_label'),
-                'has_qr_code' => AmosEvents::t('amosevents', '#has_qr_code_label'),
-                'gdpr_question_1' => AmosEvents::t('amosevents', '#gdpr_question_1_label'),
-                'gdpr_question_2' => AmosEvents::t('amosevents', '#gdpr_question_2_label'),
-                'gdpr_question_3' => AmosEvents::t('amosevents', '#gdpr_question_3_label'),
-                'gdpr_question_4' => AmosEvents::t('amosevents', '#gdpr_question_4_label'),
-                'gdpr_question_5' => AmosEvents::t('amosevents', '#gdpr_question_5_label'),
-            ]);
+        $enableAgid = $this->eventsModule->enableAgid;
+        return ArrayHelper::merge(parent::attributeLabels(), [
+            'eventLogo' => ($enableAgid ? AmosEvents::t('amosevents', '#agid_image') : AmosEvents::t('amosevents', 'Logo')),
+            'eventAttachments' => ($enableAgid ? AmosEvents::t('amosevents', '#agid_attachments_field') : AmosEvents::t('amosevents', '#attachments_field')),
+            'begin_date_hour_from' => AmosEvents::t('amosevents', 'From begin date and hour'),
+            'begin_date_hour_to' => AmosEvents::t('amosevents', 'To begin date and hour'),
+            'end_date_hour_from' => AmosEvents::t('amosevents', 'From end date and hour'),
+            'end_date_hour_to' => AmosEvents::t('amosevents', 'To end date and hour'),
+            'landingHeader' => AmosEvents::t('amosevents', '#landing_header_label'),
+            'has_tickets' => AmosEvents::t('amosevents', '#has_tickets_label'),
+            'has_qr_code' => AmosEvents::t('amosevents', '#has_qr_code_label'),
+            'gdpr_question_1' => AmosEvents::t('amosevents', '#gdpr_question_1_label'),
+            'gdpr_question_2' => AmosEvents::t('amosevents', '#gdpr_question_2_label'),
+            'gdpr_question_3' => AmosEvents::t('amosevents', '#gdpr_question_3_label'),
+            'gdpr_question_4' => AmosEvents::t('amosevents', '#gdpr_question_4_label'),
+            'gdpr_question_5' => AmosEvents::t('amosevents', '#gdpr_question_5_label'),
+            'agidRelatedEventsMm' => AmosEvents::t('amosevents', '#agid_part_of'),
+            'agidAdministrativePersonsMm' => AmosEvents::t('amosevents', '#agid_administative_persons'),
+            'agidEventDocumentsMm' => AmosEvents::t('amosevents', '#agid_event_documents'),
+        ]);
     }
     
     /**
@@ -432,7 +473,7 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
 //        if (!empty($linkreferrer) && strpos($linkreferrer, 'dashboard') !== false) {
 //            return \yii\helpers\Url::to(\Yii::$app->params['platform']['backendUrl'] . '/events/event/view?id=' . $this->id, true);
 //        }
-        return $this->getFullViewUrl(); //da personalizzare magari con Yii::$app->urlManager->createUrl([]);
+        return NULL; //da personalizzare magari con Yii::$app->urlManager->createUrl([]);
     }
     
     /**
@@ -738,7 +779,7 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
     }
     
     /**
-     * @inheritdoc
+     * @return string date begin of publication
      */
     public function getPublicatedFrom()
     {
@@ -746,35 +787,11 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
     }
     
     /**
-     * @inheritdoc
+     * @return string date end of publication
      */
     public function getPublicatedAt()
     {
         return $this->publication_date_begin;
-    }
-    
-    /**
-     * @inheritdoc
-     */
-    public function getPublicatedFromField()
-    {
-        return 'publication_date_begin';
-    }
-    
-    /**
-     * @inheritdoc
-     */
-    public function getPublicatedAtField()
-    {
-        return 'publication_date_end';
-    }
-    
-    /**
-     * @inheritdoc
-     */
-    public function theDatesAreDatetime()
-    {
-        return true;
     }
     
     /**
@@ -886,6 +903,27 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
         return $address;
     }
     
+    /**
+     * @return \yii\db\ActiveQuery
+     */
+    public function getAgidGeolocationPlace()
+    {
+        return $this->hasOne(MapWidgetPlaces::className(), ['place_id' => 'agid_geolocation']);
+    }
+    
+    /**
+     * Returns the AGID geolocation in string format
+     * @return string
+     */
+    public function getAgidGeolocationString()
+    {
+        // Gets the record by the input field
+        $placeObj = PlacesComponents::getPlace($this->agid_geolocation);
+        
+        // Return the address's string
+        return PlacesComponents::getGeocodeString($placeObj);
+    }
+    
     public function setPublicationScenario()
     {
         $moduleNews = \Yii::$app->getModule(AmosEvents::getModuleName());
@@ -983,6 +1021,8 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
      */
     public function afterSave($insert, $changedAttributes)
     {
+        PlacesComponents::checkPlace($this->agid_geolocation);
+        
         parent::afterSave($insert, $changedAttributes);
         if (is_null($this->deleted_at) && is_null($this->deleted_by) && !is_null($this->begin_date_hour)) {
             $socialAuth = \Yii::$app->getModule('socialauth');
@@ -1665,5 +1705,13 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
             ],
             'title',
         ];
+    }
+    
+    /**
+     * @return string
+     */
+    public function getTitleSlider()
+    {
+        return $this->getTitle();
     }
 }

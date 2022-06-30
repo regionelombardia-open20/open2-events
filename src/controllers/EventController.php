@@ -21,6 +21,8 @@ use open20\amos\core\forms\editors\m2mWidget\controllers\M2MWidgetControllerTrai
 use open20\amos\core\forms\editors\m2mWidget\M2MEventsEnum;
 use open20\amos\core\helpers\Html;
 use open20\amos\core\icons\AmosIcons;
+use open20\amos\core\interfaces\SearchModuleInterface;
+use open20\amos\core\record\ContentModel;
 use open20\amos\core\user\User;
 use open20\amos\core\utilities\Email;
 use open20\amos\core\widget\WidgetAbstract;
@@ -47,6 +49,7 @@ use moonland\phpexcel\Excel;
 use Yii;
 use yii\base\Model;
 use yii\data\ActiveDataProvider;
+use yii\db\ActiveQuery;
 use yii\db\Expression;
 use yii\filters\AccessControl;
 use yii\filters\VerbFilter;
@@ -132,6 +135,12 @@ class EventController extends base\EventController
                             'actions' => [
                                 'calculate-end-date-hour',
                                 'event-invited-list',
+                                'get-event-by-id',
+                                'event-calendar-widget',
+                                'related-events-list',
+                                'agid-administrative-persons-list',
+                                'agid-politic-persons-list',
+                                'agid-event-documents-list',
                             ],
                             'roles' => ['EVENT_READ']
                         ],
@@ -187,14 +196,6 @@ class EventController extends base\EventController
                                 'subscribe-user-to-event'
                             ],
                             'roles' => ['ASSOCIATE_USER_TO_EVENT_PERMISSION']
-                        ],
-                        [
-                            'allow' => true,
-                            'actions' => [
-                                'get-event-by-id',
-                                'event-calendar-widget'
-                            ],
-                            'roles' => ['EVENT_READ']
                         ],
                         [
                             'allow' => true,
@@ -267,6 +268,57 @@ class EventController extends base\EventController
         $this->setCustomQuery(true);
         $this->on(M2MEventsEnum::EVENT_BEFORE_CANCEL_ASSOCIATE_M2M, [$this, 'beforeCancelAssociateM2m']);
     }
+
+
+
+
+    public function beforeAction($action)
+    {
+        if (\Yii::$app->user->isGuest) {
+            $titleSection = AmosEvents::t('amosevents', '#widget_icon_events_label');
+            $urlLinkAll   = '/events/event/all-events';
+
+            
+            
+        } else {
+            $titleSection = AmosEvents::t('amosevents', '#widget_icon_events_label');
+           
+        }
+
+        $labelCreate = AmosEvents::t('amosevents', 'Nuovo Evento');
+        $titleCreate =AmosEvents::t('amosevents', 'Crea un nuovo evento');
+        $labelManage = AmosEvents::t('amosevents', 'Gesitsci');
+        $titleManage = AmosEvents::t('amosevents', 'Gestisci gli eventi');
+        $urlCreate   = '/events/event/create';
+        $urlManage   = '#';
+
+        $this->view->params = [
+            'isGuest' => \Yii::$app->user->isGuest,
+            'modelLabel' => 'eventi',
+            'titleSection' => $titleSection,
+            'subTitleSection' => $subTitleSection,
+            'urlLinkAll' => $urlLinkAll,
+            'labelLinkAll' => $labelLinkAll,
+            'titleLinkAll' => $titleLinkAll,
+            'labelCreate' => $labelCreate,
+            'titleCreate' => $titleCreate,
+            'labelManage' => $labelManage,
+            'titleManage' => $titleManage,
+            'urlCreate' => $urlCreate,
+            'urlManage' => $urlManage,
+        ];
+
+        if (!parent::beforeAction($action)) {
+            return false;
+        }
+
+        // other custom code here
+
+        return true;
+    }
+
+
+
 
     /**
      * @param \yii\base\Event $event
@@ -3920,5 +3972,92 @@ class EventController extends base\EventController
             ]);
         }
         return '';
+    }
+    
+    /**
+     * Action useful to search the related events that can be selected in AGID form.
+     * @param string $q
+     * @return array
+     */
+    public function actionRelatedEventsList($q = null)
+    {
+        \Yii::$app->response->format = Response::FORMAT_JSON;
+        $out = ['results' => ['id' => '', 'text' => '']];
+        if (!is_null($q)) {
+            $model = $this->model;
+            /** @var ActiveQuery $query */
+            $query = $this->modelSearch->searchAllEvents([])->query;
+            $query->select(new Expression($model::tableName() . ".id, " . $model::tableName() . ".title AS text"));
+            $query->andWhere(['like', $model::tableName() . '.title', $q]);
+            $data = $query->asArray()->all();
+            $out['results'] = array_values($data);
+        }
+        return $out;
+    }
+    
+    /**
+ * Action useful to search the administrative persons that can be selected in AGID form.
+ * @param string $q
+ * @return array
+ */
+    public function actionAgidAdministrativePersonsList($q = null)
+    {
+        \Yii::$app->response->format = Response::FORMAT_JSON;
+        $out = ['results' => ['id' => '', 'text' => '']];
+        if (!is_null($q)) {
+            /** @var ActiveQuery $query */
+            $query = EventsUtility::getAgidValidatedPersons(true);
+            $query->select(new Expression("id, CONCAT(surname, ' ', name) AS text"));
+            $query->andWhere(['or', ['like', 'name', $q], ['like', 'surname', $q], ['like', "CONCAT(surname, ' ', name)", $q]]);
+            $data = $query->asArray()->all();
+            $out['results'] = array_values($data);
+        }
+        return $out;
+    }
+
+    /**
+     * Action useful to search the administrative persons that can be selected in AGID form.
+     * @param string $q
+     * @return array
+     */
+    public function actionAgidPoliticPersonsList($q = null)
+    {
+        \Yii::$app->response->format = Response::FORMAT_JSON;
+        $out = ['results' => ['id' => '', 'text' => '']];
+        if (!is_null($q)) {
+            /** @var ActiveQuery $query */
+            $query = EventsUtility::getAgidValidatedPoliticPersons(true);
+            $query->select(new Expression("id, CONCAT(surname, ' ', name) AS text"));
+            $query->andWhere(['or', ['like', 'name', $q], ['like', 'surname', $q], ['like', "CONCAT(surname, ' ', name)", $q]]);
+            $data = $query->asArray()->all();
+            $out['results'] = array_values($data);
+        }
+        return $out;
+    }
+    
+    /**
+     * Action useful to search the documents that can be selected in AGID form.
+     * @param string $q
+     * @return array
+     */
+    public function actionAgidEventDocumentsList($q = null)
+    {
+        \Yii::$app->response->format = Response::FORMAT_JSON;
+        $out = ['results' => ['id' => '', 'text' => '']];
+        if (!is_null($q)) {
+            /** @var \open20\amos\documenti\AmosDocumenti|SearchModuleInterface $documentiModule */
+            $documentiModule = \Yii::$app->getModule('documenti');
+            if (!is_null($documentiModule)) {
+                /** @var ContentModel $documentiSearchModel */
+                $documentiSearchModel = Yii::createObject($documentiModule::getModelSearchClassName());
+                /** @var ActiveQuery $query */
+                $query = $documentiSearchModel->searchAll([])->query;
+                $query->select(new Expression($documentiSearchModel::tableName() . ".id, " . $documentiSearchModel::tableName() . ".titolo AS text"));
+                $query->andWhere(['like', $documentiSearchModel::tableName() . '.titolo', $q]);
+                $data = $query->asArray()->all();
+                $out['results'] = array_values($data);
+            }
+        }
+        return $out;
     }
 }

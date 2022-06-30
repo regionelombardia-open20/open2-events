@@ -128,8 +128,8 @@ $this->registerJs("
     <div class="col-xs-12">
         <div class="pull-right">
             <?= Html::a(AmosEvents::t('amosevents', 'Cancel'), [Yii::$app->controller->action->id, 'currentView' => Yii::$app->request->getQueryParam('currentView')],
-                ['class' => 'btn btn-secondary']) ?>
-            <?= Html::submitButton(AmosEvents::t('amosevents', 'Search'), ['class' => 'btn btn-navigation-primary']) ?>
+                ['class' => 'btn btn-outline-primary']) ?>
+            <?= Html::submitButton(AmosEvents::t('amosevents', 'Search'), ['class' => 'btn btn-primary']) ?>
         </div>
     </div>
 

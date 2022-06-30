@@ -6,6 +6,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.10.0]
+### Added
+- Added new module property enableAgid to enable all the AGID module functionalities and graphic.
+- Added new module property freeSelectEndOfTheEvent to allow the user to free select the end of the event.
+
+### Refactor
+- Refactor Event model and controller.
+
+## [1.9.0]
+### Added
+- Implemented NewsletterInterface in the Event model useful for the newsletter plugin.
+
 ## [1.7.0] - 2020-07-08
 ### Added
 - Added a list of the invitations sent in the event view. Active by param showInvitationsInEventView.

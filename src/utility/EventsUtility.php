@@ -21,6 +21,7 @@ use open20\amos\community\models\CommunityType;
 use open20\amos\community\models\CommunityUserMm;
 use open20\amos\community\utilities\CommunityUtil;
 use open20\amos\events\AmosEvents;
+use open20\amos\events\models\AgidEventTypology;
 use open20\amos\events\models\Event;
 use open20\amos\events\models\EventAccreditationList;
 use open20\amos\events\models\EventCalendars;
@@ -56,7 +57,7 @@ class EventsUtility
         }
         return $translatedArrayValues;
     }
-
+    
     /**
      * Create a community for the event.
      * @param Event $model
@@ -71,7 +72,7 @@ class EventsUtility
         $description = ($model->description ? $model->description : '');
         $eventType = $model->eventType;
         $type = CommunityType::COMMUNITY_TYPE_CLOSED; // DEFAULT TYPE
-
+        
         if (!is_null($eventType) && $eventType->event_type == EventType::TYPE_OPEN) {
             $type = CommunityType::COMMUNITY_TYPE_OPEN;
         } else if (!is_null($eventType) && $eventType->event_type == EventType::TYPE_UPON_INVITATION) {
@@ -93,7 +94,7 @@ class EventsUtility
         }
         return $ok;
     }
-
+    
     /**
      * Update a community.
      * @param Event $model
@@ -106,7 +107,7 @@ class EventsUtility
         $ok = $model->community->save(false);
         return $ok;
     }
-
+    
     /**
      * @param Event $model
      * @return bool
@@ -137,7 +138,7 @@ class EventsUtility
         }
         return $ok;
     }
-
+    
     /**
      * @param Event $model
      * @return bool
@@ -169,7 +170,7 @@ class EventsUtility
         }
         return $ok;
     }
-
+    
     /**
      * @param int $communityId
      * @param File $eventLogo
@@ -190,7 +191,7 @@ class EventsUtility
         $communityLogo->itemId = $communityId;
         return $communityLogo->save();
     }
-
+    
     public static function deleteCommunityLogo($model)
     {
         $communityLogo = File::findOne(['model' => Community::className(), 'attribute' => 'communityLogo',
@@ -199,7 +200,7 @@ class EventsUtility
             $communityLogo->delete();
         }
     }
-
+    
     /**
      * Check if there is at least one confirmed event manager only if there is a community. If not it return true.
      * @param Event $event
@@ -214,7 +215,7 @@ class EventsUtility
             CommunityUserMm::STATUS_ACTIVE);
         return (count($confirmedEventManagers) > 0);
     }
-
+    
     /**
      * Check if there is at least one confirmed event manager only if there is a community. If not it return true.
      * @param Event $event
@@ -226,21 +227,21 @@ class EventsUtility
         if (!$event->community_id) {
             return [];
         }
-
+        
         $where = [
             'community_id' => $event->community_id,
             'role' => $event->getManagerRole()
         ];
-
+        
         if ($status) {
             $where['status'] = $status;
         }
-
+        
         $eventManagers = CommunityUserMm::find()->andWhere($where)->all();
-
+        
         return $eventManagers;
     }
-
+    
     /**
      * @param null|integer $userId
      * @return array|null|\yii\db\ActiveRecord
@@ -261,7 +262,7 @@ class EventsUtility
         }
         return null;
     }
-
+    
     /**
      * @param null|\open20\amos\socialauth\models\SocialAuthServices $service
      * @return \Google_Service_Calendar|null
@@ -277,7 +278,7 @@ class EventsUtility
         }
         return null;
     }
-
+    
     /**
      * @param \Google_Service_Calendar $serviceGoogle
      * @param string $calendarId
@@ -287,7 +288,7 @@ class EventsUtility
     public static function insertOrUpdateGoogleEvent($serviceGoogle,
                                                      $calendarId, $eventCalendar)
     {
-
+        
         $eventId = $eventCalendar->getId();
         try {
             $eventCalendarExists = $serviceGoogle->events->get($calendarId,
@@ -310,7 +311,7 @@ class EventsUtility
         }
         return true;
     }
-
+    
     /**
      * @param \Google_Service_Calendar $serviceGoogle
      * @param string $calendarId
@@ -320,7 +321,7 @@ class EventsUtility
     public static function deleteGoogleEvent($serviceGoogle, $calendarId,
                                              $eventId)
     {
-
+        
         try {
             $eventCalendar = $serviceGoogle->events->get($calendarId, $eventId);
         } catch (\Google_Service_Exception $ex) {
@@ -333,7 +334,7 @@ class EventsUtility
         }
         return true;
     }
-
+    
     /**
      * @param Event $event
      * @param int $eventId
@@ -361,16 +362,16 @@ class EventsUtility
         } catch (\Exception $ex) {
             \Yii::getLogger()->log($ex->getMessage(), Logger::LEVEL_ERROR);
         }
-
+        
         return $count;
     }
-
+    
     public static function checkManager($event)
     {
         $communityUtil = new CommunityUtil();
         return $communityUtil->isManagerLoggedUser($event);
     }
-
+    
     /**
      * @param CommunityContextInterface $model
      * @return bool
@@ -384,7 +385,7 @@ class EventsUtility
         ]);
         return (!is_null($foundRow));
     }
-
+    
     /**
      * @param Event|null $event
      * @param Invitation|null $invitation
@@ -403,7 +404,7 @@ class EventsUtility
         if ($type == 'participant') {
             if ($event && $invitation) {
                 $url = Url::base(true) . Url::toRoute(['register-participant', 'eid' => $event->id,
-                        'pid' => (empty($invitation->user_id)? '' : $invitation->user_id), 'iid' => $invitation->id]);
+                        'pid' => (empty($invitation->user_id) ? '' : $invitation->user_id), 'iid' => $invitation->id]);
             }
         } elseif ($type == 'companion') {
             if ($event && $invitation) {
@@ -412,7 +413,7 @@ class EventsUtility
                         'cid' => $companion['id']]);
             }
         }
-
+        
         if (!empty($url)) {
             /* if ($qrcodeFormat == 'svg') {
               return QrCode::svg($url, "qrcode", false, Enum::QR_ECLEVEL_M, $size);
@@ -427,7 +428,7 @@ class EventsUtility
         }
         return '';
     }
-
+    
     /**
      * @param $eid
      * @return string
@@ -457,19 +458,19 @@ class EventsUtility
                         $companions = $eventParticipantCompanionModel::find()
                             ->andWhere(['event_invitation_id' => $invitation->id])
                             ->all();
-
+                        
                         // get assignd seat
                         $seat = null;
                         if ($event->seats_management) {
                             $assignedSeat = $invitation->assignedSeat;
-
+                            
                             if ($assignedSeat) {
                                 $seat = $assignedSeat->getStringCoordinateSeat();
                                 $filenameTicket = $assignedSeat->getTicketName();
                                 $seatModel = $assignedSeat;
                             }
                         }
-
+                        
                         $content = \Yii::$app->controller->renderPartial(
                             !empty($event->ticket_layout_view) ? $event->ticket_layout_view
                                 : 'pdf-tickets/general-layout',
@@ -487,7 +488,7 @@ class EventsUtility
                                     'accreditationModel' => $invitation->getAccreditationList()->one(),
                                     'companion_of' => null,
                                     'seat' => $seat,
-
+                                
                                 ],
                                 'seatModel' => $seatModel,
                                 'qrcode' => $event->has_qr_code ? EventsUtility::createQrCode($event,
@@ -495,7 +496,7 @@ class EventsUtility
                                     'png') : '',
                             ]
                         );
-
+                        
                         foreach ($companions as $companion) {
                             $seat = null;
                             $seatModel = null;
@@ -508,10 +509,10 @@ class EventsUtility
                                 }
                             }
                             $content .= "<pagebreak />";
-
+                            
                             /** @var EventAccreditationList $eventAccreditationListModel */
                             $eventAccreditationListModel = $eventModule->createModel('EventAccreditationList');
-
+                            
                             $content .= \Yii::$app->controller->renderPartial(!empty($event->ticket_layout_view)
                                 ? $event->ticket_layout_view : 'pdf-tickets/general-layout',
                                 [
@@ -529,7 +530,7 @@ class EventsUtility
                                             'id' => $companion->event_accreditation_list_id]),
                                         'companion_of' => $invitation,
                                         'seat' => $seat,
-
+                                    
                                     ],
                                     'seatModel' => $seatModel,
                                     'qrcode' => $event->has_qr_code ? EventsUtility::createQrCode($event,
@@ -555,16 +556,16 @@ class EventsUtility
                                 //'SetFooter'=>['{PAGENO}'],
                             ]
                         ]);
-
+                        
                         $pdf->marginBottom = 5;
                         $pdf->marginTop = 5;
-
-
+                        
+                        
                         $pdf_file = $temp_dir . DIRECTORY_SEPARATOR . $filenameTicket . '.pdf';
                         $savepath = $temp_dir . DIRECTORY_SEPARATOR . $filenameTicket . '.jpg';
                         $pdf->output($pdf->content, $temp_dir . DIRECTORY_SEPARATOR . $filenameTicket . '.pdf',
                             'F');
-
+                        
                         exec("convert '" . $pdf_file . "' '" . $savepath . "'");
                         $invitation->ticket_downloaded_at = date("Y-m-d H:i:s");
                         $invitation->ticket_downloaded_by = (!empty(\Yii::$app->user)
@@ -575,7 +576,7 @@ class EventsUtility
                     } else {
                         return '';
                     }
-
+                    
                     return '';
                 } else {
                     return '';
@@ -584,7 +585,7 @@ class EventsUtility
         }
         return '';
     }
-
+    
     /**
      * This method checks if the user can view the "Enter in community" button in view.
      * @param Event $model
@@ -604,16 +605,17 @@ class EventsUtility
             )
         );
     }
-
+    
     /**
      * @param $event_id
      * @param $user_id
      * @return mixed
      * @throws \yii\base\InvalidConfigException
      */
-    public static function isEventParticipant($event_id, $user_id){
+    public static function isEventParticipant($event_id, $user_id)
+    {
         $event = Event::findOne($event_id);
-        if($event){
+        if ($event) {
             $count = CommunityUserMm::find()
                 ->andWhere(['community_id' => $event->community_id])
                 ->andWhere(['user_id' => $user_id])
@@ -621,13 +623,14 @@ class EventsUtility
         }
         return $count;
     }
-
+    
     /**
      * @param $event_calendars_id
      * @return bool
      * @throws \yii\base\InvalidConfigException
      */
-    public static function isLoggedUserPartner($event_calendars_id){
+    public static function isLoggedUserPartner($event_calendars_id)
+    {
         /** @var EventCalendars $eventCalendarsModel */
         $eventCalendarsModel = AmosEvents::instance()->createModel('EventCalendars');
         $count = $eventCalendarsModel::find()
@@ -635,7 +638,7 @@ class EventsUtility
             ->andWhere(['id' => $event_calendars_id])->count();
         return $count > 0;
     }
-
+    
     /**
      * This method returns all events rooms.
      * @return array|\yii\db\ActiveRecord[]
@@ -652,7 +655,7 @@ class EventsUtility
         $eventRooms = $query->all();
         return $eventRooms;
     }
-
+    
     /**
      * This method returns all events rooms ready for a form select widget.
      * @param EventRoom[]|null $objects
@@ -679,7 +682,7 @@ class EventsUtility
         }
         return $eventRooms;
     }
-
+    
     /**
      * This method returns all events rooms seats available ready for the form select widget options.
      * @param EventRoom[]|null $objects
@@ -712,7 +715,7 @@ class EventsUtility
         }
         return $dataToReturn;
     }
-
+    
     /**
      * This method returns the event room available seats by the event room id.
      * @param int $eventRoomId
@@ -734,5 +737,103 @@ class EventsUtility
         $query->andWhere(['id' => $eventRoomId]);
         $eventRoomAvailableSeats = $query->scalar();
         return $eventRoomAvailableSeats;
+    }
+    
+    /**
+     * @param AmosEvents|null $eventsModule
+     * @param AgidEventTypology[]|null $objects
+     * @return array
+     * @throws \yii\base\InvalidConfigException
+     */
+    public static function getEventAgidTypologiesReadyForSelect($eventsModule = null, $objects = null)
+    {
+        if (is_null($eventsModule)) {
+            /** @var AmosEvents $eventsModule */
+            $eventsModule = AmosEvents::instance();
+        }
+        
+        if (is_null($objects)) {
+            /** @var AgidEventTypology $agidEventTypologyModel */
+            $agidEventTypologyModel = $eventsModule->createModel('AgidEventTypology');
+            /** @var ActiveQuery $query */
+            $query = $agidEventTypologyModel::find();
+            $query->orderBy([
+                'level' => SORT_ASC,
+                'name' => SORT_ASC
+            ]);
+            $agidEventTipologies = $query->all();
+        } else {
+            $agidEventTipologies = $objects;
+        }
+        
+        $readyForSelect = [];
+        
+        foreach ($agidEventTipologies as $agidEventTipology) {
+            /** @var AgidEventTypology $agidEventTipology */
+            if (!is_null($agidEventTipology->parent_id)) {
+                $readyForSelect[$agidEventTipology->id] = self::makeAgidEventTypologyConcat($agidEventTipology);
+            } else {
+                $readyForSelect[$agidEventTipology->id] = $agidEventTipology->name;
+            }
+        }
+        
+        return $readyForSelect;
+    }
+    
+    /**
+     * @param AgidEventTypology $agidEventTipology
+     * @return string
+     */
+    protected static function makeAgidEventTypologyConcat($agidEventTipology)
+    {
+        $concatParentsNames = $agidEventTipology->name;
+        if (is_null($agidEventTipology->parent_id)) {
+            return $concatParentsNames;
+        }
+        return self::makeAgidEventTypologyConcat($agidEventTipology->parent) . ' > ' . $concatParentsNames;
+    }
+    
+    /**
+     * This method returns the AGID administrative persons.
+     * @return array
+     */
+    public static function getAgidValidatedPersons($onlyQuery = false)
+    {
+        /** @var \open20\agid\person\Module|AmosModule $agidPersonModule */
+        $agidPersonModule = \Yii::$app->getModule('person');
+        if (!is_null($agidPersonModule)) {
+            return $agidPersonModule->getAdministrativeValidatedPersons($onlyQuery);
+        }
+        return null;
+    }
+
+    /**
+     * This method returns the AGID administrative persons.
+     * @return array
+     */
+    public static function getAgidValidatedPoliticPersons($onlyQuery = false)
+    {
+        /** @var \open20\agid\person\Module|AmosModule $agidPersonModule */
+        $agidPersonModule = \Yii::$app->getModule('person');
+        if (!is_null($agidPersonModule)) {
+            return $agidPersonModule->getPoliticValidatedPersons($onlyQuery);
+        }
+        return null;
+    }
+    /**
+     * This method returns the AGID administrative persons ready for select.
+     * @return array
+     */
+    public static function getEventAgidPersonsReadyForSelect()
+    {
+        $readyForSelect = [];
+        $validatedPersons = self::getAgidValidatedPoliticPersons();
+        if (!empty($validatedPersons)) {
+            foreach ($validatedPersons as $person) {
+                /** @var \open20\agid\person\models\AgidPerson $person */
+                $readyForSelect[$person->id] = $person->getSurnameName();
+            }
+        }
+        return $readyForSelect;
     }
 }

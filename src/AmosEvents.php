@@ -32,55 +32,55 @@ use yii\helpers\ArrayHelper;
 class AmosEvents extends AmosModule implements ModuleInterface, SearchModuleInterface, CmsModuleInterface
 {
     public static $CONFIG_FOLDER = 'config';
-
+    
     /**
      * @var string|boolean the layout that should be applied for views within this module. This refers to a view name
      * relative to [[layoutPath]]. If this is not set, it means the layout value of the [[module|parent module]]
      * will be taken. If this is false, layout will be disabled within this module.
      */
     public $layout = 'main';
-
+    
     /**
      * @inheritdoc
      */
     public $controllerNamespace = 'open20\amos\events\controllers';
-
+    
     public $newFileMode = 0666;
     public $name = 'Events';
-
+    
     /**
      * If this attribute is true the validation of the publication date is active
      * @var boolean $validatePublicationDateEnd
      */
     public $validatePublicationDateEnd = true;
-
+    
     /**
      * @var bool|false $enableGoogleMap
      */
     public $enableGoogleMap = true;
-
+    
     /**
      * @var bool|false $enableInvitationManagement
      */
     public $enableInvitationManagement = true;
-
+    
     /**
      * @var bool|false $hidePubblicationDate
      */
     public $hidePubblicationDate = false;
-
+    
     /**
      * This param enable or disable the export button in lists.
      * @var bool $enableExport
      */
     public $enableExport = true;
-
+    
     /**
      * This param enables enables multiple recording for the same event.
      * @var bool $multipleRecording
      */
     public $multipleRecording = false;
-
+    
     /**
      * @var array $eventsRequiredFields
      */
@@ -94,22 +94,22 @@ class AmosEvents extends AmosModule implements ModuleInterface, SearchModuleInte
         'event_management',
         'event_commentable',
     ];
-
+    
     /**
      * @var bool $eventLengthRequired If true enable the required validator on field "length"
      */
     public $eventLengthRequired = false;
-
+    
     /**
      * @var bool $eventMURequired If true enable the required validator on length measurement unit
      */
     public $eventMURequired = false;
-
+    
     /**
      * @var bool $forceEventCommentable
      */
     public $forceEventCommentable = '1';
-
+    
     /**
      * @inheritdoc
      */
@@ -119,78 +119,93 @@ class AmosEvents extends AmosModule implements ModuleInterface, SearchModuleInte
             'attributes' => ['title'],
             'category' => 'amosevents',
         ],
+        [
+            'namespace' => 'open20\amos\events\models\AgidEventTypology',
+            'attributes' => ['name'],
+            'category' => 'amosevents',
+        ],
     ];
-
+    
     public $viewPathEmailSummary = [
         'open20\amos\events\models\Event' => '@vendor/open20/amos-events/src/views/email/notify_summary'
     ];
-
+    
     public $viewPathEmailSummaryTitle = [
         'open20\amos\events\models\Event' => '@vendor/open20/amos-events/src/views/email/notify_summary_title'
     ];
-
+    
     /**
      * @var bool $enableSeatsManagement
      */
     public $enableSeatsManagement = true;
-
+    
     /**
      * @var bool $enableAutoInviteUsers If true enable the auto invite of the event recipients when the event is published.
      */
     public $enableAutoInviteUsers = false;
-
+    
     public $tempPath = '@backend/web/ticket_download';
-
+    
     /**
      * @var bool $enableGdpr If true enable the GDPR in all the plugin.
      */
     public $enableGdpr = true;
-
+    
     /**
      * @var bool $enableCommunitySections If true enable the community sections in all the plugin.
      */
     public $enableCommunitySections = true;
-
+    
     /**
      * @var bool $actionCreatedByOnlyViewGrid If true the only list view for the action created by is the grid view.
      */
-    public $actionCreatedByOnlyViewGrid = false;
-
+    public $actionCreatedByOnlyViewGrid = true;
+    
     /**
      * @var bool
      */
     public $enableCalendarsManagement = false;
-
+    
     /**
      * @var bool $forceEventSubscription if true the user is immediatly subscribed to event
      */
     public $forceEventSubscription = false;
-
+    
     /**
      * @var bool $viewEventSignupLinkInForm If true enable a read only field that show the event sign-up generic link
      */
     public $viewEventSignupLinkInForm = false;
-
+    
     /**
      * @var bool $enableContentDuplication If true enable the content duplication on each row in table view
      */
     public $enableContentDuplication = false;
-
+    
     /**
      * @var bool $enableEventRooms If true enable the event rooms management and event rooms select in event form
      */
     public $enableEventRooms = false;
-
+    
     /**
      * @var bool $showInvitationsInEventView With this parameter true, the plugin show the invitations list in event view.
      */
     public $showInvitationsInEventView = false;
-
+    
     /**
      * @var bool $saveExternalInvitations With this parameter true, the plugin save the external excel invitations, like old style plugin.
      */
     public $saveExternalInvitations = false;
-
+    
+    /**
+     * @var bool $enableAgid This parameter enable the plugin to be compliant with AGID events.
+     */
+    public $enableAgid = false;
+    
+    /**
+     * @var bool $enableAgid This parameter allow the user to select a custom end of the event instead of select duration with duration unit.
+     */
+    public $freeSelectEndOfTheEvent = false;
+    
     /**
      * @inheritdoc
      */
@@ -198,7 +213,7 @@ class AmosEvents extends AmosModule implements ModuleInterface, SearchModuleInte
     {
         return 'events';
     }
-
+    
     /**
      * @inheritdoc
      */
@@ -206,20 +221,20 @@ class AmosEvents extends AmosModule implements ModuleInterface, SearchModuleInte
     {
         return 'calendar';
     }
-
+    
     /**
      * @inheritdoc
      */
     public function init()
     {
         parent::init();
-
+        
         \Yii::setAlias('@open20/amos/' . static::getModuleName() . '/controllers', __DIR__ . '/controllers/');
         // custom initialization code goes here
         $config = require(__DIR__ . DIRECTORY_SEPARATOR . 'config' . DIRECTORY_SEPARATOR . 'config.php');
         \Yii::configure($this, ArrayHelper::merge($config, ["params" => $this->params]));
     }
-
+    
     /**
      * @inheritdoc
      */
@@ -227,7 +242,7 @@ class AmosEvents extends AmosModule implements ModuleInterface, SearchModuleInte
     {
         return null;
     }
-
+    
     /**
      * @inheritdoc
      */
@@ -241,13 +256,17 @@ class AmosEvents extends AmosModule implements ModuleInterface, SearchModuleInte
             WidgetIconEventsManagement::className(),
         ];
     }
-
+    
     /**
      * @inheritdoc
      */
     protected function getDefaultModels()
     {
         return [
+            'AgidAdministrativePersonsMm' => __NAMESPACE__ . '\\' . 'models\AgidAdministrativePersonsMm',
+            'AgidEventDocumentsMm' => __NAMESPACE__ . '\\' . 'models\AgidEventDocumentsMm',
+            'AgidEventTypology' => __NAMESPACE__ . '\\' . 'models\AgidEventTypology',
+            'AgidRelatedEventMm' => __NAMESPACE__ . '\\' . 'models\AgidRelatedEventMm',
             'Event' => __NAMESPACE__ . '\\' . 'models\Event',
             'EventAccreditationList' => __NAMESPACE__ . '\\' . 'models\EventAccreditationList',
             'EventCalendars' => __NAMESPACE__ . '\\' . 'models\EventCalendars',
@@ -273,7 +292,7 @@ class AmosEvents extends AmosModule implements ModuleInterface, SearchModuleInte
             'EventTypeSearch' => __NAMESPACE__ . '\\' . 'models\search\EventTypeSearch',
         ];
     }
-
+    
     /**
      * @param \Google_Service_Calendar $serviceGoogle
      * @param string $calendarId
@@ -299,7 +318,7 @@ class AmosEvents extends AmosModule implements ModuleInterface, SearchModuleInte
         } else {
             $isUpdate = true;
         }
-
+        
         $insertCount = 0;
         $updatedCount = 0;
         foreach ($events as $event) {
@@ -334,10 +353,10 @@ class AmosEvents extends AmosModule implements ModuleInterface, SearchModuleInte
         if ($updatedCount) {
             $message .= '<br/>' . AmosEvents::t('amosevents', 'Events updated:') . ' ' . $updatedCount;
         }
-
+        
         return $message;
     }
-
+    
     /**
      * @inheritdoc
      */
@@ -345,7 +364,7 @@ class AmosEvents extends AmosModule implements ModuleInterface, SearchModuleInte
     {
         return AmosEvents::instance()->model('EventSearch');
     }
-
+    
     /**
      * @inheritdoc
      */
@@ -353,7 +372,7 @@ class AmosEvents extends AmosModule implements ModuleInterface, SearchModuleInte
     {
         return AmosEvents::instance()->model('Event');
     }
-
+    
     /**
      * Same as calling AmosEvents::t('amosevents', ...$args)
      * @return string
@@ -362,7 +381,7 @@ class AmosEvents extends AmosModule implements ModuleInterface, SearchModuleInte
     {
         return self::t('amosevents', $txt, ...$args);
     }
-
+    
     /**
      * Same as calling AmosEvents::tHtml('amosevents', ...$args)
      * @return string
@@ -371,7 +390,7 @@ class AmosEvents extends AmosModule implements ModuleInterface, SearchModuleInte
     {
         return self::tHtml('amosevents', $txt, ...$args);
     }
-
+    
     /**
      * @param \open20\amos\admin\models\UserProfile $model
      * @return string
@@ -381,12 +400,25 @@ class AmosEvents extends AmosModule implements ModuleInterface, SearchModuleInte
     {
         return InviteUserToEventWidget::widget(['model' => $model]);
     }
-
+    
     /**
      * @return bool|string
      */
     public function getTempPath()
     {
         return \Yii::getAlias($this->tempPath);
+    }
+    
+    /**
+     * @inheridoc
+     */
+    public function getFrontEndMenu($dept = 1)
+    {
+        $menu = parent::getFrontEndMenu();
+        $app = \Yii::$app;
+        if (!$app->user->isGuest) {
+            $menu .= $this->addFrontEndMenu(AmosEvents::t('amosevents', '#menu_front_events'), AmosEvents::toUrlModule('/event/all-events'), $dept);
+        }
+        return $menu;
     }
 }

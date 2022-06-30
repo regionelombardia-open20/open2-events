@@ -35,9 +35,11 @@ use yii\base\Model;
 use yii\data\ActiveDataProvider;
 use yii\data\Pagination;
 use yii\db\ActiveQuery;
+use yii\db\ExpressionInterface;
 use yii\di\Container;
 use yii\di\NotInstantiableException;
 use yii\helpers\ArrayHelper;
+use open20\amos\tag\models\EntitysTagsMm;
 
 /**
  * Class EventSearch
@@ -186,8 +188,13 @@ class EventSearch extends Event implements SearchModelInterface, CmsModelInterfa
     }
 
     /**
-     * @param $params
-     * @return ActiveDataProvider
+     * @param array $params
+     * @param string $queryType
+     * @param int|null|ExpressionInterface $limit
+     * @param bool $onlyDrafts
+     * @return ActiveDataProvider|\yii\data\BaseDataProvider
+     * @throws InvalidConfigException
+     * @throws NotInstantiableException
      */
     public function search($params, $queryType = null, $limit = null, $onlyDrafts = false)
     {
@@ -380,7 +387,7 @@ class EventSearch extends Event implements SearchModelInterface, CmsModelInterfa
                 break;
             case 'all':
                 if ($isSetCwh) {
-                    $query = $cwhActiveQuery->getQueryCwhAll();
+                    $query = $cwhActiveQuery->getQueryCwhAll(null,null,true);
                 } else {
                     $query->andWhere(
                         [
@@ -591,6 +598,7 @@ class EventSearch extends Event implements SearchModelInterface, CmsModelInterfa
         $now = date('Y-m-d');
         $tableName = $this->tableName();
         $query = $this->baseSearch($params)
+            ->leftJoin(EntitysTagsMm::tableName(), EntitysTagsMm::tableName() . ".classname = '".  Event::className() . "' and ".EntitysTagsMm::tableName(). ".record_id = ". Event::tableName() . ".id")    
             ->andWhere([
                 $tableName . '.status' => Event::EVENTS_WORKFLOW_STATUS_PUBLISHED,
                 $tableName . '.primo_piano' => 1
