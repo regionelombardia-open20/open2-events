@@ -157,9 +157,9 @@ abstract class Event extends ContentModel implements CommunityInterface
             if (!is_null($this->eventsModule)) {
                 if ($this->eventsModule->hidePubblicationDate) {
                     // the news will be visible forever
-                    $this->publication_date_end = '9999-12-31';
+                    $this->publication_date_end = '9999-12-31 23:59:59';
                 }
-                $this->publication_date_begin = date('Y-m-d');
+                $this->publication_date_begin = date('Y-m-d H:i:s');
             }
             $this->event_membership_type_id = \open20\amos\events\models\EventMembershipType::TYPE_OPEN;
             $this->status = $this->getWorkflowSource()->getWorkflow(self::EVENTS_WORKFLOW)->getInitialStatusId();
@@ -199,6 +199,8 @@ abstract class Event extends ContentModel implements CommunityInterface
             [[
                 'begin_date_hour',
                 'end_date_hour',
+                'publication_date_begin',
+                'publication_date_end',
                 'length_mu_id',
                 'event_location',
                 'event_address',
@@ -324,7 +326,7 @@ abstract class Event extends ContentModel implements CommunityInterface
     {
         $isValid = true;
         if ($this->isNewRecord && \Yii::$app->getModule('events')->validatePublicationDateEnd == true) {
-            if ($this->$attribute < date('Y-m-d')) {
+            if ($this->$attribute < date('Y-m-d H:i:s')) {
                 $isValid = false;
             }
         }

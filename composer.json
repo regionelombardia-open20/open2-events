@@ -16,7 +16,7 @@
         "open20/amos-comments":"^1.1",
         "open20/amos-community": "^1.5.29",
         "open20/amos-comuni": "*",
-        "open20/amos-core": "^1.19.0",
+        "open20/amos-core":"^1.19.1",
         "open20/amos-dashboard": "^1.8.16",
         "open20/amos-wizflow": "^1.0.2",
         "open20/amos-workflow": "^1.0",

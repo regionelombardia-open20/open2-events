@@ -21,6 +21,7 @@ use open20\amos\core\behaviors\SoftDeleteByBehavior;
 use open20\amos\core\helpers\Html;
 use open20\amos\core\interfaces\ContentModelInterface;
 use open20\amos\core\interfaces\NewsletterInterface;
+use open20\amos\core\interfaces\PublicationDateFieldsInterface;
 use open20\amos\core\interfaces\ViewModelInterface;
 use open20\amos\core\user\User;
 use open20\amos\core\utilities\DuplicateContentUtility;
@@ -46,7 +47,7 @@ use yii\helpers\Url;
  *
  * @package open20\amos\events\models
  */
-class Event extends \open20\amos\events\models\base\Event implements ContentModelInterface, CommunityContextInterface, CommentInterface, ViewModelInterface, SeoModelInterface, NewsletterInterface
+class Event extends \open20\amos\events\models\base\Event implements ContentModelInterface, CommunityContextInterface, CommentInterface, ViewModelInterface, SeoModelInterface, NewsletterInterface, PublicationDateFieldsInterface
 {
     /**
      * Constants for community roles
@@ -737,7 +738,7 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
     }
     
     /**
-     * @return string date begin of publication
+     * @inheritdoc
      */
     public function getPublicatedFrom()
     {
@@ -745,11 +746,35 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
     }
     
     /**
-     * @return string date end of publication
+     * @inheritdoc
      */
     public function getPublicatedAt()
     {
         return $this->publication_date_begin;
+    }
+    
+    /**
+     * @inheritdoc
+     */
+    public function getPublicatedFromField()
+    {
+        return 'publication_date_begin';
+    }
+    
+    /**
+     * @inheritdoc
+     */
+    public function getPublicatedAtField()
+    {
+        return 'publication_date_end';
+    }
+    
+    /**
+     * @inheritdoc
+     */
+    public function theDatesAreDatetime()
+    {
+        return true;
     }
     
     /**
