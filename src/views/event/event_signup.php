@@ -69,7 +69,9 @@ $getData = Yii::$app->request->get();
             <h2><?= $event->title ?></h2>
             <!--                    <p>< ?= $event->summary ?></p>-->
             <!--                    <p>< ?= $event->description ?></p>-->
-            <div class="control-address"><div class="pointer"><?= AmosIcons::show('map-marker', ['class' => 'am-2'], AmosIcons::DASH) ?></div></div>
+            <div class="control-address">
+                <div class="pointer"><?= AmosIcons::show('map-marker', ['class' => 'am-2'], AmosIcons::DASH) ?></div>
+            </div>
             <p class="boxed-data">
                 <?php
                 $eventLocation = '-';
@@ -136,26 +138,37 @@ $getData = Yii::$app->request->get();
 
     <div class="row">
         <div class="col-xs-12">
-            <?php if(!isset($getData['pSurname'])) : ?>
+            <?php if (!isset($getData['pSurname'])) : ?>
                 <?= $form->field($eventParticipantModel, 'cognome')->textInput(['placeholder' => AmosEvents::txt('#participant_cognome'), 'value' => $userData['cognome']]); ?>
             <?php else : ?>
-                <?= $form->field($eventParticipantModel, 'cognome')->hiddenInput(['placeholder' => AmosEvents::txt('#participant_cognome'), 'value' => $userData['cognome']]); ?>
-                <label><?= $userData['cognome'] ?></label>
+                <?= $eventParticipantModel->getAttributeLabel('cognome') ?>: <label><?= $userData['cognome'] ?></label>
+                <?= $form->field($eventParticipantModel, 'cognome', [
+                    'template' => '{input}',
+                    'options' => ['class' => ''],
+                    'inputOptions' => ['class' => ''],
+                ])->hiddenInput(['value' => $userData['cognome']])->label(false); ?>
             <?php endif; ?>
 
-
-            <?php if(!isset($getData['pName'])) : ?>
+            <?php if (!isset($getData['pName'])) : ?>
                 <?= $form->field($eventParticipantModel, 'nome')->textInput(['placeholder' => AmosEvents::txt('#participant_nome'), 'value' => $userData['nome']]); ?>
             <?php else : ?>
-                <?= $form->field($eventParticipantModel, 'nome')->hiddenInput(['placeholder' => AmosEvents::txt('#participant_nome'), 'value' => $userData['nome']]); ?>
-                <label><?= $userData['nome'] ?></label>
+                <?= $eventParticipantModel->getAttributeLabel('nome') ?>: <label><?= $userData['nome'] ?></label>
+                <?= $form->field($eventParticipantModel, 'nome', [
+                    'template' => '{input}',
+                    'options' => ['class' => ''],
+                    'inputOptions' => ['class' => ''],
+                ])->hiddenInput(['placeholder' => AmosEvents::txt('#participant_nome'), 'value' => $userData['nome']]); ?>
             <?php endif; ?>
 
-            <?php if(!isset($getData['pEmail'])) : ?>
-                <?= $form->field($eventParticipantModel, 'email')->textInput(['placeholder' => AmosEvents::txt('#participant_email'), 'value' => str_replace(array("\n","\r"), "", $userData['email'])]); ?>
+            <?php if (!isset($getData['pEmail'])) : ?>
+                <?= $form->field($eventParticipantModel, 'email')->textInput(['placeholder' => AmosEvents::txt('#participant_email'), 'value' => str_replace(array("\n", "\r"), "", $userData['email'])]); ?>
             <?php else : ?>
-                <?= $form->field($eventParticipantModel, 'email')->hiddenInput(['placeholder' => AmosEvents::txt('#participant_email'), 'value' => str_replace(array("\n","\r"), "", $userData['email'])]); ?>
-                <label><?= $userData['email'] ?></label>
+                <?= $eventParticipantModel->getAttributeLabel('email') ?>: <label><?= $userData['email'] ?></label>
+                <?= $form->field($eventParticipantModel, 'email', [
+                    'template' => '{input}',
+                    'options' => ['class' => ''],
+                    'inputOptions' => ['class' => ''],
+                ])->hiddenInput(['placeholder' => AmosEvents::txt('#participant_email'), 'value' => str_replace(array("\n", "\r"), "", $userData['email'])]); ?>
             <?php endif; ?>
 
             <?php if ($event->abilita_codice_fiscale_in_form) {
