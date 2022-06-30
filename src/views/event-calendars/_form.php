@@ -54,6 +54,11 @@ $this->registerJs("
 
 
 $hasUserBookedSlot = $model->hasUserBookedSlot(\Yii::$app->user->id);
+$module = \Yii::$app->getModule('events');
+$disableAssociateToCalendar = true;
+if($module){
+    $disableAssociateToCalendar = $module->disableAssociateToCalendar;
+}
 ?>
 <div class="event-calendars-form col-xs-12 nop">
 
@@ -99,7 +104,7 @@ $hasUserBookedSlot = $model->hasUserBookedSlot(\Yii::$app->user->id);
                     ])->label(\open20\amos\events\AmosEvents::t('amosevents', 'Event'));
                 }
                 ?>
-                <?php if (\Yii::$app->user->can('ADMIN')) { ?>
+                <?php if (\Yii::$app->user->can('ADMIN') && $disableAssociateToCalendar == false) { ?>
                     <div class="col-xs-6">
                         <?= $form->field($model, 'classname')->widget(\kartik\select2\Select2::className(), [
                             'data' => \open20\amos\events\models\EventCalendars::getAvailableModel(),

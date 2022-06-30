@@ -165,6 +165,11 @@ class AmosEvents extends AmosModule implements ModuleInterface, SearchModuleInte
      * @var bool
      */
     public $enableCalendarsManagement = false;
+
+    /**
+     * @var bool
+     */
+    public $disableAssociateToCalendar = false;
     
     /**
      * @var bool $forceEventSubscription if true the user is immediatly subscribed to event
