@@ -19,6 +19,9 @@ return [
             'event' => [
                 'enable' => true,
             ],
+            'event-room' => [
+                'enable' => true,
+            ],
             'event-status' => [
                 'enable' => true,
             ],

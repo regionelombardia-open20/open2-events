@@ -189,6 +189,30 @@ class EventController extends CrudController
     }
 
     /**
+     * This method calculate the template of the grid view action columns
+     * @param string|null $addActionColumns
+     * @return string
+     */
+    public function getGridViewActionColumnsTemplate($addActionColumns = null)
+    {
+        $actionColumnDefault = ($this->eventsModule->enableContentDuplication ? '{duplicateBtn}' : '') . '{view}{update}{delete}';
+        $actionColumnToPublish = '{publish}{reject}';
+        $actionColumnManager = '{community}';
+        $actionColumn = $actionColumnDefault;
+        if (isset($addActionColumns)) {
+            switch ($addActionColumns) {
+                case 'toPublish' :
+                    $actionColumn = $actionColumnToPublish . $actionColumn;
+                    break;
+                case 'management' :
+                    $actionColumn = $actionColumnManager;
+                    break;
+            }
+        }
+        return $actionColumn;
+    }
+
+    /**
      * Base operations for list views
      * @param string $pageTitle
      * @param bool $setCurrentDashboard

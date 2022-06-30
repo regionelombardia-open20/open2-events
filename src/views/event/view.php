@@ -19,6 +19,7 @@ use open20\amos\core\forms\MapWidget;
 use open20\amos\core\forms\Tabs;
 use open20\amos\core\helpers\Html;
 use open20\amos\core\icons\AmosIcons;
+use open20\amos\core\utilities\ModalUtility;
 use open20\amos\core\views\AmosGridView;
 use open20\amos\core\views\grid\ActionColumn;
 use open20\amos\events\AmosEvents;
@@ -101,7 +102,7 @@ JS
                     ?>
                     <?= Html::img($url, [
                         'title' => $model->getAttributeLabel('eventLogo'),
-                        'class' => 'img-responsive img-round'
+                        'class' => 'img-responsive'
                     ]); ?>
                 </div>
 
@@ -142,7 +143,7 @@ JS
 
                 </div>
             </div>
-            <hr/>
+            <hr class="nom">
 
             <div class="clearfix"></div>
 
@@ -328,8 +329,24 @@ JS
 
                     <div class="col-xs-12">
                         <?php
+
+                        $btns = '';
+
+                        if ($eventsModule->enableContentDuplication && Yii::$app->user->can('EVENT_UPDATE', ['model' => $model])) {
+                            $btns .= ModalUtility::addConfirmRejectWithModal([
+                                'modalId' => 'duplicate-content-modal-id-' . $model->id,
+                                'modalDescriptionText' => AmosEvents::t('amosevents', '#duplicate_content_modal_text'),
+                                'btnText' => AmosEvents::t('amosevents', '#duplicate_content'),
+                                'btnLink' => Url::to(['/events/event/duplicate-content', 'id' => $model->id]),
+                                'btnOptions' => [
+                                    'title' => AmosEvents::t('amosevents', '#duplicate_content'), 
+                                    'class' => 'btn btn-primary pull-right m-l-20'
+                                ]
+                            ]);
+                        }
+
                         if (EventsUtility::checkManager($model)) {
-                            echo Html::a(
+                            $btns .= Html::a(
                                 AmosEvents::txt('Download ICS'),
                                 [
                                     '/events/event/force-download-ics',
@@ -342,7 +359,7 @@ JS
                         } else {
                             $invitation = $eventInvitationModel::findOne(['user_id' => \Yii::$app->user->id, 'event_id' => $model->id]);
                             if ($invitation && !empty($invitation)) {
-                                echo (($model->has_tickets && $invitation->everyoneInSameInvitationHasAccreditationList())
+                                $btns .= (($model->has_tickets && $invitation->everyoneInSameInvitationHasAccreditationList())
                                         ? Html::a(
                                             AmosEvents::txt('Download ticket'),
                                             [
@@ -373,6 +390,7 @@ JS
                             }
                         }
                         ?>
+                        <?= $btns; ?>
                     </div>
                 </div>
             </div>

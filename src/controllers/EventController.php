@@ -1031,8 +1031,7 @@ class EventController extends base\EventController
                     ]);
                 }
                 // Sends e-mail
-                $ok = Email::sendMail($from, [$row['email']], 'Invito - '.html_entity_decode($event->title), $text, [],
-                        [], [], 0, false);
+                $ok = Email::sendMail($from, [$row['email']], 'Invito - '.html_entity_decode($event->title), $text, [], [], [], 0, true);
                 if ($registerSendDatetime && $ok) {
                     // Marks invitation as sent
                     /** @var EventInvitation $eventInvitationModel */

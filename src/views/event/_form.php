@@ -78,6 +78,7 @@ $registrationLimitDateFieldId = Html::getInputId($model, 'registration_limit_dat
 $eventMembershipTypeIdFieldId = Html::getInputId($model, 'event_membership_type_id');
 $seatsAvailableFieldId = Html::getInputId($model, 'seats_available');
 $paidEventFieldId = Html::getInputId($model, 'paid_event');
+$eventRoomFieldId = Html::getInputId($model, 'event_room_id');
 
 $beginDateHourId = lcfirst(Inflector::id2camel(\yii\helpers\StringHelper::basename($model->className()), '_')) . '-begin_date_hour' . ((isset($fid)) ? $fid : 0);
 
@@ -244,6 +245,31 @@ $("#import-invitations-form").submit(function(e) {
 JS;
 $this->registerJs($impXlsJs, yii\web\View::POS_READY);
 
+if ($moduleEvents->enableEventRooms) {
+    $seatsAvailableDisabledBySeatsManagement = ($model->seats_management ? "1" : "0");
+    $jsEventsRooms = <<<JS
+    var seatsAvailableDisabledBySeatsManagement = "$seatsAvailableDisabledBySeatsManagement";
+    function enableOrDisableField(fieldToCheckValue, fieldToEnableOrDisableId, isChange) {
+        if ((seatsAvailableDisabledBySeatsManagement === "0") && fieldToCheckValue.val() === "") {
+            $(fieldToEnableOrDisableId).prop('disabled', false);
+        } else {
+            if (isChange) {
+                $(fieldToEnableOrDisableId).val(fieldToCheckValue.find('option:selected').data('available_seats'));
+            }
+            $(fieldToEnableOrDisableId).prop('disabled', true);
+        }
+    }
+    
+    var eventRoomFieldIdField = $('#$eventRoomFieldId');
+    enableOrDisableField(eventRoomFieldIdField, '#$seatsAvailableFieldId', false);
+    eventRoomFieldIdField.on('change', function(e) {
+        enableOrDisableField($(this), '#$seatsAvailableFieldId', true);
+    });
+JS;
+
+    $this->registerJs($jsEventsRooms, View::POS_READY);
+}
+
 $user_enabled = \Yii::$app->user->can('EVENTS_MANAGER');
 
 /** @var EventLengthMeasurementUnit $eventLengthMeasurementUnitModel */
@@ -280,7 +306,7 @@ WorkflowTransitionStateDescriptorWidget::widget([
 ?>
 
 <div class="event-form col-xs-12 nop">
-<!--    < ?= $form->errorSummary($model, ['class' => 'alert-danger alert fade in', 'role' => 'alert', 'showAllErrors' => true]);  ?>-->
+    <!--    < ?= $form->errorSummary($model, ['class' => 'alert-danger alert fade in', 'role' => 'alert', 'showAllErrors' => true]);  ?>-->
     <?php if ($model->getScenario() == Event::SCENARIO_CREATE || $model->getScenario() == Event::SCENARIO_CREATE_HIDE_PUBBLICATION_DATE): ?>
 
         <?php $this->beginBlock('general'); ?>
@@ -350,7 +376,8 @@ WorkflowTransitionStateDescriptorWidget::widget([
         </div>
         <?php if ($moduleEvents->viewEventSignupLinkInForm && ($model->status == Event::EVENTS_WORKFLOW_STATUS_PUBLISHED)): ?>
             <div>
-                <h4><strong><?= AmosEvents::t('amosevents', '#external_link_register') ?>:</strong> <?= Url::base(true) . Url::toRoute(['event-signup', 'eid' => $model->id]); ?></h4>
+                <h4><strong><?= AmosEvents::t('amosevents', '#external_link_register') ?>
+                        :</strong> <?= Url::base(true) . Url::toRoute(['event-signup', 'eid' => $model->id]); ?></h4>
             </div>
         <?php endif; ?>
         <div class="row">
@@ -416,15 +443,32 @@ WorkflowTransitionStateDescriptorWidget::widget([
                 if ($eventTypeWithLimitedSeats) {
                     ?>
                     <div class="row">
+                        <?php
+                        $disabled = false;
+                        if ($model->seats_management || ($moduleEvents->enableEventRooms && !empty($model->event_room_id))) {
+                            $disabled = true;
+                        }
+                        /** @var Event $eventModel */
+                        $eventModel = $moduleEvents->createModel('Event');
+                        $allEventRooms = EventsUtility::findAllEventRooms();
+                        ?>
+                        <?php if ($moduleEvents->enableEventRooms): ?>
+                            <div class="col-lg-4 col-sm-4">
+                                <?= $form->field($model, 'event_room_id')->widget(Select::classname(), [
+                                    'data' => EventsUtility::getEventRoomsReadyForSelect($allEventRooms),
+                                    'language' => substr(Yii::$app->language, 0, 2),
+                                    'options' => [
+                                        'multiple' => false,
+                                        'placeholder' => AmosEvents::t('amosevents', 'Seleziona') . '...',
+                                        'options' => EventsUtility::getEventRoomsDataForSelect($allEventRooms)
+                                    ],
+                                    'pluginOptions' => [
+                                        'allowClear' => true,
+                                    ]
+                                ]); ?>
+                            </div>
+                        <?php endif; ?>
                         <div class="col-lg-4 col-sm-4">
-                            <?php
-                            $disabled = false;
-                            if ($model->seats_management) {
-                                $disabled = true;
-                            }
-                            /** @var Event $eventModel */
-                            $eventModel = $moduleEvents->createModel('Event');
-                            ?>
                             <?= $form->field($model, 'seats_available')->textInput(['disabled' => $disabled, 'maxlength' => true]) ?>
                         </div>
                         <!-- Lasciare così la findOne perché deve prendere sempre il valore da db e non quello caricato nel model (tipo quando si salva e ci sono errori). Forse basta fare getOldAttribute ma è da testare -->
@@ -463,12 +507,12 @@ WorkflowTransitionStateDescriptorWidget::widget([
                 <?= $this->render('boxes/box_custom_uploads_begin', ['form' => $form, 'model' => $model]); ?>
                 <!-- {{{ Locandina -->
                 <div class="col-xs-12 nop">
-                        <?=
-                        $form->field($model, 'eventLogo')->widget(CropInput::classname(),
-                            [
+                    <?=
+                    $form->field($model, 'eventLogo')->widget(CropInput::classname(),
+                        [
                             'jcropOptions' => ['aspectRatio' => '1.7']
                         ])->label(AmosEvents::t('amosevents', 'Locandina'))
-                        ?>
+                    ?>
                 </div>
                 <!-- }}} Locandina -->
                 <!-- {{{ Allegati -->
@@ -943,7 +987,7 @@ WorkflowTransitionStateDescriptorWidget::widget([
         if ($user_enabled) {
             ?>
             <?php $this->beginBlock('general_invitations'); ?>
-                <?php if($model->status == Event::EVENTS_WORKFLOW_STATUS_PUBLISHED) : ?>
+            <?php if ($model->status == Event::EVENTS_WORKFLOW_STATUS_PUBLISHED) : ?>
                 <div class="row">
                     <div class="col-xs-12">
                         <?= Html::a(AmosEvents::t('amosevents', '#download_invitations_example_file'), Url::to($eventsFilesAsset->baseUrl . DIRECTORY_SEPARATOR . 'tracciato_esempio.xlsx')) ?>
@@ -1004,13 +1048,13 @@ WorkflowTransitionStateDescriptorWidget::widget([
                         </button>
                     </div>
                 </div>
-                <?php else: ?>
+            <?php else: ?>
                 <div class="row">
                     <div class="col-xs-12">
                         <?= AmosEvents::t('amosevents', '#import_if_published_message'); ?>
                     </div>
                 </div>
-                <?php endif; ?>
+            <?php endif; ?>
             <?php $this->endBlock(); ?>
         <?php } ?>
 

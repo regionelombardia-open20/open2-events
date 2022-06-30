@@ -38,6 +38,12 @@ use Yii;
  * @property string $registration_date_end
  * @property string $show_community
  * @property string $show_on_frontend
+ * @property integer $has_tickets
+ * @property integer $slots_calendar_management
+ * @property integer $seats_management
+ * @property integer $has_qr_code
+ * @property integer $abilita_codice_fiscale_in_form
+ * @property integer $numero_max_accompagnatori
  * @property string $landing_url
  * @property string $frontend_page_title
  * @property string $frontend_claim
@@ -46,11 +52,6 @@ use Yii;
  * @property string $event_address
  * @property string $event_address_house_number
  * @property string $event_address_cap
- * @property string $gdpr_question_1
- * @property string $gdpr_question_2
- * @property string $gdpr_question_3
- * @property string $gdpr_question_4
- * @property string $gdpr_question_5
  * @property integer $seats_available
  * @property integer $paid_event
  * @property integer $publish_in_the_calendar
@@ -65,21 +66,29 @@ use Yii;
  * @property integer $length_mu_id
  * @property integer $event_type_id
  * @property integer $community_id
- * @property integer $seats_management
- * @property integer $has_tickets
- * @property integer $slots_calendar_management
- * @property integer $has_qr_code
- * @property integer $abilita_codice_fiscale_in_form
- * @property integer $numero_max_accompagnatori
+ * @property string $gdpr_question_1
+ * @property string $gdpr_question_2
+ * @property string $gdpr_question_3
+ * @property string $gdpr_question_4
+ * @property string $gdpr_question_5
  * @property string $thank_you_page_view
+ * @property integer $use_token
+ * @property string $token_group_string_code
+ * @property string $thank_you_page_already_registered_view
  * @property string $subscribe_form_page_view
+ * @property string $email_view
  * @property string $event_closed_page_view
  * @property string $event_full_page_view
  * @property string $ticket_layout_view
- * @property string $email_view
+ * @property integer $sent_credential
  * @property string $email_subscribe_view
- * @property string $sent_credential
+ * @property string $email_invitation_custom
+ * @property integer $email_credential_subject
  * @property string $email_credential_view
+ * @property string $email_ticket_layout_custom
+ * @property string $email_ticket_sender
+ * @property string $email_ticket_subject
+ * @property integer $event_room_id
  * @property string $created_at
  * @property string $updated_at
  * @property string $deleted_at
@@ -98,6 +107,7 @@ use Yii;
  * @property \open20\amos\events\models\EventLengthMeasurementUnit $eventLengthMeasurementUnit
  * @property \open20\amos\community\models\CommunityUserMm $communityUserMm
  * @property \open20\amos\community\models\Community $community
+ * @property \open20\amos\events\models\EventRoom $eventRoom
  *
  * @package open20\amos\events\models\base
  */
@@ -242,6 +252,7 @@ abstract class Event extends ContentModel implements CommunityInterface
                 'slots_calendar_management',
                 'sent_credential',
                 'use_token',
+                'event_room_id',
             ], 'integer'],
             [['length'], 'number', 'min' => 1, 'integerOnly' => true],
             [['title', 'event_address'], 'string', 'max' => 100],
@@ -461,6 +472,7 @@ abstract class Event extends ContentModel implements CommunityInterface
             'event_full_page_view' => AmosEvents::t('amosevents', 'event_full_page_view'),
             'ticket_layout_view' => AmosEvents::t('amosevents', 'ticket_layout_view'),
             'email_subscribe_view' => AmosEvents::t('amosevents', 'email_subscribe_view'),
+            'event_room_id' => AmosEvents::t('amosevents', '#event_room_id'),
         ]);
     }
 
@@ -578,6 +590,14 @@ abstract class Event extends ContentModel implements CommunityInterface
      */
     public function getEventCalendars()
     {
-        return $this->hasMany(\open20\amos\events\models\EventCalendars::className(), [ 'event_id' => 'id']);
+        return $this->hasMany($this->eventsModule->model('EventCalendars'), [ 'event_id' => 'id']);
+    }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
+    public function getEventRoom()
+    {
+        return $this->hasOne($this->eventsModule->model('EventRoom'), ['id' => 'event_room_id']);
     }
 }

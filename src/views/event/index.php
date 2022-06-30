@@ -14,7 +14,8 @@ use open20\amos\core\icons\AmosIcons;
 use open20\amos\core\utilities\ModalUtility;
 use open20\amos\core\views\DataProviderView;
 use open20\amos\events\AmosEvents;
-    
+use open20\amos\events\controllers\EventController;
+use yii\helpers\Url;
 use yii\web\View;
 
 /**
@@ -38,28 +39,18 @@ $this->registerJs($js, View::POS_READY);
 /** @var AmosEvents $eventsModule */
 $eventsModule = Yii::$app->getModule(AmosEvents::getModuleName());
 
+/** @var EventController $appController */
+$appController = Yii::$app->controller;
+$param = (isset($addActionColumns) ? $addActionColumns : null);
+$actionColumn = $appController->getGridViewActionColumnsTemplate($param);
+
 ?>
 <div class="event-index">
-<?php
+    <?php
 
-    echo $this->render('_search', ['model' => $model,'originAction' => Yii::$app->session->get('previousUrl')]);
-    echo $this->render('_order', ['model' => $model,'originAction' => Yii::$app->session->get('previousUrl')]);
+    echo $this->render('_search', ['model' => $model, 'originAction' => Yii::$app->session->get('previousUrl')]);
+    echo $this->render('_order', ['model' => $model, 'originAction' => Yii::$app->session->get('previousUrl')]);
 
-    $actionColumnDefault = '{view}{update}{delete}';
-    $actionColumnToPublish = '{publish}{reject}';
-    $actionColumnManager = '{community}';
-    $actionColumn = $actionColumnDefault;
-    if (isset($addActionColumns)) {
-        switch ($addActionColumns) {
-            case 'toPublish' :
-                $actionColumn = $actionColumnToPublish . $actionColumn;
-                break;
-            case 'management' :
-                $actionColumn = $actionColumnManager;
-                break;
-        }
-    }
-    
     echo DataProviderView::widget([
         'dataProvider' => $dataProvider,
         'currentView' => $currentView,
@@ -74,6 +65,7 @@ $eventsModule = Yii::$app->getModule(AmosEvents::getModuleName());
                 'status' => [
                     'attribute' => 'status',
                     'value' => function ($model) {
+                        /** @var \open20\amos\events\models\Event $model */
                         return $model->getWorkflowBaseStatusLabel();
                     }
                 ],
@@ -82,7 +74,26 @@ $eventsModule = Yii::$app->getModule(AmosEvents::getModuleName());
                     'class' => 'open20\amos\core\views\grid\ActionColumn',
                     'template' => $actionColumn,
                     'buttons' => [
+                        'duplicateBtn' => function ($url, $model) {
+                            /** @var \open20\amos\events\models\Event $model */
+                            $btn = '';
+                            /** @var EventController $controller */
+                            $controller = Yii::$app->controller;
+                            if (Yii::$app->user->can('EVENT_UPDATE', ['model' => $model])) {
+                                $btn = ModalUtility::addConfirmRejectWithModal([
+                                    'modalId' => 'duplicate-content-modal-id-' . $model->id,
+                                    'modalDescriptionText' => AmosEvents::t('amosevents', '#duplicate_content_modal_text'),
+                                    'btnText' => AmosIcons::show('copy', ['class' => '']),
+                                    'btnLink' => Url::to(['/' . $controller->module->id . '/' . $controller->id . '/duplicate-content', 'id' => $model->id]),
+                                    'btnOptions' => [
+                                        'title' => AmosEvents::t('amosevents', '#duplicate_content'), 'class' => 'btn btn-tools-secondary'
+                                    ]
+                                ]);
+                            }
+                            return $btn;
+                        },
                         'publish' => function ($url, $model) {
+                            /** @var \open20\amos\events\models\Event $model */
                             $createUrlParams = [
                                 '/events/event/validate',
                                 'id' => $model['id']
@@ -90,9 +101,9 @@ $eventsModule = Yii::$app->getModule(AmosEvents::getModuleName());
                             $btn = '';
                             if ((Yii::$app->getUser()->can('EVENTS_VALIDATOR')) || (Yii::$app->getUser()->can('PLATFORM_EVENTS_VALIDATOR'))) {
                                 $btn = Html::a(AmosIcons::show(
-                                    'check-circle', 
-                                    ['class' => 'btn btn-tool-secondary']), 
-                                    Yii::$app->urlManager->createUrl($createUrlParams), 
+                                    'check-circle',
+                                    ['class' => 'btn btn-tool-secondary']),
+                                    Yii::$app->urlManager->createUrl($createUrlParams),
                                     ['title' => AmosEvents::t('amosevents', 'Publish')]
                                 );
                             }
@@ -107,16 +118,17 @@ $eventsModule = Yii::$app->getModule(AmosEvents::getModuleName());
                             $btn = '';
                             if ((Yii::$app->getUser()->can('EVENTS_VALIDATOR')) || (Yii::$app->getUser()->can('PLATFORM_EVENTS_VALIDATOR'))) {
                                 $btn = Html::a(AmosIcons::show(
-                                    'minus-circle', 
-                                    ['class' => 'btn btn-tool-secondary']), 
-                                    Yii::$app->urlManager->createUrl($createUrlParams), 
-                                    ['title' => AmosEvents::t('amosevents', 'Reject'), 
+                                    'minus-circle',
+                                    ['class' => 'btn btn-tool-secondary']),
+                                    Yii::$app->urlManager->createUrl($createUrlParams),
+                                    ['title' => AmosEvents::t('amosevents', 'Reject'),
                                         'class' => 'reject-btns']
                                 );
                             }
                             return $btn;
                         },
                         'community' => function ($url, $model) {
+                            /** @var \open20\amos\events\models\Event $model */
                             $btn = '';
                             if (isset($model->community_id)) {
                                 $createUrlParams = [
@@ -124,8 +136,8 @@ $eventsModule = Yii::$app->getModule(AmosEvents::getModuleName());
                                     'id' => $model['community_id']
                                 ];
                                 $btn = Html::a(AmosIcons::show(
-                                    'group', 
-                                    ['class' => 'btn btn-tool-secondary']), 
+                                    'group',
+                                    ['class' => 'btn btn-tool-secondary']),
                                     Yii::$app->urlManager->createUrl($createUrlParams),
                                     ['title' => AmosEvents::t('amosevents', 'Join the community')]
                                 );

@@ -169,6 +169,16 @@ class AmosEvents extends AmosModule implements ModuleInterface, SearchModuleInte
     public $viewEventSignupLinkInForm = false;
 
     /**
+     * @var bool $enableContentDuplication If true enable the content duplication on each row in table view
+     */
+    public $enableContentDuplication = false;
+
+    /**
+     * @var bool $enableEventRooms If true enable the event rooms management and event rooms select in event form
+     */
+    public $enableEventRooms = false;
+
+    /**
      * @inheritdoc
      */
     public static function getModuleName()
@@ -227,6 +237,7 @@ class AmosEvents extends AmosModule implements ModuleInterface, SearchModuleInte
         return [
             'Event' => __NAMESPACE__ . '\\' . 'models\Event',
             'EventAccreditationList' => __NAMESPACE__ . '\\' . 'models\EventAccreditationList',
+            'EventCalendars' => __NAMESPACE__ . '\\' . 'models\EventCalendars',
             'EventInvitation' => __NAMESPACE__ . '\\' . 'models\EventInvitation',
             'EventInvitationPartner' => __NAMESPACE__ . '\\' . 'models\EventInvitationPartner',
             'EventInvitationsUpload' => __NAMESPACE__ . '\\' . 'models\EventInvitationsUpload',
@@ -234,12 +245,14 @@ class AmosEvents extends AmosModule implements ModuleInterface, SearchModuleInte
             'EventMembershipType' => __NAMESPACE__ . '\\' . 'models\EventMembershipType',
             'EventParticipantCompanion' => __NAMESPACE__ . '\\' . 'models\EventParticipantCompanion',
             'EventParticipantCompanionDynamic' => __NAMESPACE__ . '\\' . 'models\EventParticipantCompanionDynamic',
+            'EventRoom' => __NAMESPACE__ . '\\' . 'models\EventRoom',
             'EventSeats' => __NAMESPACE__ . '\\' . 'models\EventSeats',
             'EventType' => __NAMESPACE__ . '\\' . 'models\EventType',
             'EventTypeContext' => __NAMESPACE__ . '\\' . 'models\EventTypeContext',
             'FormAssignSeat' => __NAMESPACE__ . '\\' . 'models\FormAssignSeat',
             'RegisterGroupForm' => __NAMESPACE__ . '\\' . 'models\RegisterGroupForm',
             'EventAccreditationListSearch' => __NAMESPACE__ . '\\' . 'models\search\EventAccreditationListSearch',
+            'EventRoomSearch' => __NAMESPACE__ . '\\' . 'models\search\EventRoomSearch',
             'EventSearch' => __NAMESPACE__ . '\\' . 'models\search\EventSearch',
             'EventTypeSearch' => __NAMESPACE__ . '\\' . 'models\search\EventTypeSearch',
         ];
@@ -309,12 +322,12 @@ class AmosEvents extends AmosModule implements ModuleInterface, SearchModuleInte
         return $message;
     }
 
-    /**
+     /**
      * @inheritdoc
      */
     public static function getModelSearchClassName()
     {
-        return __NAMESPACE__ . '\models\search\EventSearch';
+        return AmosEvents::instance()->model('EventSearch');
     }
 
     /**
@@ -322,7 +335,7 @@ class AmosEvents extends AmosModule implements ModuleInterface, SearchModuleInte
      */
     public static function getModelClassName()
     {
-        return __NAMESPACE__ . '\models\Event';
+        return AmosEvents::instance()->model('Event');
     }
 
     /**

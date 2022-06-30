@@ -12,6 +12,7 @@ namespace open20\amos\events\models;
 
 use open20\amos\admin\models\UserProfile;
 use open20\amos\admin\utility\UserProfileUtility;
+use open20\amos\core\utilities\DuplicateContentUtility;
 use open20\amos\notificationmanager\behaviors\NotifyBehavior;
 use open20\amos\seo\behaviors\SeoContentBehavior;
 use open20\amos\comments\models\CommentInterface;
@@ -32,7 +33,6 @@ use yii\db\Query;
 use yii\helpers\ArrayHelper;
 use yii\helpers\Url;
 use open20\amos\seo\interfaces\SeoModelInterface;
-use open20\amos\admin\models\TokenUsers;
 use open20\amos\admin\models\TokenGroup;
 
 /**
@@ -43,8 +43,7 @@ use open20\amos\admin\models\TokenGroup;
  *
  * @package open20\amos\events\models
  */
-class Event extends \open20\amos\events\models\base\Event implements ContentModelInterface, CommunityContextInterface,
-    CommentInterface, ViewModelInterface, SeoModelInterface
+class Event extends \open20\amos\events\models\base\Event implements ContentModelInterface, CommunityContextInterface, CommentInterface, ViewModelInterface, SeoModelInterface
 {
     /**
      * Constants for community roles
@@ -971,6 +970,17 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
     }
 
     /**
+     * @inheritdoc
+     */
+    public function beforeValidate()
+    {
+        if (!empty($this->event_room_id)) {
+            $this->seats_available = EventsUtility::getEventRoomAvailableSeatsById($this->event_room_id);
+        }
+        return parent::beforeValidate();
+    }
+
+    /**
      * This method calculate the remaining seats available if the event is of type limited seats.
      * The method get all event community members not rejected including event managers.
      * @return int
@@ -1462,5 +1472,17 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
             }
         }
         return $link;
+    }
+
+    /**
+     * @return array
+     */
+    public function getDuplicateContentAttachmentsAttributes()
+    {
+        return [
+            'eventLogo' => DuplicateContentUtility::ATTACHMENT_SINGLE,
+            'eventAttachments' => DuplicateContentUtility::ATTACHMENT_MULTI,
+            'landingHeader' => DuplicateContentUtility::ATTACHMENT_SINGLE
+        ];
     }
 }

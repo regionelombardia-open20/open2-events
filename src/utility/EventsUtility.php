@@ -25,11 +25,14 @@ use open20\amos\events\models\Event;
 use open20\amos\events\models\EventAccreditationList;
 use open20\amos\events\models\EventInvitation;
 use open20\amos\events\models\EventParticipantCompanion;
+use open20\amos\events\models\EventRoom;
 use open20\amos\events\models\EventType;
 use open20\amos\invitations\models\Invitation;
 use kartik\mpdf\Pdf;
 use Yii;
 use yii\base\Exception;
+use yii\db\ActiveQuery;
+use yii\helpers\ArrayHelper;
 use yii\helpers\Url;
 use yii\log\Logger;
 
@@ -628,5 +631,105 @@ class EventsUtility
             ->andWhere(['partner_user_id' => \Yii::$app->user->id])
             ->andWhere(['id' => $event_calendars_id])->count();
         return $count > 0;
+    }
+
+    /**
+     * This method returns all events rooms.
+     * @return array|\yii\db\ActiveRecord[]
+     * @throws \yii\base\InvalidConfigException
+     */
+    public static function findAllEventRooms()
+    {
+        /** @var AmosEvents $eventsModule */
+        $eventsModule = AmosEvents::instance();
+        /** @var EventRoom $eventRoomModel */
+        $eventRoomModel = $eventsModule->createModel('EventRoom');
+        /** @var ActiveQuery $query */
+        $query = $eventRoomModel::find();
+        $eventRooms = $query->all();
+        return $eventRooms;
+    }
+
+    /**
+     * This method returns all events rooms ready for a form select widget.
+     * @param EventRoom[]|null $objects
+     * @return array
+     * @throws \yii\base\InvalidConfigException
+     */
+    public static function getEventRoomsReadyForSelect($objects = null)
+    {
+        $eventRooms = [];
+        if (is_null($objects)) {
+            /** @var AmosEvents $eventsModule */
+            $eventsModule = AmosEvents::instance();
+            if (!is_null($eventsModule)) {
+                /** @var EventRoom $eventRoomModel */
+                $eventRoomModel = $eventsModule->createModel('EventRoom');
+                /** @var ActiveQuery $query */
+                $query = $eventRoomModel::find();
+                $query->select(['room_name']);
+                $query->indexBy('id');
+                $eventRooms = $query->column();
+            }
+        } else {
+            $eventRooms = ArrayHelper::map($objects, 'id', 'room_name');
+        }
+        return $eventRooms;
+    }
+
+    /**
+     * This method returns all events rooms seats available ready for the form select widget options.
+     * @param EventRoom[]|null $objects
+     * @return array
+     * @throws \yii\base\InvalidConfigException
+     */
+    public static function getEventRoomsDataForSelect($objects = null)
+    {
+        $eventRooms = [];
+        $dataToReturn = [];
+        if (is_null($objects)) {
+            /** @var AmosEvents $eventsModule */
+            $eventsModule = AmosEvents::instance();
+            if (!is_null($eventsModule)) {
+                /** @var EventRoom $eventRoomModel */
+                $eventRoomModel = $eventsModule->createModel('EventRoom');
+                /** @var ActiveQuery $query */
+                $query = $eventRoomModel::find();
+                $query->select(['available_seats']);
+                $query->indexBy('id');
+                $eventRooms = $query->column();
+            }
+        } else {
+            $eventRooms = ArrayHelper::map($objects, 'id', 'available_seats');
+        }
+        if (!empty($eventRooms)) {
+            foreach ($eventRooms as $eventRoomId => $seatsAvailable) {
+                $dataToReturn[$eventRoomId] = ['data' => ['available_seats' => $seatsAvailable]];
+            }
+        }
+        return $dataToReturn;
+    }
+
+    /**
+     * This method returns the event room available seats by the event room id.
+     * @param int $eventRoomId
+     * @param AmosEvents|null $eventsModule
+     * @return false|string|null
+     * @throws \yii\base\InvalidConfigException
+     */
+    public static function getEventRoomAvailableSeatsById($eventRoomId, $eventsModule = null)
+    {
+        if (is_null($eventsModule)) {
+            /** @var AmosEvents $eventsModule */
+            $eventsModule = AmosEvents::instance();
+        }
+        /** @var EventRoom $eventRoomModel */
+        $eventRoomModel = $eventsModule->createModel('EventRoom');
+        /** @var ActiveQuery $query */
+        $query = $eventRoomModel::find();
+        $query->select(['available_seats']);
+        $query->andWhere(['id' => $eventRoomId]);
+        $eventRoomAvailableSeats = $query->scalar();
+        return $eventRoomAvailableSeats;
     }
 }
