@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Aria S.p.A.
  * OPEN 2.0
@@ -15,6 +16,7 @@ use open20\amos\admin\models\UserProfile;
 use open20\amos\admin\utility\UserProfileUtility;
 use open20\amos\community\AmosCommunity;
 use open20\amos\community\models\CommunityUserMm;
+use open20\amos\core\behaviors\BlameableBehavior;
 use open20\amos\core\forms\editors\m2mWidget\controllers\M2MWidgetControllerTrait;
 use open20\amos\core\forms\editors\m2mWidget\M2MEventsEnum;
 use open20\amos\core\helpers\Html;
@@ -1022,14 +1024,35 @@ class EventController extends base\EventController
 
         foreach ($rows as $r => $row) {
             try {
+                /** @var EventInvitation $eventInvitationModel */
+                $eventInvitationModel = $this->eventsModule->createModel('EventInvitation');
+                $invitation = $eventInvitationModel::findOne($row['id']);
+
                 EventMailUtility::setLayoutMail($event->email_ticket_layout_custom);
                 if ($this->eventsModule->enableAutoInviteUsers && ($row['type'] == EventInvitation::INVITATION_TYPE_REGISTERED)) {
                     $user = User::findOne($row['user_id']);
                     $profile = $user->userProfile;
                     // Build url signup with user's data
-                    $extUrlYes = Url::base(true) . Url::toRoute(['event-signup', 'eid' => $event->id, 'pName' => $row['name'],
-                            'pSurname' => $row['surname'], 'pEmail' => $row['email'], 'pCode' => $row['code']]);
-                    $regUrlNo = Url::base(true) . Url::toRoute(['reject', 'id' => $event->id]);
+                    $extUrlYes = Url::base(true) . Url::toRoute([
+                            'event-signup',
+                            'eid' => $event->id,
+                            'pName' => $row['name'],
+                            'pSurname' => $row['surname'],
+                            'pEmail' => $row['email'],
+                            'pCode' => $row['code']
+                        ]);
+                    $regUrlNo = '';
+                    if ($this->eventsModule->saveExternalInvitations) {
+                        $regUrlNo = Url::base(true) . Url::toRoute([
+                                'remove-signup-to-event',
+                                'eid' => $event->id,
+                                'iid' => $row['id'],
+                                'code' => $row['code'],
+                                'autoRemove' => 1,
+                                'saveExtInvMail' => 1
+                            ]);
+                    }
+                    //public function actionRemoveSignupToEvent($eid, $iid, $code, $autoRemove = false)
                     $row['email'] = $user['email'];
                     $viewInvitation = 'email_invitation_registered';
                     if (!empty($event->email_invitation_custom)) {
@@ -1058,20 +1081,28 @@ class EventController extends base\EventController
                         $url['pCode'] = $row['code'];
                     }
                     $extUrlYes = Url::base(true) . Url::toRoute($url);
-                    $text = $this->renderPartial($viewInvitation,
-                        [
-                            'event' => $event,
-                            'user' => $row,
-                            'urlYes' => $extUrlYes
-                        ]);
+                    $extUrlNo = '';
+                    if ($this->eventsModule->saveExternalInvitations) {
+                        $extUrlNo = Url::base(true) . Url::toRoute([
+                                'remove-signup-to-event',
+                                'eid' => $event->id,
+                                'iid' => $row['id'],
+                                'code' => $row['code'],
+                                'autoRemove' => 1,
+                                'saveExtInvMail' => 1
+                            ]);
+                    }
+                    $text = $this->renderPartial($viewInvitation, [
+                        'event' => $event,
+                        'user' => $row,
+                        'urlYes' => $extUrlYes,
+                        'urlNo' => $extUrlNo
+                    ]);
                 }
                 // Sends e-mail
                 $ok = Email::sendMail($from, [$row['email']], 'Invito - ' . html_entity_decode($event->title), $text, [], [], [], 0, true);
                 if ($registerSendDatetime && $ok) {
                     // Marks invitation as sent
-                    /** @var EventInvitation $eventInvitationModel */
-                    $eventInvitationModel = $this->eventsModule->createModel('EventInvitation');
-                    $invitation = $eventInvitationModel::findOne($row['id']);
                     $invitation->invitation_sent_on = new \yii\db\Expression('now()');
                     $invitation->save();
                 }
@@ -1603,6 +1634,8 @@ class EventController extends base\EventController
                                             if (!is_null($invitation)) {
                                                 $invitation->state = EventInvitation::INVITATION_STATE_ACCEPTED;
                                                 $invitation->invitation_response_on = new Expression('now()');
+                                                $invitation->company = $eventParticipantModel->azienda;
+                                                $invitation->notes = $eventParticipantModel->note;
                                                 if ($this->eventsModule->saveExternalInvitations) {
                                                     $invitation->user_id = $user->id;
                                                 }
@@ -1683,6 +1716,19 @@ class EventController extends base\EventController
                         $userData['email'] = !$emptyFields ? (!empty($pEmail) ? $pEmail : ($user ? $user['email']
                             : '')) : '';
                         $userData['codice_fiscale'] = $userProfile ? $userProfile['codice_fiscale'] : '';
+
+                        // Manage case of already accepted or rejected invitation for auto invite users or save external invitations.
+                        if ($this->eventsModule->enableAutoInviteUsers || $this->eventsModule->saveExternalInvitations) {
+                            $invitation = $eventInvitationModel::findOne(['code' => $pCode]);
+                            if (!is_null($invitation)) {
+                                if ($invitation->state == $eventInvitationModel::INVITATION_STATE_ACCEPTED) {
+                                    return $this->render('already_registered');
+                                }
+                                if ($invitation->state == $eventInvitationModel::INVITATION_STATE_REJECTED) {
+                                    return $this->render('event_invitation_rejected');
+                                }
+                            }
+                        }
                     }
                     if (($multipleRecording == false && ((!$this->eventsModule->saveExternalInvitations && empty($invitationUser)) || ($this->eventsModule->saveExternalInvitations && (empty($invitationUser) || (!empty($invitationUser) && $invitationUser->state == EventInvitation::INVITATION_STATE_INVITED))))) || $multipleRecording == true) {
                         return $this->render((!empty($event->subscribe_form_page_view) ? $event->subscribe_form_page_view : 'event_signup'),
@@ -2460,6 +2506,7 @@ class EventController extends base\EventController
             'eid' => $eid,
             'iid' => $iid,
             'code' => $invitation->code,
+            'autoRemove' => 1,
         ];
         $removeInvitationUrl = Yii::$app->urlManager->createAbsoluteUrl($createRemoveUrlParams);
 
@@ -2618,7 +2665,6 @@ class EventController extends base\EventController
      */
     public function removeSignupToEvent($event, $invitation)
     {
-
         /** @var EventParticipantCompanion $eventParticipantCompanionModel */
         $eventParticipantCompanionModel = $this->eventsModule->createModel('EventParticipantCompanion');
 
@@ -2645,11 +2691,12 @@ class EventController extends base\EventController
             if (!empty($event->community_id)) {
                 // Soft delete CommunityUserMm record
                 $communityUserMm = CommunityUserMm::findOne(['user_id' => $invitation->user_id, 'community_id' => $event->community_id]);
-                $communityUserMm->deleted_at = date('Y-m-d H:i:s');
-                $communityUserMm->deleted_by = (!empty(\Yii::$app->user) && !empty(\Yii::$app->user->id) ? \Yii::$app->user->id
-                    : $invitation->user_id);
-                if ($result) {
-                    $result = $communityUserMm->save(false);
+                if (!is_null($communityUserMm)) {
+                    $communityUserMm->deleted_at = date('Y-m-d H:i:s');
+                    $communityUserMm->deleted_by = (!empty(\Yii::$app->user) && !empty(\Yii::$app->user->id) ? \Yii::$app->user->id : $invitation->user_id);
+                    if ($result) {
+                        $result = $communityUserMm->save(false);
+                    }
                 }
             }
 
@@ -2660,10 +2707,16 @@ class EventController extends base\EventController
                 $seat->status = EventSeats::STATUS_EMPTY;
                 $seat->save(false);
             }
-            // Soft delete invitation
-            $invitation->deleted_at = date('Y-m-d H:i:s');
-            $invitation->deleted_by = (!empty(\Yii::$app->user) && !empty(\Yii::$app->user->id) ? \Yii::$app->user->id : $invitation->user_id);
             if ($result) {
+                if ($this->eventsModule->saveExternalInvitations || $this->eventsModule->enableAutoInviteUsers) {
+                    $invitation->state = EventInvitation::INVITATION_STATE_REJECTED;
+                    $invitation->detachBehaviorByClassName(BlameableBehavior::className());
+                    $invitation->invitation_response_on = date('Y-m-d H:i:s');
+                } else {
+                    // Soft delete invitation
+                    $invitation->deleted_at = date('Y-m-d H:i:s');
+                    $invitation->deleted_by = (!empty(\Yii::$app->user) && !empty(\Yii::$app->user->id) ? \Yii::$app->user->id : $invitation->user_id);
+                }
                 $result = $invitation->save(false);
             }
 
@@ -2711,22 +2764,33 @@ class EventController extends base\EventController
             $get = \Yii::$app->request->get();
 
             if (!array_key_exists('confirm', $get)) {
-                return $this->render('remove_signup_to_event',
-                    [
-                        'user' => User::findOne(['id' => $invitation->user_id]),
-                        'previousUrl' => $previousUrl,
-                        'confirmUrl' => $confirmUrl,
-                        'autoRemove' => $autoRemove,
-                    ]);
+                if (($this->eventsModule->enableAutoInviteUsers || $this->eventsModule->saveExternalInvitations) && \Yii::$app->request->get('saveExtInvMail')) {
+                    if ($invitation->state == $eventInvitationModel::INVITATION_STATE_ACCEPTED) {
+                        return $this->render('already_registered');
+                    }
+                    if ($invitation->state == $eventInvitationModel::INVITATION_STATE_REJECTED) {
+                        return $this->render('event_invitation_rejected');
+                    }
+                }
+                $renderParams = [
+                    'previousUrl' => $previousUrl,
+                    'confirmUrl' => $confirmUrl
+                ];
+                if ($autoRemove) {
+                    $renderParams['nomeCognome'] = $invitation->getNomeCognome();
+                    $renderParams['text'] = AmosEvents::txt('Vuoi davvero rimuovere la partecipazione all\'evento per te e i tuoi accompagnatori?');
+                } else {
+                    $renderParams['nomeCognome'] = \Yii::$app->user->identity->userProfile->nomeCognome;
+                    $renderParams['text'] = AmosEvents::txt('Vuoi davvero rimuovere la partecipazione all\'evento per il partecipante e i suoi accompagnatori?');
+                }
+                return $this->render('remove_signup_to_event', $renderParams);
             } else {
                 if ($get['confirm']) {
                     $result = $this->removeSignupToEvent($event, $invitation);
                     if ($result) {
-                        \Yii::$app->getSession()->addFlash('success',
-                            AmosEvents::txt('La partecipazione è stata rimossa con successo'));
+                        \Yii::$app->getSession()->addFlash('success', AmosEvents::txt('La partecipazione è stata rimossa con successo'));
                     } else {
-                        \Yii::$app->getSession()->addFlash('danger',
-                            AmosEvents::txt('La partecipazione non è stata rimossa a causa di un errore'));
+                        \Yii::$app->getSession()->addFlash('danger', AmosEvents::txt('La partecipazione non è stata rimossa a causa di un errore'));
                     }
                 }
             }
@@ -2900,7 +2964,7 @@ class EventController extends base\EventController
      * @return string|\yii\web\Response
      * @throws \yii\base\InvalidConfigException
      */
-    public function actionDownloadIcs($eid, $iid, $code)
+    public function actionDownloadIcs($eid, $iid = null, $code = null)
     {
         /** @var Event $eventModel */
         $eventModel = $this->eventsModule->createModel('Event');
@@ -2915,12 +2979,16 @@ class EventController extends base\EventController
         $previousUrl = !empty($previousUrl) ? $previousUrl : '/';
 
         if ($event) {
-            /** @var EventInvitation $invitation */
-            $invitation = $eventInvitationModel::findOne(['id' => $iid, 'code' => $code]);
-            if ($invitation) {
+            if ($event->ics_libero == 1 && $iid == null && $code == null) {
                 return $this->downloadIcs($event);
             } else {
-                \Yii::$app->getSession()->addFlash('danger', AmosEvents::txt('#invitation_not_found'));
+                /** @var EventInvitation $invitation */
+                $invitation = $eventInvitationModel::findOne(['id' => $iid, 'code' => $code]);
+                if ($invitation) {
+                    return $this->downloadIcs($event);
+                } else {
+                    \Yii::$app->getSession()->addFlash('danger', AmosEvents::txt('#invitation_not_found'));
+                }
             }
         } else {
             \Yii::$app->getSession()->addFlash('danger', AmosEvents::txt('Event not found'));
@@ -2928,6 +2996,7 @@ class EventController extends base\EventController
 
         return $this->redirect($previousUrl);
     }
+
 
     /**
      * @param $eid

@@ -1,97 +1,31 @@
 <?php
 
+/**
+ * Aria S.p.A.
+ * OPEN 2.0
+ *
+ *
+ * @package    open20\amos\events\models
+ * @category   Model
+ */
+
 namespace open20\amos\events\models;
 
-use open20\amos\core\validators\CFValidator;
-use open20\amos\events\AmosEvents;
-use yii\helpers\ArrayHelper;
-
 /**
- * This is the base-model class for table "user_profile".
+ * Class EventParticipantCompanion
+ *
+ * This is the model class for table "event_participant_companion".
  *
  * @property integer $event_id
- * @property string $nome
- * @property string $cognome
- * @property string $codice_fiscale
- * @property string $email
- * @property string $azienda
- * @property string $note
- * @property integer $presenza
- * @property string $presenza_scansionata_il
- * @property integer $event_invitation_id
- * @property integer $event_accreditation_list_id
- * @property integer $user_id
+ * @property \open20\amos\events\models\Event $event
+ * @property-read string $nomeCognome
+ * @property-read string $userEmail
+ *
+ * @package open20\amos\events\models
  */
-class EventParticipantCompanion extends \open20\amos\core\record\Record
+class EventParticipantCompanion extends \open20\amos\events\models\base\EventParticipantCompanion
 {
     public $event_id;
-
-    /**
-     * @var AmosEvents $eventsModule
-     */
-    public $eventsModule = null;
-
-    /**
-     * @inheritdoc
-     */
-    public static function tableName()
-    {
-        return '{{%event_participant_companion}}';
-    }
-
-    public function init()
-    {
-        parent::init();
-
-        $this->eventsModule = AmosEvents::instance();
-    }
-
-    /**
-     * @inheritdoc
-     */
-    public function rules()
-    {
-        $rules = [
-            [[
-                'azienda',
-                'note',
-            ], 'string'],
-            [[
-                'nome',
-                'cognome',
-                'azienda',
-                'note',
-            ], 'safe'],
-            [[
-                'presenza',
-                'user_id'
-            ], 'integer'],
-            [[
-                'event_invitation_id',
-                'event_accreditation_id',
-                'presenza_scansionata_il',
-                'user_id',
-            ], 'safe'],
-            ['email', 'email'],
-            ['codice_fiscale', CFValidator::className()],
-            [[
-                'nome',
-                'cognome',
-                'email'
-            ], 'required'],
-        ];
-
-        $eventTmp = $this->getEvent();
-        if (!empty($eventTmp) && $eventTmp->abilita_codice_fiscale_in_form) {
-            $rules[] = [
-                ['codice_fiscale'], 'required'
-            ];
-        }
-
-        return ArrayHelper::merge(
-            parent::rules(), $rules
-        );
-    }
 
     /**
      * @return Event|null
@@ -104,30 +38,34 @@ class EventParticipantCompanion extends \open20\amos\core\record\Record
     }
 
     /**
-     * @inheritdoc
+     * This method returns the name and surname of the user invited.
+     * If the invitation is linked to an user, the method returns the name and surname of the user profile.
+     * @return string
      */
-    public function attributeLabels()
+    public function getNomeCognome()
     {
-        return ArrayHelper::merge(parent::attributeLabels(), [
-            'nome' => AmosEvents::t('amosevents', 'Nome'),
-            'cognome' => AmosEvents::t('amosevents', 'Cognome'),
-            'email' => AmosEvents::t('amosevents', 'Email'),
-            'codice_fiscale' => AmosEvents::t('amosevents', 'Codice Fiscale'),
-            'azienda' => AmosEvents::t('amosevents', 'Azienda'),
-            'note' => AmosEvents::t('amosevents', 'Note'),
-        ]);
-    }
-
-    public function getAccreditationList()
-    {
-        return $this->hasOne($this->eventsModule->model('EventAccreditationList'), ['id' => 'event_accreditation_list_id']);
+        $user = $this->user;
+        if (!is_null($user)) {
+            $nomeCognome = $user->userProfile->nomeCognome;
+        } else {
+            $nomeCognome = $this->nome . ' ' . $this->cognome;
+        }
+        return $nomeCognome;
     }
 
     /**
-     * @return \yii\db\ActiveQuery
+     * This method returns the email of the companion invited.
+     * If the companion is linked to an user, the method returns the email of the user profile.
+     * @return string
      */
-    public function getAssignedSeat()
+    public function getUserEmail()
     {
-        return $this->hasOne($this->eventsModule->model('EventSeats'), ['event_participant_companion_id' => 'id']);
+        $user = $this->user;
+        if (!is_null($user)) {
+            $email = $user->email;
+        } else {
+            $email = $this->email;
+        }
+        return $email;
     }
 }

@@ -33,7 +33,9 @@ echo \open20\amos\core\views\AmosGridView::widget([
         ],
         [
             'attribute' => 'hour_end',
-            'format' => 'time'
+            'value' => function ($model) {
+                return $model->getEndHourWithPause();
+            },
         ],
         [
             'class' => ActionColumn::className(),

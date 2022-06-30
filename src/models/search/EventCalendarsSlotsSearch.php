@@ -14,6 +14,8 @@ namespace open20\amos\events\models\search;
 use open20\amos\events\models\EventCalendarsSlots;
 use yii\base\Model;
 use yii\data\ActiveDataProvider;
+use open20\amos\events\models\EventCalendarsSlots;
+use yii\helpers\ArrayHelper;
 use yii\db\ActiveQuery;
 
 /**
@@ -132,16 +134,12 @@ class EventCalendarsSlotsSearch extends EventCalendarsSlots
      * @return ActiveDataProvider
      * @throws \yii\base\InvalidConfigException
      */
-    public function mySlotsAllSearch($params)
-    {
-        /** @var EventCalendarsSlots $eventCalendarsSlotsModel */
-        $eventCalendarsSlotsModel = $this->eventsModule->createModel('EventCalendarsSlots');
-
-        /** @var ActiveQuery $query */
-        $query = $eventCalendarsSlotsModel::find();
-
-        $query->innerJoinWith('eventCalendars')
-            ->andWhere(['user_id' => \Yii::$app->user->id])
+    public function mySlotsAllSearch($params, $limit = null){
+        $query = EventCalendarsSlots::find()
+            ->innerJoinWith('eventCalendars')
+            ->innerJoin('event_calendars_slots_booked','event_calendars_slots.id = event_calendars_slots_booked.event_calendars_slots_id')
+            ->andWhere(['event_calendars_slots_booked.deleted_at' => null])
+            ->andWhere(['event_calendars_slots_booked.user_id' => \Yii::$app->user->id])
             ->andFilterWhere(['event_id' => $this->event]);
 
         $this->load($params);
@@ -150,4 +148,6 @@ class EventCalendarsSlotsSearch extends EventCalendarsSlots
         ]);
         return $dataProvider;
     }
+
+
 }

@@ -64,6 +64,7 @@ use Yii;
  * @property integer $country_location_id
  * @property integer $event_membership_type_id
  * @property integer $length_mu_id
+ * @property integer $ics_libero
  * @property integer $event_type_id
  * @property integer $community_id
  * @property string $gdpr_question_1
@@ -253,6 +254,7 @@ abstract class Event extends ContentModel implements CommunityInterface
                 'sent_credential',
                 'use_token',
                 'event_room_id',
+                'ics_libero',
             ], 'integer'],
             [['length'], 'number', 'min' => 1, 'integerOnly' => true],
             [['title', 'event_address'], 'string', 'max' => 100],
@@ -412,6 +414,7 @@ abstract class Event extends ContentModel implements CommunityInterface
             'begin_date_hour' => AmosEvents::t('amosevents', 'Begin Date And Hour'),
             'length' => AmosEvents::t('amosevents', 'Length'),
             'end_date_hour' => AmosEvents::t('amosevents', 'End Date And Hour'),
+            'ics_libero' => AmosEvents::t('amosevents', 'ICS scaricabile senza login'),
             'notes' => AmosEvents::t('amosevents', '#participant_note'),
             'publication_date_begin' => AmosEvents::t('amosevents', 'Publication Date Begin'),
             'publication_date_end' => AmosEvents::t('amosevents', 'Publication Date End'),

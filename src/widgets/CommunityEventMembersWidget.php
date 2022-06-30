@@ -1,10 +1,11 @@
 <?php
+
 /**
  * Aria S.p.A.
  * OPEN 2.0
  *
  *
- * @package    open20\amos\community
+ * @package    open20\amos\events\widgets
  * @category   CategoryName
  */
 
@@ -58,80 +59,80 @@ class CommunityEventMembersWidget extends Widget
      * @var AmosEvents $eventsModule
      */
     public $eventsModule = null;
-    
+
     /**
      * (eg. ['PARTICIPANT'] - thw widget will show only member with role participant)
      * @var array Array of roles to show
      */
     public $showRoles = null;
-    
+
     /**
      * @var bool $showAdditionalAssociateButton Set to true if another 'invite user' button is required
      */
     public $showAdditionalAssociateButton = false;
-    
+
     /**
      * @var array $additionalColumns Additional Columns
      */
     public $additionalColumns = [];
-    
+
     /**
      * @var bool $viewEmail
      */
     public $viewEmail = false;
-    
+
     /**
      * @var bool $viewInvitation
      */
     public $viewInvitation = true;
-    
+
     /**
      * @var bool $checkManagerRole
      */
     public $checkManagerRole = false;
-    
+
     /**
      * @var string $addPermission
      */
     public $addPermission = 'COMMUNITY_UPDATE';
-    
+
     /**
      * @var string $manageAttributesPermission
      */
     public $manageAttributesPermission = 'COMMUNITY_UPDATE';
-    
+
     /**
      * @var bool $forceActionColumns
      */
     public $forceActionColumns = false;
-    
+
     /**
      * @var string $actionColumnsTemplate
      */
     public $actionColumnsTemplate = '';
-    
+
     /**
      * @var bool $viewM2MWidgetGenericSearch
      */
     public $viewM2MWidgetGenericSearch = false;
-    
+
     /**
      * @var array $targetUrlParams
      */
     public $targetUrlParams = null;
-    
+
     /**
      * @var string $gridId
      */
     public $gridId = 'community-members-grid';
-    
+
     public $enableModal = false;
-    
+
     /**
      * @var string $delete_member_message
      */
     public $delete_member_message = false;
-    
+
     /**
      * @var string
      */
@@ -146,7 +147,12 @@ class CommunityEventMembersWidget extends Widget
     public $enableAdditionalButtons = false;
 
     public $showSearch = false;
-    
+
+    /**
+     * @var bool $enableExport
+     */
+    public $enableExport = false;
+
     /**
      * @inheritdoc
      * @throws InvalidConfigException
@@ -163,17 +169,17 @@ class CommunityEventMembersWidget extends Widget
         if (($this->model instanceof Community)) {
             $this->enableModal = true;
         }
-        
+
         $this->delete_member_message = ($this->delete_member_message) ? $this->delete_member_message : Yii::t('amoscommunity', 'Are you sure to remove this user?');
     }
-    
+
     protected function throwErrorMessage($field)
     {
         return AmosCommunity::t('amoscommunity', 'Wrong widget configuration: missing field {field}', [
             'field' => $field
         ]);
     }
-    
+
     /**
      * @inheritdoc
      */
@@ -192,7 +198,7 @@ class CommunityEventMembersWidget extends Widget
 
         $customInvitationForm = AmosCommunity::instance()->customInvitationForm;
         $inviteUserOfcommunityParent = AmosCommunity::instance()->inviteUserOfcommunityParent;
-        
+
         $gridId = $this->gridId . (!empty($this->showRoles) ? '-' . implode('-', $this->showRoles) : '');
         $this->finalGridId = $gridId;
         $model = $this->model;
@@ -212,7 +218,7 @@ class CommunityEventMembersWidget extends Widget
         $params['enableModal'] = $this->enableModal;
         $params['gridId'] = $this->gridId;
         $params['communityManagerRoleName'] = $this->communityManagerRoleName;
-        
+
         $url = \Yii::$app->urlManager->createUrl([
             '/community/community/community-members',
             'id' => $model->id,
@@ -220,11 +226,11 @@ class CommunityEventMembersWidget extends Widget
             'params' => $params
         ]);
         $searchPostName = 'searchMemberName' . (!empty($this->showRoles) ? implode('', $this->showRoles) : '');
-        
+
         $js = JsUtility::getSearchM2mFirstGridJs($gridId, $url, $searchPostName);
         PjaxAsset::register($this->getView());
         //$this->getView()->registerJs($js, View::POS_LOAD);
-        
+
         $itemsMittente = [
             'Photo' => [
                 'headerOptions' => [
@@ -252,11 +258,11 @@ class CommunityEventMembersWidget extends Widget
                     'headers' => AmosCommunity::t('amoscommunity', 'name'),
                 ],
                 'value' => function ($model) use ($eventInvitationModel) {
-                    if($this->eventModel->has_tickets) {
+                    if ($this->eventModel->has_tickets) {
                         $invitation = $eventInvitationModel::findOne(['user_id' => $model->user_id, 'event_id' => $this->eventModel->id]);
-                        if(empty($invitation['name']) && empty($invitation['surname'])) {
+                        if (empty($invitation['name']) && empty($invitation['surname'])) {
                             $userProfile = UserProfile::findOne(['user_id' => $model->user_id]);
-                            if($userProfile) {
+                            if ($userProfile) {
                                 $invitation['name'] = $userProfile['nome'];
                                 $invitation['surname'] = $userProfile['cognome'];
                             }
@@ -273,46 +279,46 @@ class CommunityEventMembersWidget extends Widget
             ],
             'company' => [
                 'label' => AmosEvents::txt('#participant_azienda'),
-                'value' => function($model) use ($eventInvitationModel) {
+                'value' => function ($model) use ($eventInvitationModel) {
                     $result = "";
                     $invitation = $eventInvitationModel::findOne(['user_id' => $model->user_id, 'event_id' => $this->eventModel->id]);
-                    if(!empty($invitation)){
+                    if (!empty($invitation)) {
                         $result = $invitation->company;
                     }
-                    return $result;
+                    return ((strlen($result) > 0) ? $result : '-');
                 }
             ],
-            /*'status' => [
-                'attribute' => 'status',
-                'label' => AmosCommunity::t('amoscommunity', 'Status'),
-                'headerOptions' => [
-                    'id' => AmosCommunity::t('amoscommunity', 'Status'),
-                ],
-                'contentOptions' => [
-                    'headers' => AmosCommunity::t('amoscommunity', 'Status'),
-                ],
-                'value' => function ($model) {
-                    /** @var \open20\amos\community\models\CommunityUserMm $model */
-                    /*return AmosCommunity::t('amoscommunity', $model->status);
-                }
-            ],
-            'role' => [
-                'attribute' => 'role',
-                'label' => AmosCommunity::t('amoscommunity', 'Role'),
-                'headerOptions' => [
-                    'id' => AmosCommunity::t('amoscommunity', 'Role'),
-                ],
-                'contentOptions' => [
-                    'headers' => AmosCommunity::t('amoscommunity', 'Role'),
-                ],
-                'value' => function ($model) {
-                    /** @var \open20\amos\community\models\CommunityUserMm $model */
-                    /*if ($model->role == 'COMMUNITY_MANAGER' && !empty($this->communityManagerRoleName)) {
-                        return AmosCommunity::t('amoscommunity', $this->communityManagerRoleName);
-                    }
-                    return AmosCommunity::t('amoscommunity', $model->role);
-                }
-            ],*/
+//            'status' => [
+//                'attribute' => 'status',
+//                'label' => AmosCommunity::t('amoscommunity', 'Status'),
+//                'headerOptions' => [
+//                    'id' => AmosCommunity::t('amoscommunity', 'Status'),
+//                ],
+//                'contentOptions' => [
+//                    'headers' => AmosCommunity::t('amoscommunity', 'Status'),
+//                ],
+//                'value' => function ($model) {
+//                    /** @var \open20\amos\community\models\CommunityUserMm $model */
+//                    return AmosCommunity::t('amoscommunity', $model->status);
+//                }
+//            ],
+//            'role' => [
+//                'attribute' => 'role',
+//                'label' => AmosCommunity::t('amoscommunity', 'Role'),
+//                'headerOptions' => [
+//                    'id' => AmosCommunity::t('amoscommunity', 'Role'),
+//                ],
+//                'contentOptions' => [
+//                    'headers' => AmosCommunity::t('amoscommunity', 'Role'),
+//                ],
+//                'value' => function ($model) {
+//                    /** @var \open20\amos\community\models\CommunityUserMm $model */
+//                    if ($model->role == 'COMMUNITY_MANAGER' && !empty($this->communityManagerRoleName)) {
+//                        return AmosCommunity::t('amoscommunity', $this->communityManagerRoleName);
+//                    }
+//                    return AmosCommunity::t('amoscommunity', $model->role);
+//                }
+//            ],
         ];
 
         $exportColumns = [
@@ -323,31 +329,31 @@ class CommunityEventMembersWidget extends Widget
                 'label' => AmosCommunity::t('amoscommunity', 'Email')
             ],
             'user.userProfile.codice_fiscale',
-            /*'status' => [
-                'attribute' => 'status',
-                'label' => AmosCommunity::t('amoscommunity', 'Confirm status'),
-                'value' => function ($model) {
-                    /** @var \open20\amos\community\models\CommunityUserMm $model */
-                    /*return AmosCommunity::t('amoscommunity', $model->status);
-                }
-            ],*/
-            /*'invitation_accepted_at' => [
-                'attribute' => 'invitation_accepted_at',
-                'label' => AmosCommunity::t('amoscommunity', 'Confirm date'),
-                'value' => function ($model) {
-                    /** @var \open20\amos\community\models\CommunityUserMm $model */
-                    /*return \Yii::$app->formatter->asDatetime($model->invitation_accepted_at, 'humanalwaysdatetime');
-                }
-            ]*/
+//            'status' => [
+//                'attribute' => 'status',
+//                'label' => AmosCommunity::t('amoscommunity', 'Confirm status'),
+//                'value' => function ($model) {
+//                    /** @var \open20\amos\community\models\CommunityUserMm $model */
+//                    return AmosCommunity::t('amoscommunity', $model->status);
+//                }
+//            ],
+//            'invitation_accepted_at' => [
+//                'attribute' => 'invitation_accepted_at',
+//                'label' => AmosCommunity::t('amoscommunity', 'Confirm date'),
+//                'value' => function ($model) {
+//                    /** @var \open20\amos\community\models\CommunityUserMm $model */
+//                    return \Yii::$app->formatter->asDatetime($model->invitation_accepted_at, 'humanalwaysdatetime');
+//                }
+//            ]
         ];
 
-        if($this->eventModel->has_tickets) {
+        if ($this->eventModel->has_tickets) {
             $exportColumns['company'] = [
                 'label' => AmosEvents::txt('#participant_azienda'),
-                'value' => function($model) use ($eventInvitationModel) {
+                'value' => function ($model) use ($eventInvitationModel) {
                     $aziendaName = "";
                     $invitation = $eventInvitationModel::findOne(['user_id' => $model->user_id, 'event_id' => $this->eventModel->id]);
-                    if(!empty($invitation)){
+                    if (!empty($invitation)) {
                         $aziendaName = $invitation['company'];
                     }
                     return $aziendaName;
@@ -355,12 +361,12 @@ class CommunityEventMembersWidget extends Widget
             ];
             $exportColumns['accred'] = [
                 'label' => AmosEvents::txt('Accreditation list'),
-                'value' => function($model) use ($eventInvitationModel, $eventAccreditationListModel) {
+                'value' => function ($model) use ($eventInvitationModel, $eventAccreditationListModel) {
                     $accreditationName = "";
                     $accreditationListId = $eventInvitationModel::findOne(['user_id' => $model->user_id, 'event_id' => $this->eventModel->id])['accreditation_list_id'];
-                    if(!empty($accreditationListId)){
+                    if (!empty($accreditationListId)) {
                         $accreditation = $eventAccreditationListModel::findOne(['id' => $accreditationListId]);
-                        if(!empty($accreditation)) {
+                        if (!empty($accreditation)) {
                             $accreditationName = $accreditation->title;
                         }
                     }
@@ -376,7 +382,7 @@ class CommunityEventMembersWidget extends Widget
 
                     $firstForeach = true;
                     foreach ($companions as $companion) {
-                        if(!$firstForeach) {
+                        if (!$firstForeach) {
                             $companionsList .= ", ";
                         }
                         $companionsList .= $companion->nome . ' ' . $companion->cognome;
@@ -390,7 +396,7 @@ class CommunityEventMembersWidget extends Widget
                 'value' => function ($model) use ($eventInvitationModel) {
                     $response = "";
                     $invitation = $eventInvitationModel::findOne(['user_id' => $model->user_id, 'event_id' => $this->eventModel->id]);
-                    if($invitation && !empty($invitation)) {
+                    if ($invitation && !empty($invitation)) {
                         $response = $invitation['is_ticket_sent'] ? Yii::t('amoscore', 'Yes') : Yii::t('amoscore', 'No');
                     }
                     return $response;
@@ -401,7 +407,7 @@ class CommunityEventMembersWidget extends Widget
                 'value' => function ($model) use ($eventInvitationModel) {
                     $dateTime = "";
                     $invitation = $eventInvitationModel::findOne(['user_id' => $model->user_id, 'event_id' => $this->eventModel->id]);
-                    if($invitation && !empty($invitation)) {
+                    if ($invitation && !empty($invitation)) {
                         $dateTime = $invitation['ticket_downloaded_at'];
                     }
                     return $dateTime;
@@ -412,9 +418,9 @@ class CommunityEventMembersWidget extends Widget
                 'value' => function ($model) use ($eventInvitationModel) {
                     $name = "";
                     $invitation = $eventInvitationModel::findOne(['user_id' => $model->user_id, 'event_id' => $this->eventModel->id]);
-                    if($invitation && !empty($invitation['ticket_downloaded_by'])) {
+                    if ($invitation && !empty($invitation['ticket_downloaded_by'])) {
                         $userProfile = UserProfile::findOne(['user_id' => $invitation['ticket_downloaded_by']]);
-                        if($userProfile && !empty($userProfile)) {
+                        if ($userProfile && !empty($userProfile)) {
                             $name = $userProfile->getNomeCognome();
                         }
                     }
@@ -426,7 +432,7 @@ class CommunityEventMembersWidget extends Widget
                 'value' => function ($model) use ($eventInvitationModel) {
                     $response = "";
                     $invitation = $eventInvitationModel::findOne(['user_id' => $model->user_id, 'event_id' => $this->eventModel->id]);
-                    if($invitation && !empty($invitation)) {
+                    if ($invitation && !empty($invitation)) {
                         $response = $invitation['presenza'] ? Yii::t('amoscore', 'Yes') : Yii::t('amoscore', 'No');
                     }
                     return $response;
@@ -437,14 +443,14 @@ class CommunityEventMembersWidget extends Widget
                 'value' => function ($model) use ($eventInvitationModel) {
                     $response = "";
                     $invitation = $eventInvitationModel::findOne(['user_id' => $model->user_id, 'event_id' => $this->eventModel->id]);
-                    if($invitation && !empty($invitation)) {
+                    if ($invitation && !empty($invitation)) {
                         $response = $invitation['presenza_scansionata_il'];
                     }
                     return $response;
                 }
             ];
         }
-        
+
         if ($this->viewEmail) {
             $itemsMittente['email'] = [
                 'label' => AmosCommunity::t('amoscommunity', 'Email'),
@@ -460,68 +466,68 @@ class CommunityEventMembersWidget extends Widget
                 }
             ];
         }
-        
+
         if ($this->viewInvitation) {
-            /*$itemsMittente['invited_at'] = [
-                'attribute' => 'invited_at',
-                'label' => AmosCommunity::t('amoscommunity', '#invited_at'),
-                'headerOptions' => [
-                    'id' => AmosCommunity::t('amoscommunity', '#invited_at'),
-                ],
-                'contentOptions' => [
-                    'headers' => AmosCommunity::t('amoscommunity', '#invited_at'),
-                ],
-                'value' => function ($model) {
-                    /** @var \open20\amos\community\models\CommunityUserMm $model */
-                    /*return \Yii::$app->formatter->asDatetime($model->invited_at);
-                }
-            ];*/
-            /*$itemsMittente['invitation_accepted_at'] = [
-                'attribute' => 'invitation_accepted_at',
-                'label' => AmosCommunity::t('amoscommunity', '#invitation_accepted_at'),
-                'headerOptions' => [
-                    'id' => AmosCommunity::t('amoscommunity', '#invitation_accepted_at'),
-                ],
-                'contentOptions' => [
-                    'headers' => AmosCommunity::t('amoscommunity', '#invitation_accepted_at'),
-                ],
-                'value' => function ($model) {
-                    /** @var \open20\amos\community\models\CommunityUserMm $model */
-                    /*return \Yii::$app->formatter->asDatetime($model->invitation_accepted_at);
-                }
-            ];*/
-            if($this->eventModel->has_tickets) {
+//            $itemsMittente['invited_at'] = [
+//                'attribute' => 'invited_at',
+//                'label' => AmosCommunity::t('amoscommunity', '#invited_at'),
+//                'headerOptions' => [
+//                    'id' => AmosCommunity::t('amoscommunity', '#invited_at'),
+//                ],
+//                'contentOptions' => [
+//                    'headers' => AmosCommunity::t('amoscommunity', '#invited_at'),
+//                ],
+//                'value' => function ($model) {
+//                    /** @var \open20\amos\community\models\CommunityUserMm $model */
+//                    return \Yii::$app->formatter->asDatetime($model->invited_at);
+//                }
+//            ];
+//            $itemsMittente['invitation_accepted_at'] = [
+//                'attribute' => 'invitation_accepted_at',
+//                'label' => AmosCommunity::t('amoscommunity', '#invitation_accepted_at'),
+//                'headerOptions' => [
+//                    'id' => AmosCommunity::t('amoscommunity', '#invitation_accepted_at'),
+//                ],
+//                'contentOptions' => [
+//                    'headers' => AmosCommunity::t('amoscommunity', '#invitation_accepted_at'),
+//                ],
+//                'value' => function ($model) {
+//                    /** @var \open20\amos\community\models\CommunityUserMm $model */
+//                    return \Yii::$app->formatter->asDatetime($model->invitation_accepted_at);
+//                }
+//            ];
+            if ($this->eventModel->has_tickets) {
                 // TODO ABILITA IN CASO SERVANO
-                /*$itemsMittente['email'] = [
-                    'label' => AmosEvents::txt('#participant_email'),
-                    'value' => function($model) {
-                        $aziendaName = "";
-                        $invitation = EventInvitation::findOne(['user_id' => $model->user_id, 'event_id' => $this->eventModel->id]);
-                        if(!empty($invitation)){
-                            $aziendaName = $invitation['email'];
-                        }
-                        return $aziendaName;
-                    }
-                ];*/
-                /*$itemsMittente['company'] = [
-                    'label' => AmosEvents::txt('#participant_azienda'),
-                    'value' => function($model) {
-                        $aziendaName = "";
-                        $invitation = EventInvitation::findOne(['user_id' => $model->user_id, 'event_id' => $this->eventModel->id]);
-                        if(!empty($invitation)){
-                            $aziendaName = $invitation['company'];
-                        }
-                        return $aziendaName;
-                    }
-                ];*/
+//                $itemsMittente['email'] = [
+//                    'label' => AmosEvents::txt('#participant_email'),
+//                    'value' => function($model) {
+//                        $aziendaName = "";
+//                        $invitation = EventInvitation::findOne(['user_id' => $model->user_id, 'event_id' => $this->eventModel->id]);
+//                        if(!empty($invitation)){
+//                            $aziendaName = $invitation['email'];
+//                        }
+//                        return $aziendaName;
+//                    }
+//                ];
+//                $itemsMittente['company'] = [
+//                    'label' => AmosEvents::txt('#participant_azienda'),
+//                    'value' => function($model) {
+//                        $aziendaName = "";
+//                        $invitation = EventInvitation::findOne(['user_id' => $model->user_id, 'event_id' => $this->eventModel->id]);
+//                        if(!empty($invitation)){
+//                            $aziendaName = $invitation['company'];
+//                        }
+//                        return $aziendaName;
+//                    }
+//                ];
                 $itemsMittente['accreditationList'] = [
                     'label' => AmosEvents::txt('Accreditation list'),
-                    'value' => function($model) use ($eventInvitationModel, $eventAccreditationListModel) {
+                    'value' => function ($model) use ($eventInvitationModel, $eventAccreditationListModel) {
                         $accreditationName = "";
                         $accreditationListId = $eventInvitationModel::findOne(['user_id' => $model->user_id, 'event_id' => $this->eventModel->id])['accreditation_list_id'];
-                        if(!empty($accreditationListId)){
+                        if (!empty($accreditationListId)) {
                             $accreditation = $eventAccreditationListModel::findOne(['id' => $accreditationListId]);
-                            if(!empty($accreditation)) {
+                            if (!empty($accreditation)) {
                                 $accreditationName = $accreditation->title;
                             }
                         }
@@ -530,10 +536,10 @@ class CommunityEventMembersWidget extends Widget
                 ];
                 $itemsMittente['spedito'] = [
                     'label' => AmosEvents::txt('Tickets sent?'),
-                    'value' => function($model) use ($eventInvitationModel) {
+                    'value' => function ($model) use ($eventInvitationModel) {
                         $result = "";
                         $invitation = $eventInvitationModel::findOne(['user_id' => $model->user_id, 'event_id' => $this->eventModel->id]);
-                        if(!empty($invitation)){
+                        if (!empty($invitation)) {
                             $result = $invitation->is_ticket_sent ? Yii::t('amoscore', 'Yes') : Yii::t('amoscore', 'No');
                         }
                         return $result;
@@ -544,7 +550,7 @@ class CommunityEventMembersWidget extends Widget
                     'value' => function ($model) use ($eventInvitationModel) {
                         $response = "";
                         $invitation = $eventInvitationModel::findOne(['user_id' => $model->user_id, 'event_id' => $this->eventModel->id]);
-                        if($invitation && !empty($invitation)) {
+                        if ($invitation && !empty($invitation)) {
                             $response = $invitation['presenza'] ? Yii::t('amoscore', 'Yes') : Yii::t('amoscore', 'No');
                         }
                         return $response;
@@ -552,35 +558,41 @@ class CommunityEventMembersWidget extends Widget
                 ];
                 $itemsMittente['downloadedat'] = [
                     'label' => AmosEvents::txt('Ticket downloaded at'),
-                    'value' => function($model) use ($eventInvitationModel) {
+                    'value' => function ($model) use ($eventInvitationModel) {
                         $result = "";
                         $invitation = $eventInvitationModel::findOne(['user_id' => $model->user_id, 'event_id' => $this->eventModel->id]);
-                        if(!empty($invitation)){
+                        if (!empty($invitation)) {
                             $result = !empty($invitation->ticket_downloaded_at) ? $invitation->ticket_downloaded_at : "-";
                         }
                         return $result;
                     }
                 ];
             }
-            $itemsMittente['is_group'] = [
-                'value' => function($model) use ($eventInvitationModel) {
-                    $invitation = $eventInvitationModel::findOne(['user_id' => $model->user_id, 'event_id' => $this->eventModel->id]);
-                    return $invitation->is_group;
-                },
-                'format' => 'boolean',
-                'label' => AmosEvents::t('amosevents', "E' un gruppo")
-            ];
+
+            if (
+                !isset($this->eventsModule->params['viewParticipantsGroup']) ||
+                (isset($this->eventsModule->params['viewParticipantsGroup']) && ($this->eventsModule->params['viewParticipantsGroup'] === true))
+            ) {
+                $itemsMittente['is_group'] = [
+                    'value' => function ($model) use ($eventInvitationModel) {
+                        $invitation = $eventInvitationModel::findOne(['user_id' => $model->user_id, 'event_id' => $this->eventModel->id]);
+                        return $invitation->is_group;
+                    },
+                    'format' => 'boolean',
+                    'label' => AmosEvents::t('amosevents', "E' un gruppo")
+                ];
+            }
 
             //SEATS MANAGEMENT
-            if($this->eventModel->seats_management){
+            if ($this->eventModel->seats_management) {
                 $eventModel = $this->eventModel;
                 $itemsMittente [] = [
                     'value' => function ($model) use ($eventModel, $eventSeatsModel) {
                         $seats = $eventSeatsModel::find()
                             ->andWhere(['event_id' => $eventModel->id])
                             ->andWhere(['user_id' => $model->user_id])->one();
-                        if($seats) {
-                            return $seats->getStringCoordinateSeat() .', '.$seats->getLabelStatus();
+                        if ($seats) {
+                            return $seats->getStringCoordinateSeat() . ', ' . $seats->getLabelStatus();
                         }
                         return '-';
                     },
@@ -588,43 +600,52 @@ class CommunityEventMembersWidget extends Widget
                 ];
             }
 
+            $itemsMittente['notes'] = [
+                'label' => $eventInvitationModel->getAttributeLabel('notes'),
+                'value' => function ($model) use ($eventInvitationModel) {
+                    $invitation = $eventInvitationModel::findOne(['user_id' => $model->user_id, 'event_id' => $this->eventModel->id]);
+                    $notes = (!is_null($invitation) ? $invitation->getTruncatedNotes() : '');
+                    return ((strlen($notes) > 0) ? $notes : '-');
+                },
+            ];
+
             $itemsMittente['partner_of'] = [
                 /*'attribute' => '',
                 'format' => 'html',
                 [*/
-                    'class' => 'kartik\grid\ExpandRowColumn',
-                    'expandAllTitle' => 'Tasks',
-                    'allowBatchToggle' => false,
-                    'enableCache' => false,
-                    'expandIcon' => "<span class=\"dash dash-users\"></span>",
-                    'collapseIcon' => AmosEvents::txt('Close'),
-                    'header' => AmosEvents::t("amosevents", "Accompagnatori"),//Module::t('amosproject_management', 'Expand / Collapse'),
-                    'headerOptions' => [
-                        'style' => 'white-space: nowrap;'
-                    ],
-                    'contentOptions' => [
-                        'class' => 'text-center'
-                    ],
-                    'value' => function ($model, $key, $index, $column) {
-                        return GridView::ROW_COLLAPSED;
-                    },
-                    'detailUrl' => Url::to(['/events/event/show-companions-list-only', 'eid' => $this->eventModel->id])
-                /*],
-
-                'value' => function ($model) {
-                    /** @var \open20\amos\community\models\CommunityUserMm $model */
-                    /*return '<div class=""></div>';
-                    //return (!is_null($model->partnerOf) ? $model->partnerOf->userProfile->surnameName : '-');
-                }*/
+                'class' => 'kartik\grid\ExpandRowColumn',
+                'expandAllTitle' => 'Tasks',
+                'allowBatchToggle' => false,
+                'enableCache' => false,
+                'expandIcon' => "<span class=\"dash dash-users\"></span>",
+                'collapseIcon' => AmosEvents::txt('Close'),
+                'header' => AmosEvents::t("amosevents", "Accompagnatori"),//Module::t('amosproject_management', 'Expand / Collapse'),
+                'headerOptions' => [
+                    'style' => 'white-space: nowrap;'
+                ],
+                'contentOptions' => [
+                    'class' => 'text-center'
+                ],
+                'value' => function ($model, $key, $index, $column) {
+                    return GridView::ROW_COLLAPSED;
+                },
+                'detailUrl' => Url::to(['/events/event/show-companions-list-only', 'eid' => $this->eventModel->id])
+//                ],
+//
+//                'value' => function ($model) {
+//                    /** @var \open20\amos\community\models\CommunityUserMm $model */
+//                    /*return '<div class=""></div>';
+//                    //return (!is_null($model->partnerOf) ? $model->partnerOf->userProfile->surnameName : '-');
+//                }
             ];
         }
 
 
         $isSubCommunity = !empty($model->getCommunityModel()->parent_id);
-        
+
         //Merge additional solumns
         $itemsMittente = ArrayHelper::merge($itemsMittente, $this->additionalColumns);
-        
+
         $actionColumnsTemplate = '{participantDetails}{downloadTickets}{markAsAttendant}';
         $loggedUserIsManager = false;
         if ($this->checkManager()) {
@@ -639,15 +660,15 @@ class CommunityEventMembersWidget extends Widget
         if ($model instanceof Community && $model->status != Community::COMMUNITY_WORKFLOW_STATUS_VALIDATED && !$model->validated_once) {
             $associateBtnDisabled = true;
         }
-        
-        
+
+
         $query = !empty($this->showRoles)
             ? $model->getCommunityModel()->getCommunityUserMms()->andWhere(['role' => $this->showRoles])
             : $model->getCommunityModel()->getCommunityUserMms();
-        
+
         $query->innerJoin('user_profile up', 'community_user_mm.user_id = up.user_id')
             ->andWhere(['up.attivo' => 1]);
-        
+
         /*if (isset($_POST[$searchPostName])) {
             $searchName = $_POST[$searchPostName];
             if (!empty($searchName)) {
@@ -676,7 +697,7 @@ class CommunityEventMembersWidget extends Widget
         }*/
 
         $searchParamsArray = [];
-        if(!empty(\Yii::$app->request->get("{$gridId}-search"))) {
+        if (!empty(\Yii::$app->request->get("{$gridId}-search"))) {
             $get = \Yii::$app->request->get("{$gridId}-search");
             $searchParamsArray = $get;
 
@@ -687,15 +708,15 @@ class CommunityEventMembersWidget extends Widget
             // per poter visualizzare i risultati degli accompagnatori)
             $queryForCompanions = new Query();
             $queryForCompanions->select('community_user_mm.*')
-                                    ->from('community_user_mm')
-                                    ->innerJoin('user', 'community_user_mm.user_id = user.id AND user.deleted_at IS NULL')
-                                    ->innerJoin('user_profile', 'user_profile.user_id = user.id')
-                                    ->innerJoin('event_invitation as invitation', 'invitation.user_id = user.id AND invitation.deleted_at IS NULL')
-                                    ->innerJoin('event_participant_companion as companion', 'companion.event_invitation_id = invitation.id AND companion.deleted_at IS NULL')
-                                    ->andWhere(['community_user_mm.deleted_at' => null])
-                                    ->andWhere(['user_profile.attivo' => 1])
-                                    ->andWhere(['role' => $this->showRoles])
-                                    ->andWhere(['community_user_mm.community_id' => $this->eventModel->community_id]);
+                ->from('community_user_mm')
+                ->innerJoin('user', 'community_user_mm.user_id = user.id AND user.deleted_at IS NULL')
+                ->innerJoin('user_profile', 'user_profile.user_id = user.id')
+                ->innerJoin('event_invitation as invitation', 'invitation.user_id = user.id AND invitation.deleted_at IS NULL')
+                ->innerJoin('event_participant_companion as companion', 'companion.event_invitation_id = invitation.id AND companion.deleted_at IS NULL')
+                ->andWhere(['community_user_mm.deleted_at' => null])
+                ->andWhere(['user_profile.attivo' => 1])
+                ->andWhere(['role' => $this->showRoles])
+                ->andWhere(['community_user_mm.community_id' => $this->eventModel->community_id]);
 
             // Se vengono effettuate ricerche su campi non presenti in tabella degli accompagnatori
             // non effettuo la union delle due tabelle (altrimenti creo confusione tra i risultati)
@@ -703,7 +724,7 @@ class CommunityEventMembersWidget extends Widget
 
             $query->innerJoin('event_invitation as invitation', 'invitation.user_id = community_user_mm.user_id AND invitation.deleted_at IS NULL');
 
-            if(array_key_exists('nomeCognome', $get) && $get['nomeCognome'] != "") {
+            if (array_key_exists('nomeCognome', $get) && $get['nomeCognome'] != "") {
                 $query->andWhere(['or',
                     ['like', 'invitation.name', '%' . $get['nomeCognome'] . '%', false],
                     ['like', 'invitation.surname', '%' . $get['nomeCognome'] . '%', false],
@@ -718,13 +739,13 @@ class CommunityEventMembersWidget extends Widget
                 ]);
             }
 
-            if(array_key_exists('azienda', $get) && $get['azienda'] != "") {
+            if (array_key_exists('azienda', $get) && $get['azienda'] != "") {
                 $query->andWhere(['like', 'invitation.company', '%' . $get['azienda'] . '%', false]);
                 $queryForCompanions->andWhere(['like', 'companion.azienda', '%' . $get['azienda'] . '%', false]);
             }
 
-            if(array_key_exists('listaAccreditamento', $get) && $get['listaAccreditamento'] != "") {
-                if($get['listaAccreditamento'] == '_WITHOUTACCREDITATIONLIST') {
+            if (array_key_exists('listaAccreditamento', $get) && $get['listaAccreditamento'] != "") {
+                if ($get['listaAccreditamento'] == '_WITHOUTACCREDITATIONLIST') {
                     $query->andWhere('invitation.accreditation_list_id IS NULL');
                     $queryForCompanions->andWhere('companion.event_accreditation_list_id IS NULL');
                 } else {
@@ -733,31 +754,31 @@ class CommunityEventMembersWidget extends Widget
                 }
             }
 
-            if(array_key_exists('bigliettoSpedito', $get) && $get['bigliettoSpedito'] != "") {
+            if (array_key_exists('bigliettoSpedito', $get) && $get['bigliettoSpedito'] != "") {
                 $query->andWhere(['invitation.is_ticket_sent' => intval($get['bigliettoSpedito'])]);
                 $joinQueryForCompanions = false;
             }
 
-            if(array_key_exists('presenza', $get) && $get['presenza'] != "") {
+            if (array_key_exists('presenza', $get) && $get['presenza'] != "") {
                 $query->andWhere(['invitation.presenza' => intval($get['presenza'])]);
                 $queryForCompanions->andWhere(['companion.presenza' => intval($get['presenza'])]);
             }
 
-            if(array_key_exists('scaricatoIl', $get) && $get['scaricatoIl'] != "") {
+            if (array_key_exists('scaricatoIl', $get) && $get['scaricatoIl'] != "") {
                 $query->andWhere("invitation.ticket_downloaded_at between '{$get['scaricatoIl']}' and '{$get['scaricatoIl']} 23:59:59'");
                 $joinQueryForCompanions = false;
             }
 
-            if($joinQueryForCompanions) {
+            if ($joinQueryForCompanions) {
                 $query->union($queryForCompanions->createCommand()->rawSql);
-            } 
+            }
 
         }
 
 //        if(empty(Yii::$app->request->getQueryParams()['sort'])){
 //            $query->orderBy("user_profile.cognome, user_profile.nome");
 //        }
-        
+
         $contextObject = $model;
         $community = $model->getCommunityModel();
         $roles = $contextObject->getContextRoles();
@@ -776,7 +797,7 @@ class CommunityEventMembersWidget extends Widget
             'disableAssociaButton' => true,
             'additionalAssociaButtonEnabled' => true,
             'exportMittenteConfig' => [
-                'exportEnabled' => false,
+                'exportEnabled' => $this->enableExport,
                 'exportColumns' => $exportColumns
             ],
             'forceListRender' => true,
@@ -866,14 +887,14 @@ class CommunityEventMembersWidget extends Widget
                     return $btn;
                 },
                 'change-participant-accreditation-list' => function ($url, $model) use ($eventInvitationModel, $eventAccreditationListModel) {
-                    if($this->eventModel->has_tickets) {
+                    if ($this->eventModel->has_tickets) {
                         if (\Yii::$app->user->can($this->manageAttributesPermission)) {
                             if ($this->checkManager()) {
                                 $invitation = $eventInvitationModel::findOne(['event_id' => $this->eventModel->id, 'user_id' => $model->user_id]);
 
                                 $btn = '';
 
-                                if($invitation) {
+                                if ($invitation) {
 
                                     $modalId = 'change-participant-accreditation-list-modal-' . $invitation->id;
                                     $selectId = 'accreditation-list-participant-' . $invitation->id;
@@ -972,7 +993,7 @@ class CommunityEventMembersWidget extends Widget
                     return "";
                 },
                 'downloadTickets' => function ($url, $model) use ($eventInvitationModel) {
-                    if($this->eventModel->has_tickets && $model->status == CommunityUserMm::STATUS_ACTIVE){
+                    if ($this->eventModel->has_tickets && $model->status == CommunityUserMm::STATUS_ACTIVE) {
                         $invitation = $eventInvitationModel::findOne(['event_id' => $this->eventModel->id, 'user_id' => $model->user_id]);
                         $btn = '';
                         if (!empty($invitation)) {
@@ -991,11 +1012,11 @@ class CommunityEventMembersWidget extends Widget
                 },
                 'send-ticket' => function ($url, $model) use ($eventInvitationModel) {
                     $btn = '';
-                    if($this->checkManager() && $model->status == CommunityUserMm::STATUS_ACTIVE &&
+                    if ($this->checkManager() && $model->status == CommunityUserMm::STATUS_ACTIVE &&
                         ($this->eventModel->registration_date_begin == null || date('Y-m-d H:i:s') >= date($this->eventModel->registration_date_begin)) &&
                         $this->eventModel->has_tickets) {
                         $invitation = $eventInvitationModel::findOne(['event_id' => $this->eventModel->id, 'user_id' => $model->user_id]);
-                        if($invitation) {
+                        if ($invitation) {
                             $btn = Html::a(
                                 AmosIcons::show('mail-send', ['class' => '']),
                                 "/events/event/send-ticket?eid={$this->eventModel->id}&iid={$invitation->id}",
@@ -1011,9 +1032,9 @@ class CommunityEventMembersWidget extends Widget
                 },
                 'markAsAttendant' => function ($url, $model) use ($eventInvitationModel) {
                     $btn = '';
-                    if($this->eventModel->has_tickets) {
-                        if($this->eventModel->begin_date_hour == null || (
-                            (strtotime("now") >= strtotime($this->eventModel->begin_date_hour . ' - 6 hours')) && (date('Y-m-d H:i:s') <= date($this->eventModel->end_date_hour))
+                    if ($this->eventModel->has_tickets) {
+                        if ($this->eventModel->begin_date_hour == null || (
+                                (strtotime("now") >= strtotime($this->eventModel->begin_date_hour . ' - 6 hours')) && (date('Y-m-d H:i:s') <= date($this->eventModel->end_date_hour))
                             )
                         ) {
                             if (EventsUtility::hasPrivilegesLoggedUser($this->eventModel)) {
@@ -1120,41 +1141,41 @@ class CommunityEventMembersWidget extends Widget
                         if (!is_null($model->role) && ($model->status != CommunityUserMm::STATUS_WAITING_OK_USER)) {
                             // If an user is community creator, it will be not possible to change his role in participant, unless logged user is admin
 //                            if (($community->created_by != $model->user_id) || $loggedUser->can("ADMIN")) {
-                                $modalId = 'change-user-role-modal-' . $model->user_id;
-                                $selectId = 'community_user_mm-role-' . $model->user_id;
-                                Modal::begin([
-                                    'header' => AmosCommunity::t('amoscommunity', 'Manage role and permission'),
-                                    'id' => $modalId,
-                                ]);
-                                
-                                echo Html::tag('div', Select::widget([
-                                    'auto_fill' => true,
-                                    'hideSearch' => true,
-                                    'theme' => 'bootstrap',
-                                    'data' => $rolesArray,
-                                    'model' => $model,
-                                    'attribute' => 'role',
-                                    'value' => isset($rolesArray[$model->role]) ? AmosCommunity::t('amoscommunity',
-                                        $rolesArray[$model->role]) : $rolesArray[$contextObject->getBaseRole()],
-                                    'options' => [
+                            $modalId = 'change-user-role-modal-' . $model->user_id;
+                            $selectId = 'community_user_mm-role-' . $model->user_id;
+                            Modal::begin([
+                                'header' => AmosCommunity::t('amoscommunity', 'Manage role and permission'),
+                                'id' => $modalId,
+                            ]);
+
+                            echo Html::tag('div', Select::widget([
+                                'auto_fill' => true,
+                                'hideSearch' => true,
+                                'theme' => 'bootstrap',
+                                'data' => $rolesArray,
+                                'model' => $model,
+                                'attribute' => 'role',
+                                'value' => isset($rolesArray[$model->role]) ? AmosCommunity::t('amoscommunity',
+                                    $rolesArray[$model->role]) : $rolesArray[$contextObject->getBaseRole()],
+                                'options' => [
 //                                    'prompt' => AmosCommunity::t('amoscommunity', 'Select') . '...',
-                                        'disabled' => false,
-                                        'id' => $selectId
-                                    ],
-                                    'pluginOptions' => [
-                                        'allowClear' => false,
-                                    ]
-                                ]), ['class' => 'm-15-0']);
-                                
-                                echo Html::tag('div',
-                                    Html::a(AmosCommunity::t('amoscommunity', 'Cancel'),
-                                        null,
-                                        ['class' => 'btn btn-secondary', 'data-dismiss' => 'modal'])
-                                    . Html::a(AmosCommunity::t('amoscommunity', 'Save'),
-                                        null,
-                                        [
-                                            'class' => 'btn btn-tools-primary',
-                                            'onclick' => "
+                                    'disabled' => false,
+                                    'id' => $selectId
+                                ],
+                                'pluginOptions' => [
+                                    'allowClear' => false,
+                                ]
+                            ]), ['class' => 'm-15-0']);
+
+                            echo Html::tag('div',
+                                Html::a(AmosCommunity::t('amoscommunity', 'Cancel'),
+                                    null,
+                                    ['class' => 'btn btn-secondary', 'data-dismiss' => 'modal'])
+                                . Html::a(AmosCommunity::t('amoscommunity', 'Save'),
+                                    null,
+                                    [
+                                        'class' => 'btn btn-tools-primary',
+                                        'onclick' => "
                                     $('#$modalId a.btn').addClass('disabled');
                                     $.ajax({
                                         url : '$url', 
@@ -1171,21 +1192,21 @@ class CommunityEventMembersWidget extends Widget
                                     });
                                 return false;
                             "
-                                        ]),
-                                    ['class' => 'pull-right m-15-0']
-                                );
+                                    ]),
+                                ['class' => 'pull-right m-15-0']
+                            );
 //                        echo $this->render('@vendor/open20/amos-community/src/views/community/change-user-role', ['model' => $model]);
-                                Modal::end();
-                                
-                                $btn = Html::a(
-                                    AmosIcons::show('refresh-sync'), //AmosCommunity::t('amoscommunity', 'Change role'),
-                                    null, [
-                                    'class' => 'btn btn-tools-primary btn-tools-primary-text',
-                                    'title' => AmosCommunity::t('amoscommunity', 'Change role'),
-                                    'data-toggle' => 'modal',
-                                    'data-target' => '#' . $modalId,
-                                    'onclick' => 'checkSelect2Init("' . $modalId . '", "' . $selectId . '");'
-                                ]);
+                            Modal::end();
+
+                            $btn = Html::a(
+                                AmosIcons::show('refresh-sync'), //AmosCommunity::t('amoscommunity', 'Change role'),
+                                null, [
+                                'class' => 'btn btn-tools-primary btn-tools-primary-text',
+                                'title' => AmosCommunity::t('amoscommunity', 'Change role'),
+                                'data-toggle' => 'modal',
+                                'data-target' => '#' . $modalId,
+                                'onclick' => 'checkSelect2Init("' . $modalId . '", "' . $selectId . '");'
+                            ]);
 
 
 //                        $btn = Html::a(
@@ -1198,7 +1219,7 @@ class CommunityEventMembersWidget extends Widget
                 },
                 'deleteRelation' => function ($url, $model) use ($eventInvitationModel) {
                     $invitation = $eventInvitationModel::findOne(['event_id' => $this->eventModel->id, 'user_id' => $model->user_id]);
-                    if($invitation) {
+                    if ($invitation) {
                         $url = '/events/event/remove-signup-to-event';
                         $urlDelete = Yii::$app->urlManager->createUrl([
                             $url,
@@ -1230,7 +1251,7 @@ class CommunityEventMembersWidget extends Widget
                 },
                 'assign-seat' => function ($url, $model) use ($event, $eventSeatsModel) {
                     $btn = '';
-                    if(EventsUtility::checkManager($event)) {
+                    if (EventsUtility::checkManager($event)) {
                         if ($event->seats_management && $model->status == CommunityUserMm::STATUS_ACTIVE) {
                             $hasSeat = $eventSeatsModel::find()
                                 ->andWhere(['event_id' => $event->id])
@@ -1270,10 +1291,13 @@ class CommunityEventMembersWidget extends Widget
 
         $additionalButtons = '';
 
-        if($this->eventModel->seats_management) {
+        if ($this->eventModel->seats_management) {
             $additionalButtons .= "<a class='btn btn-navigation-primary' href='/events/event/event-signup-group?eid={$this->eventModel->id}'>" . AmosEvents::t('amosevents', 'Iscrivi gruppi') . "</a>";
         }
-        $additionalButtons .= "<a class=\\\"btn btn-navigation-primary\\\" href=\\\"/events/event/send-tickets-massive?eid={$this->eventModel->id}\\\" title=\\\"{$sendTicketsLabel}\\\" data-pjax=\\\"0\\\">{$sendTicketsLabel}</a><a class=\\\"btn btn-navigation-primary\\\" href=\\\"/events/event/download-participants-excel?eid={$this->eventModel->id}\\\" title=\\\"{$downloadParticipantsListLabel}\\\" data-pjax=\\\"0\\\"><span class=\\\"am am-download\\\"></span></a>";
+        if ($this->eventModel->has_tickets) {
+            $additionalButtons .= "<a class=\\\"btn btn-navigation-primary\\\" href=\\\"/events/event/send-tickets-massive?eid={$this->eventModel->id}\\\" title=\\\"{$sendTicketsLabel}\\\" data-pjax=\\\"0\\\">{$sendTicketsLabel}</a>";
+        }
+        $additionalButtons .= "<a class=\\\"btn btn-navigation-primary\\\" href=\\\"/events/event/download-participants-excel?eid={$this->eventModel->id}\\\" title=\\\"{$downloadParticipantsListLabel}\\\" data-pjax=\\\"0\\\"><span class=\\\"am am-download\\\"></span></a>";
         $this->view->registerJs(<<<JS
             
     window.getWidgetCurrentPageUrl = function() {
@@ -1285,12 +1309,12 @@ class CommunityEventMembersWidget extends Widget
     
 
 JS
-                , \yii\web\View::POS_LOAD);
+            , \yii\web\View::POS_LOAD);
 
         $searchContainer = "";
         // Appende bottone ricerca se abilitata (e renderizza la partial della ricerca per
         // appenderla al return per la visualizzazione del widget più sotto)
-        if($this->showSearch && $this->checkManager()) {
+        if ($this->showSearch && $this->checkManager()) {
             $searchToggleButton = "<span class=\\\"btn btn-tools-primary show-hide-element am am-search pull-right\\\" onclick=\\\"if ($('#{$gridId}-search-container').is(':hidden')) { $('#{$gridId}-search-container').show(); } else { $('#{$gridId}-search-container').hide(); }\\\"> </span>";
             $this->view->registerJs(<<<JS
                 $("#{$gridId} .container-tools").append("{$searchToggleButton}");
@@ -1304,7 +1328,7 @@ JS
                 }
 
 JS
-        );
+            );
             $searchContainer = $this->render('_search_for_participant_widget', [
                 'container' => $gridId,
                 'pjaxId' => $this->pjaxId,
@@ -1314,33 +1338,32 @@ JS
             ]);
         }
 
-            // FIX fatti per non toccare l'm2m widget
+        // FIX fatti per non toccare l'm2m widget
         // Se abilitati, creo nuovi pulsante per download excel partecipanti e invio massivo biglietti
-        if($this->enableAdditionalButtons && $this->checkManager()) {
+        if ($this->enableAdditionalButtons && $this->checkManager()) {
             $this->view->registerJs(<<<JS
                 $("#{$gridId} .container-tools").append("{$additionalButtons}");
 JS
                 , \yii\web\View::POS_LOAD);
         }
-        
+
         $message = $associateBtnDisabled ? AmosCommunity::t('amoscommunity', '#invite_users_disabled_msg') : '';
         return $message . "<div id='" . $gridId . "'>" . $searchContainer . $widget . "</div>";
     }
-    
+
     /**
-     * 
+     *
      * @return boolean
      */
     private function checkManager()
     {
         $ret = false;
-        
         if (!$this->checkManagerRole) {
             return true;
         }
         $communityUtil = new CommunityUtil();
-        if(!is_null($this->model->community)){
-            $ret =  $communityUtil->isManagerLoggedUser($this->model->community);
+        if (!is_null($this->model->community)) {
+            $ret = $communityUtil->isManagerLoggedUser($this->model->community);
         }
         return $ret;
     }

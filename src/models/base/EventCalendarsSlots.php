@@ -113,4 +113,13 @@ class  EventCalendarsSlots extends \open20\amos\core\record\Record
     {
         return $this->hasOne($this->eventsModule->model('EventCalendars'), ['id' => 'event_calendars_id']);
     }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
+    public function getEventCalendarsSlotsBooked()
+    {
+        return $this->hasMany(\open20\amos\events\models\EventCalendarsSlotsBooked::className(), [ 'event_calendars_slots_id' => 'id']);
+    }
+
 }

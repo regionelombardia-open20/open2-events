@@ -99,18 +99,37 @@ $hasUserBookedSlot = $model->hasUserBookedSlot(\Yii::$app->user->id);
                     ])->label(\open20\amos\events\AmosEvents::t('amosevents', 'Event'));
                 }
                 ?>
+                <?php if (\Yii::$app->user->can('ADMIN')) { ?>
+                    <div class="col-xs-6">
+                        <?= $form->field($model, 'classname')->widget(\kartik\select2\Select2::className(), [
+                            'data' => \open20\amos\events\models\EventCalendars::getAvailableModel(),
+                            'options' => ['placeholder' => 'Select...'],
+                            'pluginOptions' => [
+                                'allowClear' => true
+                            ],
+
+                        ]) ?></div><!-- description text -->
+                    <div class="col-xs-6">
+                        <?= $form->field($model, 'record_id')->textInput(['maxlength' => true]) ?><!-- description text -->
+                    </div>
+                <?php } ?>
                 <!-- title string -->
                 <?= $form->field($model, 'title')->textInput(['maxlength' => true]) ?><!-- description text -->
                 <?= $form->field($model, 'description')->textarea(['rows' => 5]); ?>
                 <?= $form->field($model, 'short_description')->textarea(['rows' => 3]); ?>
+                <?php if(empty($model->max_participant) ){
+                    $model->max_participant = 10;
+                }?>
+                <?= $form->field($model, 'max_participant')->textInput(['maxlength' => true]) ?><!-- description text -->
+
 
                 <div class="col-xs-6 nop">
                     <?= $form->field($model, 'group') ?>
                 </div>
 
-<!--                <div class="col-xs-6">-->
-<!--                    --><?php //$form->field($model, 'ecosystem') ?>
-<!--                </div>-->
+                <!--                <div class="col-xs-6">-->
+                <!--                    --><?php //$form->field($model, 'ecosystem') ?>
+                <!--                </div>-->
 
 
                 <div class="col-xs-12 nop">
@@ -162,13 +181,13 @@ $hasUserBookedSlot = $model->hasUserBookedSlot(\Yii::$app->user->id);
                     <div class="col-xs-12">
                         <h3><?= AmosEvents::t('amosevents', 'Fascia oraria') ?></h3>
                     </div>
-                    <div class="col-xs-5">
+                    <div class="col-xs-4">
                         <?= $form->field($model, 'hour_start')->widget(DateControl::classname(), [
                             'type' => DateControl::FORMAT_TIME
                         ]) ?><!-- hour_end datetime -->
                     </div>
 
-                    <div class="col-xs-5">
+                    <div class="col-xs-4">
                         <?= $form->field($model, 'hour_end')->widget(DateControl::classname(), [
                             'type' => DateControl::FORMAT_TIME
                         ]) ?><!-- slot_duration integer -->
@@ -177,6 +196,12 @@ $hasUserBookedSlot = $model->hasUserBookedSlot(\Yii::$app->user->id);
                     <div class="col-xs-2">
                         <?= $form->field($model, 'slot_duration')
                             ->textInput()
+                            ->hint(AmosEvents::t('amosevents', 'Duration in minutes')) ?>
+                    </div>
+                    <div class="col-xs-2">
+                        <?= $form->field($model, 'break_time')
+                            ->textInput()
+                            ->label(AmosEvents::t('amosevents', 'Durata pausa'))
                             ->hint(AmosEvents::t('amosevents', 'Duration in minutes')) ?>
                     </div>
                 </div>
@@ -201,7 +226,20 @@ $hasUserBookedSlot = $model->hasUserBookedSlot(\Yii::$app->user->id);
                                 ],
                                 [
                                     'attribute' => 'hour_end',
-                                    'format' => 'time'
+                                    'value' => function ($model) {
+                                        return $model->getEndHourWithPause();
+                                    },
+                                ],
+                                [
+                                    'value' => function($model){
+                                        $available = $model->eventCalendars->max_participant - $model->getEventCalendarsSlotsBooked()->count();
+                                        if($available == 0){
+                                            return AmosEvents::t('amsoevents', 'Posti esauriti');
+                                        }
+                                        return $available;
+
+                                    },
+                                    'label' => AmosEvents::t('amsoevents', 'Posti disponibili')
                                 ],
                                 [
                                     'attribute' => 'user.userProfile.nomeCognome',
@@ -209,10 +247,21 @@ $hasUserBookedSlot = $model->hasUserBookedSlot(\Yii::$app->user->id);
                                 [
                                     'class' => \open20\amos\core\views\grid\ActionColumn::className(),
                                     'controller' => 'event-calendars-slots',
-                                    'template' => '{unbook}{book}{delete}',
+                                    'template' => '{users}{unbook}{book}{delete}',
                                     'buttons' => [
+                                        'users' => function ($url, $model) use ($canViewUser) {
+                                            if ($canViewUser) {
+                                                return \yii\helpers\Html::a(\open20\amos\core\icons\AmosIcons::show('accounts'),
+                                                    ['/events/event-calendars-slots/booked-users', 'id' => $model->id, 'url' => \Yii::$app->getView()->params['urlget']],
+                                                    [
+                                                        'class' => 'btn btn-primary', //                                            'data-toggle' => 'modal',
+//                                            'data-target' => '#modal-extra-info',
+                                                        'title' => AmosEvents::t('amosevents', "Mostra prenotazioni"),
+                                                    ]);
+                                            }
+                                        },
                                         'book' => function ($url, $model) use ($hasUserBookedSlot) {
-                                            if (empty($model->user_id) && !$hasUserBookedSlot) {
+                                            if ($model->canBook()) {
                                                 return \yii\helpers\Html::a(\open20\amos\core\icons\AmosIcons::show('calendar-check-o',
                                                     [], 'dash'),
                                                     ['/events/event-calendars-slots/book-slot', 'id' => $model->id, 'url' => \Yii::$app->getView()->params['urlget']],
@@ -227,7 +276,8 @@ $hasUserBookedSlot = $model->hasUserBookedSlot(\Yii::$app->user->id);
                                         },
 
                                         'unbook' => function ($url, $model) {
-                                            if (!empty($model->user_id) && ($model->user->id == \Yii::$app->user->id || \Yii::$app->user->can('ADMIN'))) {
+//                                            if (!empty($model->user_id) && ($model->user->id == \Yii::$app->user->id || \Yii::$app->user->can('ADMIN'))) {
+                                            if ($model->isBookedByUser(\Yii::$app->user->id)) {
                                                 return \yii\helpers\Html::a(AmosIcons::show('close'), ['/events/event-calendars-slots/unbook-slot', 'id' => $model->id], [
                                                     'class' => 'btn btn-primary',
                                                     'data-confirm' => AmosEvents::t('amosevents', "Sei sicuro di voler annullare l'appuntamento?"),
@@ -236,8 +286,10 @@ $hasUserBookedSlot = $model->hasUserBookedSlot(\Yii::$app->user->id);
                                             }
                                         },
                                         'delete' => function ($url, $model) {
-                                            if (empty($model->user_id)) {
-                                                return \yii\helpers\Html::a(AmosIcons::show('delete'), $url, [
+                                            $count = $model->getEventCalendarsSlotsBooked()->count();
+
+                                            if ($count == 0) {
+                                                return \yii\helpers\Html::a(AmosIcons::show('delete'), $url . '&redirectUrl=' . urlencode(\Yii::$app->request->absoluteUrl), [
                                                     'class' => 'btn btn-danger-inverse',
                                                     'data-confirm' => AmosEvents::t('amosevents', "Sei sicuro di eliminare questo slot?"),
                                                     'title' => AmosEvents::t('amosevents', "Elimina slot"),
@@ -267,5 +319,5 @@ $hasUserBookedSlot = $model->hasUserBookedSlot(\Yii::$app->user->id);
     </div>
 </div>
 
-<?php echo $this->render('_modal_additional_info');?>
+<?php echo $this->render('_modal_additional_info'); ?>
 

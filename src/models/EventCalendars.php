@@ -23,6 +23,16 @@ class EventCalendars extends \open20\amos\events\models\base\EventCalendars
         ];
     }
 
+    /**
+     * @return array
+     */
+    public static function getAvailableModel(){
+        return [
+            'openinnovation\landing\models\LandingCallhubSchede' => 'Schede progetto callhub'
+        ];
+
+    }
+
     public function attributeHints()
     {
         return [
@@ -200,11 +210,10 @@ class EventCalendars extends \open20\amos\events\models\base\EventCalendars
      * @throws \yii\base\InvalidConfigException
      */
     public function hasUserBookedSlot($user_id){
-        /** @var EventCalendarsSlots $eventCalendarsSlotsModel */
-        $eventCalendarsSlotsModel = $this->eventsModule->createModel('EventCalendarsSlots');
-        $count = $eventCalendarsSlotsModel::find()
-            ->andWhere(['event_calendars_id' => $this->id])
-            ->andWhere(['user_id' => $user_id])->count();
+        $count = EventCalendarsSlotsBooked::find()
+            ->innerJoin('event_calendars_slots','event_calendars_slots.id = event_calendars_slots_booked.event_calendars_slots_id')
+            ->andWhere(['event_calendars_slots.event_calendars_id' => $this->id])
+            ->andWhere(['event_calendars_slots_booked.user_id' => $user_id])->count();
         return $count > 0;
     }
 

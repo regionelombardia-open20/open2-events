@@ -536,7 +536,9 @@ $invitedGridId = 'pjax-invited-list-grid';
                 'pjaxId' => 'pjax-participants-widget',
                 'pageUrl' => '/events/event/view?id=' . $model->id,
                 'enableAdditionalButtons' => true,
-                'showSearch' => true,
+                'enableExport' => (isset($eventsModule->params['viewParticipantsExport']) ? $eventsModule->params['viewParticipantsExport'] : false),
+                'showSearch' => (isset($eventsModule->params['viewParticipantsSearch']) ? $eventsModule->params['viewParticipantsSearch'] : true),
+                'viewEmail' => (isset($eventsModule->params['viewParticipantsEmail']) ? $eventsModule->params['viewParticipantsEmail'] : false),
             ]);
             Pjax::end();
             ?>

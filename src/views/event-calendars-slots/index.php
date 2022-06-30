@@ -31,10 +31,10 @@ $this->params['breadcrumbs'][] = $this->title;
    'columns' => [
         ['class' => 'yii\grid\SerialColumn'],
 
-                    'event_calendars_id',
+             'event_calendars_id',
             'date:date',
-            ['attribute'=>'hour_start','format'=>['time',(isset(Yii::$app->modules['datecontrol']['displaySettings']['time'])) ? Yii::$app->modules['datecontrol']['displaySettings']['time'] : 'H:i:s A']],
-            ['attribute'=>'hour_end','format'=>['time',(isset(Yii::$app->modules['datecontrol']['displaySettings']['time'])) ? Yii::$app->modules['datecontrol']['displaySettings']['time'] : 'H:i:s A']],
+            ['attribute'=>'hour_start','format'=>'time'],
+            ['attribute'=>'hour_end','format'=>'time'],
             'user_id',
 
                         'user' => [

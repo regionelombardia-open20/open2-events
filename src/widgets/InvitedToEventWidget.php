@@ -253,7 +253,7 @@ class InvitedToEventWidget extends Widget
                 'invitation_response_on' => [
                     'label' => $eventInvitationModel->getAttributeLabel('invitation_response_on'),
                     'value' => function ($data) {
-                        return (!$data['invitation_response_on'] ? '-' : \Yii::$app->formatter->asDatetime($data['invitation_sent_on'], 'humanalwaysdatetime'));
+                        return (!$data['invitation_response_on'] ? '-' : \Yii::$app->formatter->asDatetime($data['invitation_response_on'], 'humanalwaysdatetime'));
                     }
                 ],
             ],

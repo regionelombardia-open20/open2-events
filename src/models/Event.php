@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Aria S.p.A.
  * OPEN 2.0
@@ -10,31 +11,31 @@
 
 namespace open20\amos\events\models;
 
+use open20\amos\admin\models\TokenGroup;
 use open20\amos\admin\models\UserProfile;
 use open20\amos\admin\utility\UserProfileUtility;
-use open20\amos\core\helpers\Html;
-use open20\amos\core\utilities\DuplicateContentUtility;
-use open20\amos\notificationmanager\behaviors\NotifyBehavior;
-use open20\amos\seo\behaviors\SeoContentBehavior;
 use open20\amos\comments\models\CommentInterface;
 use open20\amos\community\models\CommunityContextInterface;
 use open20\amos\community\models\CommunityUserMm;
 use open20\amos\core\behaviors\SoftDeleteByBehavior;
+use open20\amos\core\helpers\Html;
 use open20\amos\core\interfaces\ContentModelInterface;
 use open20\amos\core\interfaces\ViewModelInterface;
 use open20\amos\core\user\User;
+use open20\amos\core\utilities\DuplicateContentUtility;
 use open20\amos\events\AmosEvents;
 use open20\amos\events\i18n\grammar\EventGrammar;
 use open20\amos\events\utility\EventsUtility;
 use open20\amos\events\widgets\icons\WidgetIconEvents;
+use open20\amos\notificationmanager\behaviors\NotifyBehavior;
+use open20\amos\seo\behaviors\SeoContentBehavior;
+use open20\amos\seo\interfaces\SeoModelInterface;
 use yii\base\Behavior;
 use yii\base\Exception;
 use yii\db\ActiveQuery;
 use yii\db\Query;
 use yii\helpers\ArrayHelper;
 use yii\helpers\Url;
-use open20\amos\seo\interfaces\SeoModelInterface;
-use open20\amos\admin\models\TokenGroup;
 
 /**
  * Class Event
@@ -1525,5 +1526,32 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
             'eventAttachments' => DuplicateContentUtility::ATTACHMENT_MULTI,
             'landingHeader' => DuplicateContentUtility::ATTACHMENT_SINGLE
         ];
+    }
+
+    /**
+     * This method returns the event begin and end ready to print in a view or in a mail.
+     * @return string
+     * @throws \yii\base\InvalidConfigException
+     */
+    public function getEventBeginEndForView()
+    {
+        if (!$this->id) {
+            return '';
+        }
+        $beginDateHour = $this->begin_date_hour;
+        $beginDate = \Yii::$app->getFormatter()->asDate($beginDateHour);
+        $endDateHour = $this->end_date_hour;
+        $endDate = \Yii::$app->getFormatter()->asDate($endDateHour);
+        if ($beginDate == $endDate) {
+            $eventBeginEnd = AmosEvents::t('amosevents', '#begin_end_event_on') . ' ' . $beginDate .
+                ' ' . AmosEvents::t('amosevents', '#begin_end_event_from_hour') . ' ' . \Yii::$app->getFormatter()->asTime($beginDateHour) .
+                ' ' . AmosEvents::t('amosevents', '#begin_end_event_to_hour') . ' ' . \Yii::$app->getFormatter()->asTime($endDateHour);
+        } else {
+            $eventBeginEnd = AmosEvents::t('amosevents', '#begin_end_event_from_date') .
+                ' ' . \Yii::$app->getFormatter()->asDatetime($beginDateHour, 'humanalwaysdatetime') .
+                ' ' . AmosEvents::t('amosevents', '#begin_end_event_to_date') .
+                ' ' . \Yii::$app->getFormatter()->asDatetime($endDateHour, 'humanalwaysdatetime');
+        }
+        return $eventBeginEnd;
     }
 }

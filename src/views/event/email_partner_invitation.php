@@ -19,13 +19,21 @@ use open20\amos\events\AmosEvents;
  * @var string $urlYes
  * @var string $urlNo
  */
+
+/** @var AmosEvents $eventsModule */
+$eventsModule = AmosEvents::instance();
+
 ?>
 
 <h2><?= $event->title ?></h2>
 <p><?= $event->summary ?></p>
 
-<p>Gentile <?= $partner['name'], ' ', $partner['surname'] ?>, sei stato invitato come accompagnatore di <?= $profile->getNomeCognome() ?>, per partecipare a questo evento, desideri partecipare?</p>
+<p><?= AmosEvents::t('amosevents', '#email_invitation_partner_text', [
+        'nomeCognomeAccompagnatore' => $partner['name'], ' ', $partner['surname'],
+        'nomeCognomePartecipante' => $profile->getNomeCognome()
+    ]); ?></p>
 
-<a href="<?= $urlYes ?>">Si, parteciperò</a>
-
-
+<a href="<?= $urlYes ?>"><?= AmosEvents::t('amosevents', '#email_invitation_partner_yes'); ?></a>
+<?php if ($eventsModule->saveExternalInvitations): ?>
+    <a href="<?= $urlNo ?>"><?= AmosEvents::t('amosevents', '#email_invitation_partner_no'); ?></a>
+<?php endif; ?>

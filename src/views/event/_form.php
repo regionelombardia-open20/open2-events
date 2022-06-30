@@ -912,6 +912,11 @@ WorkflowTransitionStateDescriptorWidget::widget([
                 <?= $form->field($model, 'token_group_string_code')->textInput() ?>
             </div>
         </div>
+        <div class="row">
+            <div class="col-xs-12">
+                <?= $form->field($model, 'ics_libero')->checkbox() ?>
+            </div>
+        </div>
         <?php $this->endBlock(); ?>
 
         <?php

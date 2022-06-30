@@ -246,6 +246,7 @@ class EventCalendarsController extends CrudController
         } else {
             Yii::$app->getSession()->addFlash('danger', BaseAmosModule::tHtml('amoscore', 'Element not found.'));
         }
+
         return $this->redirect(['index']);
     }
 }

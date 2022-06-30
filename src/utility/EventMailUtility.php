@@ -14,6 +14,7 @@ use open20\amos\core\utilities\Email;
 use open20\amos\events\AmosEvents;
 use open20\amos\admin\AmosAdmin;
 use open20\amos\events\models\EventCalendarsSlots;
+use open20\amos\events\models\EventCalendarsSlotsBooked;
 use yii\log\Logger;
 use Yii;
 
@@ -21,20 +22,20 @@ class EventMailUtility
 {
 
     /**
-     * @param $model
+     * @param $model EventCalendarsSlotsBooked
      */
     public static function sendEmailSlotBooked($model)
     {
         $to    = [];
-        $event = $model->eventCalendars->event;
+        $event = $model->eventCalendarsSlots->eventCalendars->event;
         $link  = \Yii::$app->params['platform']['backendUrl']."/community/join?id=".$event->community_id."#my-booking";
         if ($model->user) {
             $to[] = $model->user->email;
         }
 
-        $subject = html_entity_decode($event->title." - ".AmosEvents::t('amosevents', "prenotazione confermata"));
+        $subject = html_entity_decode(/*$event->title." - ".*/AmosEvents::t('amosevents', "Prenotazione appuntamento confermata"));
         $message = AmosEvents::t('amosevents',
-                "La prenotazione dell’appuntamento è andata a buon fine.<br>In caso di impossibilità a partecipare ti chiediamo cortesemente di disdire l’appuntamento direttamente dal tuo calendario.<br>Puoi vedere il tuo calendario accedendo alla <a href='{link}'>community</a>",
+                "Grazie per aver prenotato il tuo appuntamento. Riceverai il link con l'accesso diretto alla stanza virtuale il giorno dell'evento.",
                 ['link' => $link]);
         $from = self::getFromMail($event);
         self::sendEmailGeneral($from, $to, $subject, $message);
@@ -46,38 +47,38 @@ class EventMailUtility
     public static function sendEmailSlotUnbooked($model)
     {
         $to    = [];
-        $event = $model->eventCalendars->event;
+        $event = $model->eventCalendarsSlots->eventCalendars->event;
         $link  = \Yii::$app->params['platform']['backendUrl']."/community/join?id=".$event->community_id."#my-booking";
         if ($model->user) {
             $to[] = $model->user->email;
         }
 
-        $subject = html_entity_decode($event->title." - ".AmosEvents::t('amosevents', "prenotazione annullata"));
+        $subject = html_entity_decode(/*$event->title." - ".*/AmosEvents::t('amosevents', "appuntamento annullato"));
         $message = AmosEvents::t('amosevents',
-                "La cancellazione dell’appuntamento è andata a buon fine.<br>Ti ricordiamo che in qualsiasi momento puoi accedere alla <a href='{link}'>community</a> per verificare nel tuo calendario tutti gli appuntamenti prenotati",
+                "Il tuo appuntamento è stato correttamente annullato.",
                 ['link' => $link]);
         $from = self::getFromMail($event);
         self::sendEmailGeneral($from, $to, $subject, $message);
     }
 
     /**
-     * @param $model EventCalendarsSlots
+     * @param $model EventCalendarsSlotsBooked
      */
     public static function sendEmailPartnerSlotBooked($model)
     {
         $to          = [];
-        $event       = $model->eventCalendars->event;
-        $userPartner = $model->eventCalendars->partnerUser;
+        $event       = $model->eventCalendarsSlots->eventCalendars->event;
+        $userPartner = $model->eventCalendarsSlots->eventCalendars->partnerUser;
         $nomeCognome = '';
         $data        = '';
         $ora         = '';
 
-        $link = \Yii::$app->params['platform']['backendUrl']."/events/event-calendars/view?id=".$model->eventCalendars->id."&url=/community/join?id=".$event->community_id."";
+        $link = \Yii::$app->params['platform']['backendUrl']."/events/event-calendars/view?id=".$model->eventCalendarsSlots->eventCalendars->id."&url=/community/join?id=".$event->community_id."";
         if ($userPartner) {
             $to[]        = $userPartner->email;
             $nomeCognome = $model->user->userProfile->nomeCognome;
-            $data        = \Yii::$app->formatter->asDate($model->date);
-            $ora         = \Yii::$app->formatter->asTime($model->hour_start);
+            $data        = \Yii::$app->formatter->asDate($model->eventCalendarsSlots->date);
+            $ora         = \Yii::$app->formatter->asTime($model->eventCalendarsSlots->hour_start);
         }
         $subject = html_entity_decode($event->title." - ".AmosEvents::t('amosevents', "prenotazione confermata"));
         $message = AmosEvents::t('amosevents',
@@ -95,23 +96,23 @@ class EventMailUtility
     }
 
     /**
-     * @param $model EventCalendarsSlots
+     * @param $model EventCalendarsSlotsBooked
      */
     public static function sendEmailPartnerSlotUnbooked($model)
     {
         $to          = [];
-        $event       = $model->eventCalendars->event;
-        $userPartner = $model->eventCalendars->partnerUser;
+        $event       = $model->eventCalendarsSlots->eventCalendars->event;
+        $userPartner = $model->eventCalendarsSlots->eventCalendars->partnerUser;
         $nomeCognome = '';
         $data        = '';
         $ora         = '';
 
-        $link = \Yii::$app->params['platform']['backendUrl']."/events/event-calendars/view?id=".$model->eventCalendars->id."&url=/community/join?id=".$event->community_id."";
+        $link = \Yii::$app->params['platform']['backendUrl']."/events/event-calendars/view?id=".$model->eventCalendarsSlots->eventCalendars->id."&url=/community/join?id=".$event->community_id."";
         if ($userPartner) {
             $to[]        = $userPartner->email;
             $nomeCognome = $model->user->userProfile->nomeCognome;
-            $data        = \Yii::$app->formatter->asDate($model->date);
-            $ora         = \Yii::$app->formatter->asTime($model->hour_start);
+            $data        = \Yii::$app->formatter->asDate($model->eventCalendarsSlots->date);
+            $ora         = \Yii::$app->formatter->asTime($model->eventCalendarsSlots->hour_start);
         }
 
         $subject = html_entity_decode($event->title." - ".AmosEvents::t('amosevents', "prenotazione annullata"));

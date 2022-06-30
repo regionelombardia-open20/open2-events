@@ -22,6 +22,7 @@ use open20\amos\cwh\AmosCwh;
 use open20\amos\cwh\query\CwhActiveQuery;
 use open20\amos\events\AmosEvents;
 use open20\amos\events\models\Event;
+use open20\amos\events\models\EventCalendarsSlots;
 use open20\amos\events\models\EventMembershipType;
 use open20\amos\notificationmanager\AmosNotify;
 use open20\amos\notificationmanager\base\NotifyWidget;
@@ -754,5 +755,37 @@ class EventSearch extends Event implements SearchModelInterface, CmsModelInterfa
             ]
         );
         return $provider;
+    }
+
+    /**
+     * @param $params
+     * @return ActiveDataProvider
+     * @throws \yii\base\InvalidConfigException
+     */
+    public function mySlotsAllCmsSearch($params, $limit = null){
+
+        $queryParams = [];
+        $dataProviderEvents = null;
+        if (!empty($params["conditionSearch"])) {
+            $commands = explode(";", $params["conditionSearch"]);
+            foreach ($commands as $command) {
+                $queryParams = ArrayHelper::merge($queryParams,
+                    eval("return " . $command . ";"));
+            }
+        }
+
+        $model = $this->findOne(['id' => $queryParams['event_id']]);
+        $query = EventCalendarsSlots::find()
+            ->innerJoinWith('eventCalendars')
+            ->innerJoin('event_calendars_slots_booked','event_calendars_slots.id = event_calendars_slots_booked.event_calendars_slots_id')
+            ->andWhere(['event_calendars_slots_booked.deleted_at' => null])
+            ->andWhere(['event_calendars_slots_booked.user_id' => \Yii::$app->user->id])
+            ->andFilterWhere(['event_id' => $model->id]);
+
+        $this->load($params);
+        $dataProvider = new ActiveDataProvider([
+            'query' => $query
+        ]);
+        return $dataProvider;
     }
 }

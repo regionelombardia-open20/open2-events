@@ -200,7 +200,7 @@ class EventCalendarsSlotsController extends CrudController
      * @param integer $id
      * @return mixed
      */
-    public function actionDelete($id)
+    public function actionDelete($id, $redirectUrl = null)
     {
         $this->model = $this->findModel($id);
         if ($this->model) {
@@ -212,6 +212,9 @@ class EventCalendarsSlotsController extends CrudController
             }
         } else {
             Yii::$app->getSession()->addFlash('danger', BaseAmosModule::tHtml('amoscore', 'Element not found.'));
+        }
+        if($redirectUrl){
+            return $this->redirect($redirectUrl);
         }
         return $this->redirect(['index']);
     }

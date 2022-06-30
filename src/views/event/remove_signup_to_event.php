@@ -1,28 +1,37 @@
 <?php
+
 /**
- * @var \open20\amos\core\user\User $user
- * @var string $confirmUrl
- * @var string $previousUrl
- * @var bool $autoRemove
+ * Aria S.p.A.
+ * OPEN 2.0
+ *
+ *
+ * @package    open20\amos\events\views\email
+ * @category   CategoryName
  */
+
+use open20\amos\core\helpers\Html;
+
+/**
+ * @var string $nomeCognome
+ * @var string $text
+ * @var string $previousUrl
+ * @var string $confirmUrl
+ */
+
 ?>
 
-<h3><?= $user->getUserProfile()->one()->getNomeCognome(); ?></h3>
-<?php if($autoRemove) : ?>
-<h3><?= \open20\amos\events\AmosEvents::txt('Vuoi davvero rimuovere la partecipazione all\'evento per te e i tuoi accompagnatori?') ?></h3>
-<?php else : ?>
-<h3><?= \open20\amos\events\AmosEvents::txt('Vuoi davvero rimuovere la partecipazione all\'evento per il partecipante e i suoi accompagnatori?') ?></h3>
-<?php endif; ?>
-<br /><br />
-<?= \yii\helpers\Html::tag(
+<h3><?= $nomeCognome; ?></h3>
+<h3><?= $text ?></h3>
+<br/><br/>
+<?= Html::tag(
     'div',
-    \yii\helpers\Html::a(
+    Html::a(
         \Yii::t('amoscore', 'No'),
         $previousUrl,
         [
             'class' => 'btn btn-secondary'
         ]
-    ) . ' ' . \yii\helpers\Html::a(
+    ) . ' ' . Html::a(
         \Yii::t('amoscore', 'Yes'),
         $confirmUrl,
         [
@@ -32,5 +41,4 @@
     [
         'class' => 'pull-right'
     ]
-    );
-?>
+); ?>

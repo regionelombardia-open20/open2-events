@@ -72,8 +72,8 @@ class EventCalendars extends \open20\amos\core\record\Record
     {
         return [
             [['event_id', 'title', 'date_start', 'hour_start', 'hour_end', 'slot_duration'], 'required'],
-            [['event_id', 'slot_duration', 'created_by', 'updated_by', 'deleted_by', 'partner_user_id'], 'integer'],
-            [['description', 'short_description', 'group', 'ecosystem'], 'string'],
+            [['max_participant', 'record_id','break_time','event_id', 'slot_duration', 'created_by', 'updated_by', 'deleted_by','partner_user_id'], 'integer'],
+            [['classname','description','short_description','group','ecosystem'], 'string'],
             [['date_start', 'date_end', 'hour_start', 'hour_end', 'created_at', 'updated_at', 'deleted_at'], 'safe'],
             [['title'], 'string', 'max' => 255],
             [['event_id'], 'exist', 'skipOnError' => true, 'targetClass' => $this->eventsModule->model('Event'), 'targetAttribute' => ['event_id' => 'id']],

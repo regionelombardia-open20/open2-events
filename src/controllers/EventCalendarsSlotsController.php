@@ -9,11 +9,14 @@
  */
 
 namespace open20\amos\events\controllers;
+
 use open20\amos\events\AmosEvents;
 use open20\amos\events\models\Event;
+use open20\amos\events\models\EventCalendarsSlotsBooked;
 use open20\amos\events\models\search\EventCalendarsSlotsSearch;
 use open20\amos\events\utility\EventMailUtility;
 use open20\amos\events\utility\EventsUtility;
+use yii\data\ActiveDataProvider;
 use yii\filters\AccessControl;
 use yii\filters\VerbFilter;
 use yii\helpers\ArrayHelper;
@@ -38,7 +41,8 @@ class EventCalendarsSlotsController extends \open20\amos\events\controllers\base
                         'actions' => [
                             'book-slot',
                             'unbook-slot',
-                            'my-booking'
+                            'my-booking',
+                            'booked-users'
                         ],
                         'roles' => ['@']
                     ],
@@ -62,29 +66,37 @@ class EventCalendarsSlotsController extends \open20\amos\events\controllers\base
      * @throws \yii\base\InvalidConfigException
      * @throws \yii\web\NotFoundHttpException
      */
-    public function actionBookSlot($id, $url = null, $affiliation = null, $cellphone = null)
+    public function actionBookSlot($id, $url = null, $affiliation = null, $cellphone = null, $redirectUrl = null)
     {
         $this->model = $this->findModel($id);
         $calendar = $this->model->eventCalendars;
         $isParticipant = EventsUtility::isEventParticipant($this->model->eventCalendars->event->id, \Yii::$app->user->id);
-        if(!$isParticipant){
-            throw new ForbiddenHttpException();
+        if (!$isParticipant) {
+            throw new ForbiddenHttpException(AmosEvents::t('amosevents',"Devi essere registrato all'evento."));
         }
-        if (empty($this->model->user_id)) {
-            $this->model->user_id = \Yii::$app->user->id;
-            $this->model->booked_at = date('Y-m-d H:i:s');
-            $this->model->affiliation = $affiliation;
-            $this->model->cellphone = $cellphone;
-            $this->model->save(false);
-            EventMailUtility::sendEmailSlotBooked($this->model);
-            EventMailUtility::sendEmailPartnerSlotBooked($this->model);
+
+        $this->model->getEventCalendarsSlotsBooked()->andWhere(['user_id' => \Yii::$app->user->id])->one();
+
+        if ($this->model->canBook()) {
+            $bookedSlot = new EventCalendarsSlotsBooked();
+            $bookedSlot->event_calendars_slots_id = $this->model->id;
+            $bookedSlot->user_id = \Yii::$app->user->id;
+            $bookedSlot->booked_at = date('Y-m-d H:i:s');
+            $bookedSlot->affiliation = $affiliation;
+            $bookedSlot->cellphone = $cellphone;
+            $bookedSlot->save(false);
+            EventMailUtility::sendEmailSlotBooked($bookedSlot);
+            EventMailUtility::sendEmailPartnerSlotBooked($bookedSlot);
 
             \Yii::$app->session->addFlash('success', AmosEvents::t('amosevents', 'Hai prenotato correttamente questo slot'));
 
         } else {
-            \Yii::$app->session->addFlash('danger', AmosEvents::t('amosevents', 'Questo slot è già prenotato'));
+            \Yii::$app->session->addFlash('danger', AmosEvents::t('amosevents', 'Non puoi prenotare questo slot'));
         }
-        return $this->redirect(['/events/event-calendars/view', 'id' => $calendar->id,'url' => $url]);
+        if($redirectUrl){
+            return $this->redirect($redirectUrl);
+        }
+        return $this->redirect(['/events/event-calendars/view', 'id' => $calendar->id, 'url' => $url]);
     }
 
     /**
@@ -93,26 +105,22 @@ class EventCalendarsSlotsController extends \open20\amos\events\controllers\base
      * @throws ForbiddenHttpException
      * @throws \yii\web\NotFoundHttpException
      */
-    public function actionUnbookSlot($id, $url = null)
+    public function actionUnbookSlot($id, $url = null, $redirectUrl = null)
     {
         $this->model = $this->findModel($id);
         $calendar = $this->model->eventCalendars;
-        if(\Yii::$app->user->id == $this->model->user_id) {
-            if (!empty($this->model->user_id)) {
-                EventMailUtility::sendEmailSlotUnbooked($this->model);
-                EventMailUtility::sendEmailPartnerSlotUnbooked($this->model);
-                $this->model->user_id = null;
-                $this->model->booked_at = null;
-                $this->model->affiliation = null;
-                $this->model->cellphone = null;
-                $this->model->save(false);
+        $booked = $this->model->getEventCalendarsSlotsBooked()->andWhere(['user_id' => \Yii::$app->user->id])->one();
+        if (!empty($booked)) {
+            EventMailUtility::sendEmailSlotUnbooked($booked);
+            EventMailUtility::sendEmailPartnerSlotUnbooked($booked);
+            $booked->delete();
 
-                \Yii::$app->session->addFlash('success', AmosEvents::t('amosevents', 'Hai annullato correttamente la prenotazione a questo questo slot'));
-            } else {
-                \Yii::$app->session->addFlash('danger', AmosEvents::t('amosevents', 'Questo slot è già vuoto'));
-            }
+            \Yii::$app->session->addFlash('success', AmosEvents::t('amosevents', 'Hai annullato correttamente la prenotazione a questo questo slot'));
         } else {
-            throw new ForbiddenHttpException();
+            \Yii::$app->session->addFlash('danger', AmosEvents::t('amosevents', 'Questo slot è già vuoto'));
+        }
+        if($redirectUrl){
+            return $this->redirect($redirectUrl);
         }
         return $this->redirect(['/events/event-calendars/view', 'id' => $calendar->id, 'url' => $url]);
     }
@@ -122,7 +130,8 @@ class EventCalendarsSlotsController extends \open20\amos\events\controllers\base
      * @return string
      * @throws \yii\base\InvalidConfigException
      */
-    public function actionMyBooking($eventId){
+    public function actionMyBooking($eventId)
+    {
         $this->setUpLayout('list');
         /** @var Event $eventModel */
         $eventModel = $this->eventsModule->createModel('Event');
@@ -134,9 +143,29 @@ class EventCalendarsSlotsController extends \open20\amos\events\controllers\base
         $dataProvider = $modelSearch->mySlotsAllSearch([]);
 
         return $this->render('my-booking', [
-            'event'=> $event,
+            'event' => $event,
             'dataProvider' => $dataProvider,
         ]);
     }
+
+    /**
+     * @param $id
+     * @return string
+     * @throws \yii\web\NotFoundHttpException
+     */
+    public function actionBookedUsers($id){
+        $this->model = $this->findModel($id);
+        $calendar = $this->model->eventCalendars;
+        $dataProvider = new ActiveDataProvider([
+            'query' => $this->model->getEventCalendarsSlotsBooked()
+        ]);
+
+        return $this->render('booked-users', ['model' => $this->model,
+            'calendar' => $calendar,
+            'dataProvider' => $dataProvider,
+            'event' => $calendar->event
+        ]);
+    }
+
 
 }
