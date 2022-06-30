@@ -2787,11 +2787,13 @@ class EventController extends base\EventController
             } else {
                 if ($get['confirm']) {
                     $result = $this->removeSignupToEvent($event, $invitation);
+                    $thankyouPageParams = ['event' => $event];
                     if ($result) {
-                        \Yii::$app->getSession()->addFlash('success', AmosEvents::txt('La partecipazione è stata rimossa con successo'));
+                        $thankyouPageParams['message'] = AmosEvents::txt('La partecipazione è stata rimossa con successo');
                     } else {
-                        \Yii::$app->getSession()->addFlash('danger', AmosEvents::txt('La partecipazione non è stata rimossa a causa di un errore'));
+                        $thankyouPageParams['message'] = AmosEvents::txt('La partecipazione non è stata rimossa a causa di un errore');
                     }
+                    return $this->render('remove_signup_to_event_thankyou', $thankyouPageParams);
                 }
             }
         } else {

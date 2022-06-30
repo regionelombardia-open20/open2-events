@@ -266,6 +266,7 @@ return [
     '#registration_limit_date_expired' => 'The deadline for registration has expired. If you wish you can contact one of the staff members listed in the "staff" section',
     'Registration Limit Date' => 'Registration Limit Date',
     'Reject' => 'Reject',
+    '#remove_signup_to_event_thankyou_title' => 'Participation removal',
     'Request publish' => 'Request publish',
     'Request sent' => 'Request sent',
     'Reset' => 'Reset',

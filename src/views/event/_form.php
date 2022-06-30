@@ -247,24 +247,9 @@ JS;
 $this->registerJs($impXlsJs, yii\web\View::POS_READY);
 
 if ($moduleEvents->enableEventRooms) {
-    $seatsAvailableDisabledBySeatsManagement = ($model->seats_management ? "1" : "0");
     $jsEventsRooms = <<<JS
-    var seatsAvailableDisabledBySeatsManagement = "$seatsAvailableDisabledBySeatsManagement";
-    function enableOrDisableField(fieldToCheckValue, fieldToEnableOrDisableId, isChange) {
-        if ((seatsAvailableDisabledBySeatsManagement === "0") && fieldToCheckValue.val() === "") {
-            $(fieldToEnableOrDisableId).prop('disabled', false);
-        } else {
-            if (isChange) {
-                $(fieldToEnableOrDisableId).val(fieldToCheckValue.find('option:selected').data('available_seats'));
-            }
-            $(fieldToEnableOrDisableId).prop('disabled', true);
-        }
-    }
-    
-    var eventRoomFieldIdField = $('#$eventRoomFieldId');
-    enableOrDisableField(eventRoomFieldIdField, '#$seatsAvailableFieldId', false);
-    eventRoomFieldIdField.on('change', function(e) {
-        enableOrDisableField($(this), '#$seatsAvailableFieldId', true);
+    $('#$eventRoomFieldId').on('change', function(e) {
+        $('#$seatsAvailableFieldId').val($(this).find('option:selected').data('available_seats'));
     });
 JS;
 
@@ -446,7 +431,7 @@ WorkflowTransitionStateDescriptorWidget::widget([
                     <div class="row">
                         <?php
                         $disabled = false;
-                        if ($model->seats_management || ($moduleEvents->enableEventRooms && !empty($model->event_room_id))) {
+                        if ($model->seats_management) {
                             $disabled = true;
                         }
                         /** @var Event $eventModel */

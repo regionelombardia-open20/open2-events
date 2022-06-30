@@ -5,11 +5,12 @@
  * OPEN 2.0
  *
  *
- * @package    open20\amos\events\views\email
+ * @package    open20\amos\events\views\event
  * @category   CategoryName
  */
 
 use open20\amos\core\helpers\Html;
+use open20\amos\events\AmosEvents;
 
 /**
  * @var string $nomeCognome
@@ -17,6 +18,8 @@ use open20\amos\core\helpers\Html;
  * @var string $previousUrl
  * @var string $confirmUrl
  */
+
+$this->title = AmosEvents::txt('#remove_signup_to_event_thankyou_title');
 
 ?>
 

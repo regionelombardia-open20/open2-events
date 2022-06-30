@@ -5,7 +5,7 @@
  * OPEN 2.0
  *
  *
- * @package    open20\amos\events\views\email
+ * @package    open20\amos\events\views\event
  * @category   CategoryName
  */
 

@@ -263,6 +263,7 @@ return [
     'Registration Limit Date' => 'Data limite di iscrizione',
     '#registration_limit_date_expired' => 'Il termine per l\'iscrizione è scaduto. Se vuoi puoi contattare un membro dello staff, che puoi trovare nella sezione staff.',
     'Reject' => 'Rifiuta',
+    '#remove_signup_to_event_thankyou_title' => 'Rimozione partecipazione',
     'Request publish' => 'Richiedi pubblicazione',
     'Request sent' => 'Richiesta inviata',
     'Reset' => 'Annulla',

@@ -1012,17 +1012,6 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
     }
 
     /**
-     * @inheritdoc
-     */
-    public function beforeValidate()
-    {
-        if (!empty($this->event_room_id)) {
-            $this->seats_available = EventsUtility::getEventRoomAvailableSeatsById($this->event_room_id);
-        }
-        return parent::beforeValidate();
-    }
-
-    /**
      * This method calculate the remaining seats available if the event is of type limited seats.
      * The method get all event community members not rejected including event managers.
      * @return int
