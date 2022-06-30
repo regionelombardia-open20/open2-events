@@ -824,7 +824,14 @@ class EventController extends base\EventController
         $text .= Html::a(AmosEvents::t('amosevents', $urlLabel), $url);
 
         // SEND EMAIL
-        $ok = Email::sendMail($from, $to, $subject, $text, [], [$from], [], 0, false);
+        if (strpos($from, ' ') !== false) {
+            $splitFrom = explode(' ', $from);
+            $first = reset($splitFrom);
+            $bcc = [$first];
+        } else {
+            $bcc = [$from];
+        }
+        $ok = Email::sendMail($from, $to, $subject, $text, [], $bcc, [], 0, false);
         if ($ok) {
             Yii::$app->getSession()->addFlash('success',
                 AmosEvents::t('amosevents', 'Your request has been forwarded to event manager for approval.'));
