@@ -34,16 +34,15 @@ $viewUrl = $model->getFullViewUrl();
             <div class="external-image-container">
                 <div class="image-wrapper">
 
-                    <?php echo ContextMenuWidget::widget([
-                        'model' => $model,
-                        'actionModify' => "/events/event/update?id=" . $model->id,
-                        'actionDelete' => "/events/event/delete?id=" . $model->id,
-                        'optionsModify' => [
-                            'class' => 'event-modify',
-                        ],
-                    ]) ?>
-                    <?php
-                   
+            <?php echo ContextMenuWidget::widget([
+              'model' => $model,
+              'actionModify' => "/events/event/update?id=" . $model->id,
+              'actionDelete' => "/events/event/delete?id=" . $model->id,
+              'optionsModify' => [
+                'class' => 'event-modify',
+              ],
+            ]) ?>
+            <?php
 
                     $url = $model->getEventsImageUrl('square_large', false);
                     $logo = Html::img($url, [

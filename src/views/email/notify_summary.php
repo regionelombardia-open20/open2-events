@@ -122,69 +122,71 @@ if (!empty($closestEvent)) {
 
 
 
-    <?php foreach ((Array) $arrayModels as $model) {
-        $text =  \open20\amos\events\AmosEvents::t('amosevents', 'Iscriviti');
-        if(!empty($user_id)){
-            if($model->isUserSubscribedToEvent($user_id)){
-                $text =  \open20\amos\events\AmosEvents::t('amosevents', 'Accedi');
-            }
+<?php
+foreach ((Array) $arrayModels as $model) {
+    $text = \open20\amos\events\AmosEvents::t('amosevents', 'Iscriviti');
+    if (!empty($user_id)) {
+        if ($model->isUserSubscribedToEvent($user_id)) {
+            $text = \open20\amos\events\AmosEvents::t('amosevents', 'Accedi');
         }
-        $beginDateHour = null;
-        if ((!empty($closestEvent) && $model->id != $closestEvent->id) || empty($closestEvent) ) {
-            $beginDateHour = !empty($model->begin_date_hour) ? new \DateTime($model->begin_date_hour) : null;
-            ?>
-            <tr>
-                <td colspan="2" style="padding:0 15px;" bgcolor="#454545">
-                    <table width="100%">
-                        <tr>
-                            <td style="border-top: 1px solid #838383; padding:15px 0px;">
-                                <table width="100%" cellspacing="0" cellpadding="0" border="0" align="center">
-                                    <tr>
-                                        <td style="border:solid 2px #297A38; width:70px">
-                                            <table align="center" border="0" cellpadding="0" cellspacing="0" width="100%">
-                                                <tr>
-                                                    <td valign="top" style="font-family: sans-serif; mso-height-rule: exactly; color: #FFFFFF; padding: 10px; text-align: center; text-transform: uppercase; font-size:12px;"><strong style="font-size:34px;"><?= !empty($beginDateHour) ? $beginDateHour->format('d') : ''?></strong>
-                                                        <br>
-                                                        <?= !empty($beginDateHour) ? Yii::$app->formatter->asDate($beginDateHour, 'MMM') : ''?> <?= !empty($beginDateHour) ? Yii::$app->formatter->asDate($beginDateHour, 'YYY') : ''?>
-                                                    </td>
-                                                </tr>
-                                            </table>
-                                        </td>
-                                        <td width="80%" border="0">
-                                            <table width="100%" border="0">
-                                                <tr>
-                                                    <td style="background: #454545; text-align: center; font-family: sans-serif; font-size: 18px; mso-height-rule: exactly; line-height: normal;  text-align: left; font-weight: bold; padding-left:10px"><a href="<?=Yii::$app->urlManager->createAbsoluteUrl($model->getFullViewUrl())?>" style="color: #FFFFFF; text-decoration:none; padding-right:3px;"><?= $model->getTitle()?></a><span style="display: inline-block; margin: 2px;text-transform: uppercase; color: #7CC588; border: 1px solid #7CC588; line-height: 16px; font-size: 10px; vertical-align:top; padding: 1px 5px;" class="tag">Nuovo</span>
-                                                        <table width="100%" style="color:#CAC8C8; line-height: normal;">
-                                                            <tr style="font-size: 12px; padding: 0px; margin-top: 5px;">
-                                                                <td style="padding-top:5px; font-family: sans-serif; color:#CAC8C8;" class="place"><?= $model->event_location?></td>
-                                                            </tr>
-                                                            <tr style="font-size: 12px; font-weight:normal; padding: 0px;">
-                                                                <td style="padding-bottom:5px; font-family: sans-serif; color:#CAC8C8;" class="place"><?= $model->getFullAddress()?></td>
-                                                            </tr>
-                                                        </table>
-                                                        <table width="100%" cellspacing="0" cellpadding="0" border="0" align="center" style="margin: auto">
-    
-                                                            <tr>
-                                                                <?php if (!empty($model->community)) {?>
-                                                                    <td style="font-size: 11px; line-height: 16px; color: #ffffff; font-family: sans-serif;">Community <?= $model->community->name?></td>
-                                                                <?php } ?>
-                                                                <td align="right" width="85" valign="bottom" style="text-align: center; padding-left: 10px;"><a href="<?=Yii::$app->urlManager->createAbsoluteUrl($model->getFullViewUrl())?>" style="background: #297A38; border:3px solid #297A38; color: #ffffff; font-family: sans-serif; font-size: 11px; line-height: 22px; text-align: center; text-decoration: none; display: block; font-weight: bold; text-transform: uppercase; height: 20px;" class="button-a">
-                                                                        <!--[if mso]>&nbsp;&nbsp;&nbsp;&nbsp;<![endif]--><?= $text ?><!--[if mso]>&nbsp;&nbsp;&nbsp;&nbsp;<![endif]-->
-                                                                    </a></td>
-                                                            </tr>
-                                                        </table>
-                                                    </td>
-                                                </tr>
-                                            </table>
-                                        </td>
-                                    </tr>
-                                </table>
-                            </td>
-                        </tr>
-                    </table>
-                </td>
-            </tr>
-        
-        <?php }
     }
-    ?>
+    $beginDateHour = null;
+    if ((!empty($closestEvent) && $model->id != $closestEvent->id) || empty($closestEvent)) {
+        $beginDateHour = !empty($model->begin_date_hour) ? new \DateTime($model->begin_date_hour) : null;
+        ?>
+        <tr>
+            <td colspan="2" style="padding:0 15px;" bgcolor="#454545">
+                <table width="100%">
+                    <tr>
+                        <td style="border-top: 1px solid #838383; padding:15px 0px;">
+                            <table width="100%" cellspacing="0" cellpadding="0" border="0" align="center">
+                                <tr>
+                                    <td style="border:solid 2px #297A38; width:70px">
+                                        <table align="center" border="0" cellpadding="0" cellspacing="0" width="100%">
+                                            <tr>
+                                                <td valign="top" style="font-family: sans-serif; mso-height-rule: exactly; color: #FFFFFF; padding: 10px; text-align: center; text-transform: uppercase; font-size:12px;"><strong style="font-size:34px;"><?= !empty($beginDateHour) ? $beginDateHour->format('d') : '' ?></strong>
+                                                    <br>
+                                                    <?= !empty($beginDateHour) ? Yii::$app->formatter->asDate($beginDateHour, 'MMM') : '' ?> <?= !empty($beginDateHour) ? Yii::$app->formatter->asDate($beginDateHour, 'YYY') : '' ?>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                    <td width="80%" border="0">
+                                        <table width="100%" border="0">
+                                            <tr>
+                                                <td style="background: #454545; text-align: center; font-family: sans-serif; font-size: 18px; mso-height-rule: exactly; line-height: normal;  text-align: left; font-weight: bold; padding-left:10px"><a href="#" style="color: #FFFFFF; text-decoration:none; padding-right:3px;"><?= $model->getTitle() ?></a><span style="display: inline-block; margin: 2px;text-transform: uppercase; color: #7CC588; border: 1px solid #7CC588; line-height: 16px; font-size: 10px; vertical-align:top; padding: 1px 5px;" class="tag">Nuovo</span>
+                                                    <table width="100%" style="color:#CAC8C8; line-height: normal;">
+                                                        <tr style="font-size: 12px; padding: 0px; margin-top: 5px;">
+                                                            <td style="padding-top:5px; font-family: sans-serif; color:#CAC8C8;" class="place"><?= $model->event_location ?></td>
+                                                        </tr>
+                                                        <tr style="font-size: 12px; font-weight:normal; padding: 0px;">
+                                                            <td style="padding-bottom:5px; font-family: sans-serif; color:#CAC8C8;" class="place"><?= $model->getFullAddress() ?></td>
+                                                        </tr>
+                                                    </table>
+                                                    <table width="100%" cellspacing="0" cellpadding="0" border="0" align="center" style="margin: auto">
+
+                                                        <tr>
+                                                            <?php if (!empty($model->community)) { ?>
+                                                                <td style="font-size: 11px; line-height: 16px; color: #ffffff; font-family: sans-serif;">Community <?= $model->community->name ?></td>
+                                                            <?php } ?>
+                                                            <td align="right" width="85" valign="bottom" style="text-align: center; padding-left: 10px;"><a href="<?= Yii::$app->urlManager->createAbsoluteUrl($model->getFullViewUrl()) ?>" style="background: #297A38; border:3px solid #297A38; color: #ffffff; font-family: sans-serif; font-size: 11px; line-height: 22px; text-align: center; text-decoration: none; display: block; font-weight: bold; text-transform: uppercase; height: 20px;" class="button-a">
+                                                                    <!--[if mso]>&nbsp;&nbsp;&nbsp;&nbsp;<![endif]--><?= $text ?><!--[if mso]>&nbsp;&nbsp;&nbsp;&nbsp;<![endif]-->
+                                                                </a></td>
+                                                        </tr>
+                                                    </table>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+
+        <?php
+    }
+}
+?>

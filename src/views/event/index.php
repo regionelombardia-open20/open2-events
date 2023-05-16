@@ -44,7 +44,7 @@ $eventsModule = Yii::$app->getModule(AmosEvents::getModuleName());
 /** @var EventController $appController */
 $appController = Yii::$app->controller;
 $param = (isset($addActionColumns) ? $addActionColumns : null);
-$actionColumn = ($eventsModule->enableExportToPdfInColumn ? '{esportapdf}' : '') . $appController->getGridViewActionColumnsTemplate($param);
+$actionColumn = ($eventsModule->enableExportToPdfInColumn ? '{esportapdf}' : '') . ($eventsModule->enableExportToWordInColumn ? '{esportadocx}' : '') . $appController->getGridViewActionColumnsTemplate($param);
 ?>
 
 <div class="event-index">
@@ -239,11 +239,31 @@ $actionColumn = ($eventsModule->enableExportToPdfInColumn ? '{esportapdf}' : '')
                                     AmosIcons::show('file-pdf-o', [], 'dash'),
                                     Yii::$app->urlManager->createUrl($createUrlParams),
                                     [
-                                        'title' => AmosEvents::t('amosevents', 'Modifica'),
+                                        'title' => AmosEvents::t('amosevents', 'Esporta in PDF'),
                                         'class' => 'btn btn-tool-primary'
                                     ]
                             );
-                        }
+                        },
+                        'esportadocx' => function ($url, $model) use ($eventsModule) {
+                            if ($eventsModule->enableExportToWordInColumn == false) {
+                                return '';
+                            }
+                            /** @var \open20\amos\events\models\Event $model */
+                            $createUrlParams = [
+                                '/events/event/esporta',
+                                'id' => $model->id,
+                                'format' => 'docx',
+                            ];
+
+                            return Html::a(
+                                    AmosIcons::show('file-word-o', [], 'dash'),
+                                    Yii::$app->urlManager->createUrl($createUrlParams),
+                                    [
+                                        'title' => AmosEvents::t('amosevents', 'Esporta in WORD'),
+                                        'class' => 'btn btn-tool-primary'
+                                    ]
+                            );
+                        },
                     ]
                 ]
             ],

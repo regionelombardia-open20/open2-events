@@ -62,6 +62,8 @@ use yii\helpers\ArrayHelper;
 use yii\helpers\Url;
 use yii\web\NotFoundHttpException;
 use yii\web\Response;
+use PhpOffice\PhpWord\IOFactory;
+use PhpOffice\PhpWord\Settings;
 
 /**
  * Class EventController
@@ -107,8 +109,8 @@ class EventController extends base\EventController {
                                 'validate',
                                 'reject',
                                 'own-interest',
-				'esporta',
-				'admin'events'
+				'esport',
+				'admin-events'
                             ],
                             'roles' => ['EVENTS_ADMINISTRATOR']
                         ],
@@ -4255,6 +4257,19 @@ class EventController extends base\EventController {
 //                $pdf->getApi()->SetHTMLFooter($footer);
 //                $pdf->getApi()->SetHTMLFooter($footer);
                 return $pdf->output($content, $model->title . ' - ' . \Yii::$app->formatter->asDate($model->begin_date_hour, 'php:d/m/Y') . ".pdf", Pdf::DEST_BROWSER);
+            } else if ($format == 'docx') {
+
+                // Creating the new document...
+                $phpWord = new \PhpOffice\PhpWord\PhpWord();
+
+                $section = $phpWord->addSection();
+                $section->addText(strip_tags($model->description));
+
+// Saving the document as OOXML file...
+                $objWriter = \PhpOffice\PhpWord\IOFactory::createWriter($phpWord, 'Word2007');
+                $fileName = \Yii::getAlias('@common/uploads/temp/') . \yii\helpers\Inflector::slug($model->title) . time() . '.docx';
+                $objWriter->save($fileName);
+                return \Yii::$app->response->sendFile($fileName, $model->title . '.docx');
             }
         }
     }

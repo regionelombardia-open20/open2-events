@@ -129,7 +129,7 @@ die;
 
     public static function sendPushToApplev2($token)
     {
-        $appleApiParams = \Yii::$app->params['appleApi'] ?: [];
+        /*$appleApiParams = \Yii::$app->params['appleApi'] ?: [];
         $passphrase = $appleApiParams['p12CertificatePassword'];
         $certificate = \Yii::getAlias($appleApiParams['p12CertificateFile']);
         $privateKeyFile = \Yii::getAlias($appleApiParams['privateKey']);
@@ -213,7 +213,7 @@ die;
         var_dump($response);
         var_dump($httpcode);
         die;
-
+*/
     }
 
     /**

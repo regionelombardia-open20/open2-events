@@ -329,6 +329,12 @@ class AmosEvents extends AmosModule implements ModuleInterface, SearchModuleInte
     public $enableExportToPdfInColumn = false;
     
     /**
+     * 
+     * @var type
+     */
+    public $enableExportToWordInColumn = false;
+    
+    /**
      * @inheritdoc
      */
     public static function getModuleName()
