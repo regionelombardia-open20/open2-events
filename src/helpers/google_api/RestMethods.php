@@ -78,6 +78,37 @@ class RestMethods {
         return $response;
     }
 
+    /**
+     * @param $resource_id
+     * @param $eventticketClass
+     * @return array|Google_Service_Walletobjects_EventTicketClass|null
+     */
+    public function updateEventTicketClass($resource_id, $eventticketClass){
+        $response = NULL;
+
+        // Use the Google Pay API for Passes Java client lib to insert the EventTicket class
+        //// check the devsite for newest client lib: https://developers.google.com/pay/passes/support/libraries#libraries
+        //// check reference API to see the underlying REST call:
+        //// https://developers.google.com/pay/passes/reference/v1/eventticketclass/insert
+        //// The methods to call these from client library are in Walletobjects.php
+        $service = new Google_Service_Walletobjects($this->client);
+
+        try {
+            $response = $service->eventticketclass->update($resource_id, $eventticketClass);
+            $response["code"] = 200;
+        } catch (\Google_Service_Exception $gException)  {
+            $response = $gException->getErrors();
+            $response["code"] = $gException->getCode();
+            echo("\n>>>> [START] Google Server Error response:");
+            var_dump($response);
+            echo("\n>>>> [END] Google Server Error response\n");
+        } catch (\Exception $e){
+            var_dump($e->getMessage());
+        }
+
+        return $response;
+    }
+
     /*******************************
      *
      *  Get defined class with Google Pay API for Passes REST API
@@ -114,6 +145,38 @@ class RestMethods {
         return $response;
     }
 
+    /**
+     * @param array $optParams
+     * @return array|Google_Service_Walletobjects_EventTicketClassListResponse|null
+     */
+    public function getEventTicketClassList($optParams = []){
+        $response = NULL;
+
+        // Use the Google Pay API for Passes Java client lib to get an EventTicket class
+        //// check the devsite for newest client lib: https://developers.google.com/pay/passes/support/libraries#libraries
+        //// check reference API to see the underlying REST call:
+        //// https://developers.google.com/pay/passes/reference/v1/eventticketclass/get
+        //// The methods to call these from client library are in Walletobjects.php
+        $service = new Google_Service_Walletobjects($this->client);
+
+        try {
+            $response = $service->eventticketclass->listEventticketclass($optParams);
+            $response["code"] = 200;
+        } catch (\Google_Service_Exception $gException)  {
+            $response = $gException->getErrors();
+            $response["code"] = $gException->getCode();
+            echo("\n>>>> [START] Google Server Error response:");
+            var_dump($response);
+            echo("\n>>>> [END] Google Server Error response\n");
+        } catch (\Exception $e){
+            var_dump($e->getMessage());
+        }
+
+        return $response;
+    }
+
+
+
     /*******************************
      *
      *  Insert defined object with Google Pay API for Passes REST API
@@ -136,6 +199,38 @@ class RestMethods {
 
         try {
             $response = $service->eventticketobject->insert($eventticketObject);
+            $response["code"] = 200;
+        } catch (\Google_Service_Exception $gException)  {
+            $response = $gException->getErrors();
+            $response["code"] = $gException->getCode();
+            echo("\n>>>> [START] Google Server Error response:");
+            var_dump($response);
+            echo("\n>>>> [END] Google Server Error response\n");
+        } catch (\Exception $e){
+            var_dump($e->getMessage());
+        }
+
+        return $response;
+    }
+
+
+    /**
+     * @param $resource_id
+     * @param $eventticketObject
+     * @return array|Google_Service_Walletobjects_EventTicketObject|null
+     */
+    public function updateEventTicketObject($resource_id, $eventticketObject){
+        $response = NULL;
+
+        // Use the Google Pay API for Passes Java client lib to insert an EventTicket object
+        //// check the devsite for newest client lib: https://developers.google.com/pay/passes/support/libraries#libraries
+        //// check reference API to see the underlying REST call:
+        //// https://developers.google.com/pay/passes/reference/v1/eventticketobject/insert
+        //// The methods to call these from client library are in Walletobjects.php
+        $service = new Google_Service_Walletobjects($this->client);
+
+        try {
+            $response = $service->eventticketobject->update($resource_id, $eventticketObject);
             $response["code"] = 200;
         } catch (\Google_Service_Exception $gException)  {
             $response = $gException->getErrors();

@@ -70,14 +70,17 @@ $this->registerJs($jsAjax, View::POS_READY);
 
 // Open the event page directly without modals
 $this->registerJs(<<<JS
+    if(typeof globalCalendar == 'undefined'){
+            globalCalendar = [];
+    }
+    globalCalendar[parseInt({$model->id}, 10)] = "{$model->getFullViewUrl()}";
     $('body').on('click', '.fc-content', function (e) {
         var elemId = $(this).attr('id').toString();
-        if(elemId !== undefined && elemId !== "") {
-            eventId = elemId.split("-")[2];
-            window.open("/events/event/view?id=" + eventId, "_self");
+        var titleEl = $(this).data('title');
+        if(elemId !== undefined && elemId !== "") {    
+            eventId = parseInt(elemId.split("-")[2],10);
+            window.open(globalCalendar[eventId], "_self");
         }
     });
 JS
     );
-
-?>

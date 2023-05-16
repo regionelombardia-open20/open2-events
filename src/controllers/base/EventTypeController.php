@@ -17,6 +17,7 @@ use open20\amos\core\icons\AmosIcons;
 use open20\amos\dashboard\controllers\TabDashboardControllerTrait;
 use open20\amos\events\AmosEvents;
 use open20\amos\events\assets\EventsAsset;
+use open20\amos\events\controllers\EventController;
 use Yii;
 use yii\helpers\Url;
 
@@ -70,6 +71,66 @@ class EventTypeController extends CrudController
         parent::init();
 
         $this->setUpLayout();
+    }
+
+    public function beforeAction($action)
+    {
+        if (\Yii::$app->user->isGuest) {
+            $titleSection = AmosEvents::t('amosevents', 'Tipologia eventi');
+            
+            $urlLinkAll   = '';
+            
+            $ctaLoginRegister = Html::a(
+                AmosEvents::t('amosevents', '#beforeActionCtaLoginRegister'),
+                    isset(\Yii::$app->params['linkConfigurations']['loginLinkCommon']) ? \Yii::$app->params['linkConfigurations']['loginLinkCommon']
+                        : \Yii::$app->params['platform']['backendUrl'].'/'.AmosAdmin::getModuleName().'/security/login',
+                    [
+                    'title' => AmosEvents::t(
+                        'AmosEvents', 'Clicca per accedere o registrarti alla piattaforma {platformName}',
+                        ['platformName' => \Yii::$app->name]
+                    )
+                    ]
+            );
+            $subTitleSection  = Html::tag(
+                    'p',
+                    AmosEvents::t(
+                        'AmosEvents', '#beforeActionSubtitleSectionGuest', ['ctaLoginRegister' => $ctaLoginRegister]
+                    )
+            );
+            
+        } else {
+            $titleSection = AmosEvents::t('amosevents', 'Tipologia eventi');
+            $labelLinkAll = AmosEvents::t('amosevents', '#widget_icon_all_events_label');
+            $titleLinkAll = AmosEvents::t('amosevents', '#widget_icon_all_events_description');
+            $urlLinkAll   = '/events/event/all-events';
+
+            $subTitleSection = Html::tag('p', AmosEvents::t('amosevents', '#beforeActionSubtitleSectionLogged'));
+        }
+
+        $labelCreate = AmosEvents::t('amosevents', 'Nuovo');
+        $titleCreate =AmosEvents::t('amosevents', 'Crea una nuova tipologia di evento');
+        $labelManage = AmosEvents::t('amosevents', 'Gestisci');
+        $titleManage = AmosEvents::t('amosevents', 'Gestisci gli eventi');
+        $urlCreate   = '/events/event-type/create';
+        $urlManage   = null;
+
+        $this->view->params = [ 
+            'isGuest' => \Yii::$app->user->isGuest,
+            'modelLabel' => 'event',
+            'titleSection' => $titleSection,
+            'subTitleSection' => $subTitleSection,
+            'urlLinkAll' => $urlLinkAll,
+            'labelLinkAll' => $labelLinkAll,
+            'titleLinkAll' => $titleLinkAll,
+            'labelCreate' => $labelCreate,
+            'titleCreate' => $titleCreate,
+            'labelManage' => $labelManage,
+            'titleManage' => $titleManage,
+            'urlCreate' => $urlCreate,
+            'urlManage' => $urlManage,
+        ];
+
+        return parent::beforeAction($action);
     }
 
     /**
@@ -210,5 +271,12 @@ class EventTypeController extends CrudController
             Yii::$app->getSession()->addFlash('danger', AmosEvents::t('amosevents', 'Element not found.'));
         }
         return $this->redirect(['index']);
+    }
+
+    /**
+     * @return array
+     */
+    public static function getManageLinks(){
+        return EventController::getManageLinks();
     }
 }

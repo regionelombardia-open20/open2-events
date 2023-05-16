@@ -13,6 +13,7 @@ namespace open20\amos\events\widgets\graphics;
 
 use open20\amos\core\widget\WidgetGraphic;
 use open20\amos\events\AmosEvents;
+use open20\amos\events\models\EventConfigurations;
 use open20\amos\events\models\search\EventSearch;
 use open20\amos\notificationmanager\base\NotifyWidgetDoNothing;
 
@@ -44,16 +45,28 @@ class WidgetGraphicsEvents extends WidgetGraphic
     }
 
     /**
-     * @inheritdoc
+     * @return string
+     * @throws \yii\base\InvalidConfigException
      */
     public function getHtml()
     {
         /** @var EventSearch $search */
         $search = AmosEvents::instance()->createModel('EventSearch');
         $search->setNotifier(new NotifyWidgetDoNothing());
-        $listEvents = $search->ultimeEvents($_GET, self::NUMBER_EVENTS);
-        $eventsForCarousel = $search->ultimeEventsQuery($_GET, self::NUMBER_EVENTS)->orderBy(self::ORDER_EVENTS)->limit(self::NUMBER_EVENTS)->all();
+        $configurations = EventConfigurations::getConfigurations();
 
+        $listEvents = $search->ultimeEvents($_GET, self::NUMBER_EVENTS);
+        $eventsCarouselQuery = $search->ultimeEventsQuery($_GET, self::NUMBER_EVENTS)->orderBy(self::ORDER_EVENTS)->limit(self::NUMBER_EVENTS);
+        if($configurations && !empty($configurations->from_days_to_now_visibility) ){
+//            pr($configurations->from_days_to_now_visibility);die;
+            $now = new \DateTime();
+            $interval = new \DateInterval("P".$configurations->from_days_to_now_visibility."D");
+            $startDateEnabled = $now->sub($interval);
+            $listEvents->query->andWhere(['>', 'begin_date_hour' , $startDateEnabled->format('Y-m-d H:i:s')]);
+            $eventsCarouselQuery->andWhere(['>', 'begin_date_hour' , $startDateEnabled->format('Y-m-d H:i:s')]);
+        }
+
+        $eventsForCarousel = $eventsCarouselQuery->all();
         $viewToRender = 'ultime_events';
         $moduleLayout = \Yii::$app->getModule('layout');
 
@@ -61,13 +74,16 @@ class WidgetGraphicsEvents extends WidgetGraphic
             $viewToRender .= '_old';
         }
 
-        return $this->render($viewToRender, [
-            'listEvents' => $listEvents,
-            'eventsForCarousel' => $eventsForCarousel,
-            'widget' => $this,
-            'toRefreshSectionId' => 'widgetGraphicLatestEvents',
-            'numEvents' => self::NUMBER_EVENTS,
-            'orderEvents' => self::ORDER_EVENTS
-        ]);
+        if (count($eventsForCarousel) > 0) {
+            return $this->render($viewToRender, [
+                'listEvents' => $listEvents,
+                'eventsForCarousel' => $eventsForCarousel,
+                'widget' => $this,
+                'toRefreshSectionId' => 'widgetGraphicLatestEvents',
+                'numEvents' => self::NUMBER_EVENTS,
+                'orderEvents' => self::ORDER_EVENTS
+            ]);
+        }
+        return '';
     }
 }

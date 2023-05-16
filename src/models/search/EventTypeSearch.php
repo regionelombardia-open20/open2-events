@@ -141,9 +141,14 @@ class EventTypeSearch extends EventType
      */
     public static function searchEnabledEventTypesReadyForSelect($eventContextId = 0)
     {
+        $moduleEvents = \Yii::$app->getModule(AmosEvents::getModuleName());
+        
         $query = static::searchEnabledEventTypesQuery();
         if ($eventContextId > 0) {
             $query->andWhere(['event_context_id' => $eventContextId]);
+        }
+        if($moduleEvents->dropdownEventTypeDisabled){
+            $query->andWhere(['event_type' => self::TYPE_INFORMATIVE]);
         }
         $query->select(['title']);
         $query->indexBy('id');
@@ -170,6 +175,24 @@ class EventTypeSearch extends EventType
     public static function searchEnabledGenericContextEventTypesReadyForSelect()
     {
         return static::searchEnabledEventTypesReadyForSelect(EventTypeContext::EVENT_TYPE_CONTEXT_GENERIC);
+    }
+	
+	/**
+     * This method search only the enabled event types of generic context and the icon.
+     * @return array
+     */
+    public static function listEnabledGenericContextEventTypesAndIcon()
+    {
+		$list = static::searchEnabledGenericContextEventTypesReadyForSelect();
+		$array_icons = [];
+		foreach ($list as $key => $value){
+			$eventType = EventType::findOne($key);
+                        $array_icons[$key]['type'] = $eventType->event_type;
+                        $array_icons[$key]['color'] = $eventType->color;
+			$array_icons[$key]['icon'] = $eventType->type_icon;
+			$array_icons[$key]['title'] = $value;
+		}
+		return $array_icons;
     }
 
     /**

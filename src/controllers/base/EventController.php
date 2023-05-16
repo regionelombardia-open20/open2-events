@@ -14,6 +14,7 @@ namespace open20\amos\events\controllers\base;
 use open20\amos\community\models\CommunityUserMm;
 use open20\amos\core\controllers\CrudController;
 use open20\amos\core\helpers\BreadcrumbHelper;
+use open20\amos\core\helpers\PositionalBreadcrumbHelper;
 use open20\amos\core\helpers\Html;
 use open20\amos\core\icons\AmosIcons;
 use open20\amos\core\interfaces\CmsModuleInterface;
@@ -27,12 +28,15 @@ use open20\amos\events\assets\EventsAsset;
 use open20\amos\events\models\AgidAdministrativePersonsMm;
 use open20\amos\events\models\AgidEventDocumentsMm;
 use open20\amos\events\models\AgidRelatedEventMm;
+use open20\amos\events\models\RelatedEventMm;
 use open20\amos\events\models\Event;
 use open20\amos\events\models\EventAccreditationList;
 use open20\amos\events\models\EventInvitationsUpload;
 use open20\amos\events\models\EventType;
 use open20\amos\events\utility\EventsUtility;
+use open20\amos\news\models\base\NewsRelatedEventMm;
 use Yii;
+use yii\base\InvalidConfigException;
 use yii\data\ActiveDataProvider;
 use yii\data\ArrayDataProvider;
 use yii\db\ActiveQuery;
@@ -58,9 +62,20 @@ class EventController extends CrudController
      */
     public $layout = 'list';
     
-    public
-        $moduleCwh,
-        $scope;
+    /**
+     * @var type
+     */
+    public $moduleCwh;
+
+    /**
+     * @var type
+     */
+    public $scope;
+
+    /**
+     * @var \open20\amos\notificationmanager\AmosNotify $moduleNotify
+     */
+    public $moduleNotify;
     
     /**
      * @var AmosEvents $eventsModule
@@ -81,56 +96,53 @@ class EventController extends CrudController
         
         EventsAsset::register(Yii::$app->view);
         
-        $this->scope = null;
         $this->moduleCwh = Yii::$app->getModule('cwh');
-        
-        if (!empty($this->moduleCwh)) {
-            $this->scope = $this->moduleCwh->getCwhScope();
-        }
-        
+        $this->moduleNotify = Yii::$app->getModule('notify');        
+        $this->scope = $this->moduleCwh->getCwhScope();
+
         $this->setAvailableViews([
-            /* 'list' => [
-              'name' => 'list',
-              'label' => AmosEvents::t('amosevents', '{iconaLista}'.Html::tag('p','Lista'), [
-              'iconaLista' => AmosIcons::show('view-list')
-              ]),
-              'url' => '?currentView=list'
-              ],
-              'icon' => [
-              'name' => 'icon',
-              'label' => AmosEvents::t('amosevents', '{iconaElenco}'.Html::tag('p','Icone'), [
-              'iconaElenco' => AmosIcons::show('grid')
-              ]),
-              'url' => '?currentView=icon'
-              ],
-              'map' => [
-              'name' => 'map',
-              'label' => AmosEvents::t('amosevents', '{iconaMappa}'.Html::tag('p','Mappa'), [
-              'iconaMappa' => AmosIcons::show('map')
-              ]),
-              'url' => '?currentView=map'
-              ], */
             'calendar' => [
                 'name' => 'calendar',
-                'intestazione' => '', //codice HTML per l'intestazione che verrà caricato prima del calendario,
-                //per esempio si può inserire una funzione $model->getHtmlIntestazione() creata ad hoc
-                'label' => AmosEvents::t('amosevents', '{calendarIcon}' . Html::tag('p', AmosEvents::t('amosevents', 'Calendar')), [
-                    'calendarIcon' => AmosIcons::show('calendar')
-                ]),
+                // codice HTML per l'intestazione che verrà caricato prima del calendario,
+                // per esempio si può inserire una funzione $model->getHtmlIntestazione() creata ad hoc
+                'intestazione' => '',
+                'label' => AmosEvents::t(
+                    'amosevents',
+                    '{calendarIcon}' . Html::tag('p', AmosEvents::t('amoscore', 'Calendar')), [
+                        'calendarIcon' => AmosIcons::show('calendar')
+                    ]
+                ),
                 'url' => '?currentView=calendar'
             ],
             'grid' => [
                 'name' => 'grid',
-                'label' => AmosEvents::t('amosevents', '{tableIcon}' . Html::tag('p', AmosEvents::t('amosevents', 'Table')), [
-                    'tableIcon' => AmosIcons::show('view-list-alt')
-                ]),
+                'label' => AmosEvents::t(
+                    'amosevents',
+                    '{tableIcon}' . Html::tag('p', AmosEvents::t('amoscore', 'Table')), [
+                        'tableIcon' => AmosIcons::show('view-list-alt')
+                    ]
+                ),
                 'url' => '?currentView=grid'
             ],
+            'icon' => [
+                'name' => 'icon',
+                'label' => AmosEvents::t(
+                    'amosevents',
+                    '{schedaIcon}' . Html::tag('p', AmosEvents::t('amoscore', 'Scheda')), [
+                        'schedaIcon' => AmosIcons::show('am am-view-module')
+                    ]
+                ),
+                'url' => '?currentView=icon'
+            ],
+           
         ]);
         
         parent::init();
         
-        if (!empty(\Yii::$app->params['dashboardEngine']) && \Yii::$app->params['dashboardEngine'] == WidgetAbstract::ENGINE_ROWS) {
+        if (
+            !empty(\Yii::$app->params['dashboardEngine'])
+            && \Yii::$app->params['dashboardEngine'] == WidgetAbstract::ENGINE_ROWS
+        ) {
             $this->view->pluginIcon = 'ic ic-eventi';
         }
         
@@ -146,9 +158,16 @@ class EventController extends CrudController
     private function getManagerStatus($model, $oldAttributes)
     {
         $managerStatus = CommunityUserMm::STATUS_MANAGER_TO_CONFIRM;
-        if (($this->model->status == Event::EVENTS_WORKFLOW_STATUS_PUBLISHREQUEST) && (in_array($this->model->regola_pubblicazione, [3, 4]))) {
+        if (
+            ($this->model->status == Event::EVENTS_WORKFLOW_STATUS_PUBLISHREQUEST) 
+            && (in_array($this->model->regola_pubblicazione, [3, 4]))
+        ) {
             $managerStatus = CommunityUserMm::STATUS_ACTIVE;
-        } else if (($model->status == Event::EVENTS_WORKFLOW_STATUS_PUBLISHED) && (($oldAttributes['validated_at_least_once'] == 1) && ($model->validated_at_least_once == 1))) {
+        } else if (
+            ($model->status == Event::EVENTS_WORKFLOW_STATUS_PUBLISHED)
+            && (($oldAttributes['validated_at_least_once'] == 1)
+            && ($model->validated_at_least_once == 1))
+        ) {
             $managerStatus = CommunityUserMm::STATUS_ACTIVE;
         }
         return $managerStatus;
@@ -161,8 +180,14 @@ class EventController extends CrudController
     {
         Yii::$app->view->params['createNewBtnParams'] = [
             'createNewBtnLabel' => AmosEvents::t('amosevents', 'Add new event'),
-            'urlCreateNew' => [(array_key_exists("noWizardNewLayout", Yii::$app->params) ? '/events/event/create' : '/events/event-wizard/introduction')],
-            'otherOptions' => ['title' => AmosEvents::t('amosevents', 'Add new event'), 'class' => 'btn btn-primary']
+            'urlCreateNew' => [(array_key_exists("noWizardNewLayout", Yii::$app->params)
+                ? '/events/event/create'
+                : '/events/event-wizard/introduction')
+            ],
+            'otherOptions' => [
+                'title' => AmosEvents::t('amosevents', 'Add new event'),
+                'class' => 'btn btn-primary'
+            ]
         ];
     }
     
@@ -202,7 +227,10 @@ class EventController extends CrudController
      */
     public function getGridViewActionColumnsTemplate($addActionColumns = null)
     {
-        $actionColumnDefault = ($this->eventsModule->enableContentDuplication ? '{duplicateBtn}' : '') . '{view}{update}{delete}';
+        $actionColumnDefault = ($this->eventsModule->enableContentDuplication
+            ? '{duplicateBtn}' 
+            : '') 
+            . '{view}{update}{delete}';
         $actionColumnToPublish = '{publish}{reject}';
         $actionColumnManager = '{community}';
         $actionColumn = $actionColumnDefault;
@@ -255,10 +283,13 @@ class EventController extends CrudController
         return $this->redirect(['/events/event/own-interest']);
         
         Url::remember();
-        $this->setDataProvider($this->getModelSearch()->searchCalendarView(Yii::$app->request->getQueryParams()));
+        $this->setDataProvider(
+            $this->getModelSearch()->searchCalendarView(Yii::$app->request->getQueryParams())
+        );
         $this->setListViewsParams();
         $this->setTitleAndBreadcrumbs(AmosEvents::t('amosevents', 'Events'));
         $this->view->params['currentDashboard'] = $this->getCurrentDashboard();
+        
         return parent::actionIndex();
     }
     
@@ -270,8 +301,8 @@ class EventController extends CrudController
      */
     public function getMapPosition($position)
     {
-        if (!$position) {
-            $position = 'Roma';
+        if (empty($position)) {
+            $position = $this->eventsModule->geoLocationDefaultPosition;
         }
         
         /**
@@ -284,7 +315,13 @@ class EventController extends CrudController
         } elseif (!is_null(Yii::$app->params['google-maps']) && !is_null(Yii::$app->params['google-maps']['key'])) {
             $googleMapsKey = Yii::$app->params['google-maps']['key'];
         } else {
-            Yii::$app->session->addFlash('warning', BaseAmosModule::t('amoscore', 'Errore di comunicazione con google: impossibile trovare la posizione nella mappa.'));
+            Yii::$app->session->addFlash(
+                'warning',
+                BaseAmosModule::t(
+                    'amoscore',
+                    'Errore di comunicazione con google: impossibile trovare la posizione nella mappa.'
+                )
+            );
             return [];
         }
         
@@ -316,16 +353,21 @@ class EventController extends CrudController
         
         return $origin;
     }
-    
+
     /**
      * Displays a single Event model.
      * @param integer $id
      * @return mixed
+     * @throws InvalidConfigException
      */
     public function actionView($id)
     {
         Url::remember();
-        if (!empty(\Yii::$app->params['dashboardEngine']) && \Yii::$app->params['dashboardEngine'] == WidgetAbstract::ENGINE_ROWS) {
+
+        if (
+            !empty(\Yii::$app->params['dashboardEngine'])
+            && \Yii::$app->params['dashboardEngine'] == WidgetAbstract::ENGINE_ROWS
+        ) {
             $this->setUpLayout('main_events');
         } else {
             $this->setUpLayout('main');
@@ -333,17 +375,42 @@ class EventController extends CrudController
         
         /** @var Event $model */
         $model = $this->findModel($id);
+
+        if (!empty($this->module->useFrontendView) && $this->module->useFrontendView == true) {
+            return $this->redirect($model->getFullViewUrl());
+        }
+
         $query = new Query();
         $query->select("sector, count([[seat]]) as 'seats', event_id, id, SUM(
-                                CASE
-                                WHEN (status = 1 OR status = 3)
-                                THEN 1
-                                ELSE 0
-                            END) as 'empty_seats'")
-            ->from('event_seats')
-            ->andWhere(['event_id' => $id])
-            ->andWhere(['event_seats.deleted_at' => null])
-            ->groupBy('sector');
+            CASE
+            WHEN (status = 1 OR status = 3)
+            THEN 1
+            ELSE 0
+            END) as 'empty_seats'"
+        )
+        ->from('event_seats')
+        ->andWhere(['event_id' => $id])
+        ->andWhere(['event_seats.deleted_at' => null])
+        ->groupBy('sector');
+
+        $events = [];
+        $dataProviderEvents = null;
+        $enableRelatedEvents = $this->eventsModule->enableRelatedEvents;
+        if ($enableRelatedEvents){
+            $correlatedEvent = RelatedEventMm::find()->andWhere(['main_event_id' => $id])->select('related_event_id')->asArray()->all();
+            foreach ($correlatedEvent as $ids){
+                $events[] = $ids['related_event_id'];
+            }
+
+            $amosEventInstance = AmosEvents::instance();
+            $modelEvent = $amosEventInstance->createModel('Event');
+            $events = $modelEvent::find()
+                ->andWhere(['in', 'id', $events])
+                ->andWhere(['status' => 'EventWorkflow/PUBLISHED']);
+            $dataProviderEvents = new ActiveDataProvider([
+                'query' => $events
+            ]);
+        }
         
         $dataProviderSeats = null;
         if ($model->seats_management) {
@@ -358,7 +425,6 @@ class EventController extends CrudController
                 'query' => $this->model->getEventCalendars()->orderBy('group')
             ]);
         }
-        //$this->doSendInvitations($model);
         
         $resetScope = Yii::$app->request->get('resetscope');
         if (!is_null($resetScope) && ($resetScope == 1)) {
@@ -370,7 +436,9 @@ class EventController extends CrudController
             }
         }
         
-        $latLngOriginStr = ($model->event_address_house_number ? $model->event_address_house_number . ' ' : '');
+        $latLngOriginStr = $model->event_address_house_number 
+            ? $model->event_address_house_number . ' '
+            : '';
         $latLngOriginStr .= ($model->event_address ? $model->event_address . ', ' : '');
         $latLngOriginStr .= (!is_null($model->cityLocation) ? $model->cityLocation->nome . ', ' : '');
         $latLngOriginStr .= (!is_null($model->countryLocation) ? $model->countryLocation->nome : '');
@@ -382,8 +450,10 @@ class EventController extends CrudController
         return $this->render(
             ($this->eventsModule->enableAgid ? 'viewAgid' : 'view'),
             [
+                'currentView' => $this->getCurrentView(),
                 'model' => $model,
                 'position' => $latLngOriginStr,
+                'dataProviderEvents' => $dataProviderEvents,
                 'dataProviderSeats' => $dataProviderSeats,
                 'dataProviderSlots' => $dataProviderSlots
             ]
@@ -412,7 +482,9 @@ class EventController extends CrudController
         
         if ($this->eventsModule->hidePubblicationDate == true) {
             /** @var Event $model */
-            $this->model = $this->eventsModule->createModel('Event', ['scenario' => Event::SCENARIO_CREATE_HIDE_PUBBLICATION_DATE]);
+            $this->model = $this->eventsModule->createModel('Event', [
+                'scenario' => Event::SCENARIO_CREATE_HIDE_PUBBLICATION_DATE
+            ]);
             $this->model->setScenario(Event::SCENARIO_CREATE_HIDE_PUBBLICATION_DATE);
         } else {
             /** @var Event $model */
@@ -623,7 +695,9 @@ class EventController extends CrudController
                             $this->doSendInvitations($this->model->id, $invitationsData, true);
                         }
                     }
-                    $ok = $this->model->save($validateOnSave);
+                    if (!empty($this->model->dirtyAttributes)) {
+                        $ok = $this->model->save($validateOnSave);
+                    }	
                     if ($ok) {
                         
                         $okCommunity = true;
@@ -633,7 +707,7 @@ class EventController extends CrudController
                         
                         if ($enableAgid) {
                             // Save related events
-                            $okRelatedEvents = $this->saveRelatedEvents();
+                            $okRelatedEvents = $this->saveAgidRelatedEvents();
                             
                             // Save administrative persons
                             $okAdministrativePersons = $this->saveAdministrativePersons();
@@ -653,7 +727,7 @@ class EventController extends CrudController
                             Yii::$app->getSession()->addFlash('danger', AmosEvents::t('amosevents', 'There was an error while saving.'));
                         }
                         if ($this->model->status == Event::EVENTS_WORKFLOW_STATUS_PUBLISHREQUEST && !\Yii::$app->user->can('EventValidate', ['model' => $this->model])) {
-                            return $this->redirect(BreadcrumbHelper::lastCrumbUrl());
+                            return $this->redirect(['/events/event/created-by']);
                         }
                         return $this->redirect(['/events/event/update', 'id' => $this->model->id]);
                     } else {
@@ -714,7 +788,7 @@ class EventController extends CrudController
      * Save all related events selected by user.
      * @return bool
      */
-    protected function saveRelatedEvents()
+    protected function saveAgidRelatedEvents()
     {
         $post = \Yii::$app->request->post($this->model->formName());
         $attrPost = $post['agidRelatedEventsMm'];
@@ -725,7 +799,7 @@ class EventController extends CrudController
         }
         $ok = FormUtility::saveMmsFields(
             $attrPost,
-            AgidRelatedEventMm::className(),
+            AgidRelatedEventMm::class,
             'main_event_id',
             $this->model->id,
             'related_event_id'
@@ -751,13 +825,19 @@ class EventController extends CrudController
         }
         $ok = FormUtility::saveMmsFields(
             $attrPost,
-            AgidAdministrativePersonsMm::className(),
+            AgidAdministrativePersonsMm::class,
             'event_id',
             $this->model->id,
             'person_id'
         );
         if (!$ok) {
-            Yii::$app->getSession()->addFlash('danger', AmosEvents::t('amosevents', 'Error while linking Event to administrative persons'));
+            Yii::$app->getSession()->addFlash(
+                'danger',
+                AmosEvents::t(
+                    'amosevents',
+                    'Error while linking Event to administrative persons'
+                )
+            );
         }
         return $ok;
     }
@@ -777,13 +857,19 @@ class EventController extends CrudController
         }
         $ok = FormUtility::saveMmsFields(
             $attrPost,
-            AgidEventDocumentsMm::className(),
+            AgidEventDocumentsMm::class,
             'event_id',
             $this->model->id,
             'document_id'
         );
         if (!$ok) {
-            Yii::$app->getSession()->addFlash('danger', AmosEvents::t('amosevents', 'Error while linking Event to documents'));
+            Yii::$app->getSession()->addFlash(
+                'danger',
+                AmosEvents::t(
+                    'amosevents',
+                    'Error while linking Event to documents'
+                )
+            );
         }
         return $ok;
     }
@@ -803,31 +889,54 @@ class EventController extends CrudController
             if (!is_null($model->community) && is_null($model->community->deleted_at)) {
                 try {
                     /**
-                     * TODO Devo cancellare qui i partecipanti alla community perché la loro cancellazione implica una notifica via mail
-                     * e dato che la community di evento è nascosta e nessuno dovrebbe sapere che esiste, nessuno deve riceve tale
-                     * notifica in quanto non sa di farne parte in realtà. Sarebbe un bug da risolvere in community.
+                     * TODO Devo cancellare qui i partecipanti alla community
+                     * perché la loro cancellazione implica una notifica via mail
+                     * e dato che la community di evento è nascosta e nessuno
+                     * dovrebbe sapere che esiste, nessuno deve riceve tale
+                     * notifica in quanto non sa di farne parte in realtà.
+                     * Sarebbe un bug da risolvere in community.
                      */
                     $model->community->delete();
                 } catch (\Exception $exception) {
                     $ok = false;
-                    Yii::$app->getSession()->addFlash('danger', AmosEvents::t('amosevents', 'Errors while deleting event community.'));
+                    Yii::$app->getSession()->addFlash(
+                        'danger',
+                        AmosEvents::t(
+                            'amosevents',
+                            'Errors while deleting event community.'
+                        )
+                    );
                 }
                 if ($model->community->getErrors()) {
                     $ok = false;
-                    Yii::$app->getSession()->addFlash('danger', AmosEvents::t('amosevents', 'Errors while deleting event community.'));
+                    Yii::$app->getSession()->addFlash(
+                        'danger',
+                        AmosEvents::t(
+                            'amosevents',
+                            'Errors while deleting event community.'
+                        )
+                    );
                 }
             }
             
             if ($ok) {
                 $model->delete();
                 if (!$model->getErrors()) {
-                    Yii::$app->getSession()->addFlash('success', AmosEvents::t('amosevents', 'Element succesfully deleted.'));
+                    Yii::$app->getSession()->addFlash(
+                        'success',
+                        AmosEvents::t('amosevents', 'Element succesfully deleted.')
+                    );
                 } else {
-                    Yii::$app->getSession()->addFlash('danger', AmosEvents::t('amosevents', 'Errors while deleting element.'));
+                    Yii::$app->getSession()->addFlash(
+                        'danger',
+                        AmosEvents::t('amosevents', 'Errors while deleting element.')
+                    );
                 }
             }
         } else {
-            Yii::$app->getSession()->addFlash('danger', AmosEvents::t('amosevents', 'Element not found.'));
+            Yii::$app->getSession()->addFlash(
+                'danger', AmosEvents::t('amosevents', 'Element not found.')
+            );
         }
         return $this->redirect(Yii::$app->session->get(AmosEvents::beginCreateNewSessionKey()));
     }

@@ -9,6 +9,7 @@
  * @var \open20\amos\events\models\EventInvitation $invitation
  */
 
+use open20\amos\events\helpers\google_api\widgets\AddEventTicketWidget;
 ?>
 
 <p><?= \open20\amos\events\AmosEvents::txt('Gentile {name_surname}', ['name_surname' => $userProfile->getNomeCognome()]) ?>,</p>
@@ -23,6 +24,13 @@
 <p><a href="<?= $downloadTicketsLink ?>"><?= \open20\amos\events\AmosEvents::txt('Click here to download your tickets'); ?></a></p>
 <br />
 <p><a href="<?= $downloadIcsLink ?>"><?= \open20\amos\events\AmosEvents::txt('Per scaricare il file calendario (.ics), clicca qui.'); ?></a></p>
+<p>
+    <?= AddEventTicketWidget::widget([
+        'type' => AddEventTicketWidget::TYPE_LINK,
+        'event_id' => $event->id,
+        'invitation_id' => $invitation->id
+    ]); ?>
+</p>
 <br />
 <p><?= $event->description; ?></p>
 <br />

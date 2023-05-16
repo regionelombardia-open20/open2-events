@@ -47,6 +47,14 @@ class Services extends Component
 
     private $NOT_EXIST_MESSAGE = "Will be inserted when user saves by link/button for first time\n";
 
+
+
+    public function init()
+    {
+        parent::init();
+        $this->defineServiceAccount();
+    }
+
     /*******************************
      *
      *  Output to explain various status codes from a get API call
@@ -101,13 +109,14 @@ class Services extends Component
      * @param String id - unique identifier of Pass for given idType
      * @param String checkClassId - optional. ClassId to check for if objectId exists, and idType == 'object'
      * @param VerticalType verticalType - optional. VerticalType to fetch ClassId of existing objectId.
-     * @return void
+     * @return boolean
      *
      *******************************/
     private function handleInsertCallStatusCode($insertCallResponse, $idType, $id, $checkClassId, $verticalType)
     {
         if ($insertCallResponse["code"] == 200) {
             printf("\n%s id (%s) insertion success!\n", $idType, $id);
+            return true;
         } else {
             if ($insertCallResponse["code"] == 409) {  // Id resource exists for this issuer account
                 printf("\n%sId: (%s) already exists. %s", $idType, $id, $this->EXISTS_MESSAGE);
@@ -140,7 +149,7 @@ class Services extends Component
             }
         }
 
-        return;
+        return false;
     }
 
     /*******************************
@@ -240,7 +249,7 @@ class Services extends Component
 
             // continue based on response status.Check https://developers.google.com/pay/passes/reference/v1/statuscodes
             // check class insert response. Will print out if class insert succeeds or not. Throws error if class resource is malformed.
-            $this->handleInsertCallStatusCode($classResponse, "class", $classId, null, null);
+            $result = $this->handleInsertCallStatusCode($classResponse, "class", $classId, null, null);
 
             // check object get response. Will print out if object exists or not. Throws error if object resource is malformed, or if existing objectId's classId does not match the expected classId
             $this->handleGetCallStatusCode($objectResponse, "object", $objectId, $classId);
@@ -280,7 +289,7 @@ class Services extends Component
      *
      *******************************/
 
-    public function makeSkinnyJwt($verticalType, $classId, $objectId)
+    public function makeSkinnyJwt($verticalType, $classId, $objectId, $user_id = null)
     {
         $signedJwt = null;
         $classResourcePayload = null;
@@ -289,12 +298,19 @@ class Services extends Component
         $objectResponse = null;
         $restMethods = RestMethods::getInstance();
         $event = Event::findOne(['id' => $this->event_id]);
+
+        if(empty($user_id)){
+            $user_id = \Yii::$app->user->id;
+        }
         $invitation = EventInvitation::findOne(
             [
                 'event_id' => $this->event_id,
-                'user_id' => \Yii::$app->user->id
+                'user_id' => $user_id
             ]
         );
+        $isTicketClassCreated = !empty($event->googlepay_ticket_class_id) ?  true : false;
+        $isTicketObjectCreated = !empty($invitation->googlepay_ticket_id) ?  true : false;
+
 
         if(!$invitation) {
             return null;
@@ -305,17 +321,36 @@ class Services extends Component
             // make authorized REST call to explicitly insert class and object into Google server.
             // if this is successful, you can check/update class definitions in Merchant Center GUI:
             // https://pay.google.com/gp/m/issuer/list
-            $classResourcePayload = ResourceDefinitions::makeEventTicketClassResource($classId, $invitation);
-            $objectResourcePayload = ResourceDefinitions::makeEventTicketObjectResource($classId, $objectId, $invitation);
-            $classResponse = $restMethods->insertEventTicketClass($classResourcePayload);
-            $objectResponse = $restMethods->insertEventTicketObject($objectResourcePayload);
+            $classResourcePayload = ResourceDefinitions::makeEventTicketClassResource($classId,$event, $invitation);
+            $objectResourcePayload = ResourceDefinitions::makeEventTicketObjectResource($classId, $objectId, $invitation, $event);
+            if(!$isTicketClassCreated) {
+                $classResponse = $restMethods->insertEventTicketClass($classResourcePayload);
+            }else {
+                $classResponse = $restMethods->updateEventTicketClass($classId, $classResourcePayload);
+            }
+
+            if(!$isTicketObjectCreated) {
+                $objectResponse = $restMethods->insertEventTicketobject($objectResourcePayload);
+            }else {
+                $objectResponse = $restMethods->updateEventTicketObject($objectId, $objectResourcePayload);
+//                pr($objectResponse);
+            }
+
 
             // continue based on insert response status. Check https://developers.google.com/pay/passes/reference/v1/statuscodes
             // check class insert response. Will print out if class insert succeeds or not. Throws error if class resource is malformed.
-            $this->handleInsertCallStatusCode($classResponse, "class", $classId, null, null);
+            $resultClassTicket = $this->handleInsertCallStatusCode($classResponse, "class", $classId, null, null);
+            if($resultClassTicket && !$isTicketClassCreated){
+                $event->googlepay_ticket_class_id = $classId;
+                $event->save(false);
+            }
 
             // check object insert response. Will print out if object insert succeeds or not. Throws error if object resource is malformed, or if existing objectId's classId does not match the expected classId
-            $this->handleInsertCallStatusCode($objectResponse, "object", $objectId, $classId, $verticalType);
+            $resultObjectTicket = $this->handleInsertCallStatusCode($objectResponse, "object", $objectId, $classId, $verticalType);
+            if($resultObjectTicket && !$isTicketObjectCreated){
+                $invitation->googlepay_ticket_id = $objectId;
+                $invitation->save(false);
+            }
 
             // put into JSON Web Token (JWT) format for Google Pay API for Passes
             // only need to add objectId in JWT because class and object were pre -inserted
@@ -333,6 +368,200 @@ class Services extends Component
         // See https://developers.google.com/pay/passes/guides/get-started/implementing-the-api/save-to-google-pay#add-link-to-email
         return $signedJwt;
     }
+
+    /**
+     * @param $verticalType
+     * @param $classId
+     * @param $objectId
+     * @return null|string
+     */
+    public function createUpdateSkinnyJwt($classId, $objectId, $user_id = null){
+        $signedJwt = null;
+        $classResourcePayload = null;
+        $objectResourcePayload = null;
+        $classResponse = null;
+        $objectResponse = null;
+        $restMethods = RestMethods::getInstance();
+        $event = Event::findOne(['id' => $this->event_id]);
+        if(empty($user_id)){
+            $user_id = \Yii::$app->user->id;
+        }
+        $invitation = EventInvitation::findOne(
+            [
+                'event_id' => $this->event_id,
+                'user_id' => $user_id
+            ]
+        );
+        $isTicketClassCreated = !empty($event->googlepay_ticket_class_id) ?  true : false;
+
+        try {
+            $classResourcePayload = ResourceDefinitions::makeEventTicketClassResource($classId, $event, $invitation);
+            if(!$isTicketClassCreated) {
+                $classResponse = $restMethods->insertEventTicketClass($classResourcePayload);
+            }else {
+                $classResponse = $restMethods->updateEventTicketClass($classId, $classResourcePayload);
+//                pr($classResponse);
+            }
+
+            $resultClassTicket = $this->handleInsertCallStatusCode($classResponse, "class", $classId, null, null);
+            if($resultClassTicket && !$isTicketClassCreated){
+                $event->googlepay_ticket_class_id = $classId;
+                $event->save(false);
+            }
+
+
+            // put into JSON Web Token (JWT) format for Google Pay API for Passes
+            // only need to add objectId in JWT because class and object were pre -inserted
+            $googlePassJwt = new GpapJwt();
+            $googlePassJwt->addEventTicketObject(array("id" => $objectId));
+
+            // sign JSON to make signed JWT
+            $signedJwt = $googlePassJwt->generateSignedJwt();
+        } catch (\Exception $e) {
+            var_dump($e->getMessage());
+        }
+
+        // return "skinny" JWT. Try putting it into save link.
+        // See https://developers.google.com/pay/passes/guides/get-started/implementing-the-api/save-to-google-pay#add-link-to-email
+        return $signedJwt;
+    }
+
+
+    /**
+     * @param $verticalType
+     * @param $classId
+     * @param $objectId
+     * @return null|string
+     */
+    public function updateCreateTicketObject($verticalType, $classId, $objectId, $user_id = null){
+        $signedJwt = null;
+        $classResourcePayload = null;
+        $objectResourcePayload = null;
+        $classResponse = null;
+        $objectResponse = null;
+        $restMethods = RestMethods::getInstance();
+        $event = Event::findOne(['id' => $this->event_id]);
+
+        if(empty($user_id)){
+            $user_id = \Yii::$app->user->id;
+        }
+
+        $invitation = EventInvitation::findOne(
+            [
+                'event_id' => $this->event_id,
+                'user_id' => $user_id
+            ]
+        );
+        $isTicketObjectCreated = !empty($invitation->googlepay_ticket_id) ?  true : false;
+
+        try {
+            $objectResourcePayload = ResourceDefinitions::makeEventTicketObjectResource($classId, $objectId, $invitation, $event);
+            if(!$isTicketObjectCreated) {
+                $objectResponse = $restMethods->insertEventTicketobject($objectResourcePayload);
+            }else {
+                $objectResponse = $restMethods->updateEventTicketObject($objectId, $objectResourcePayload);
+            }
+
+            $resultObjectTicket = $this->handleInsertCallStatusCode($objectResponse, "object",  $objectId, $classId, $verticalType);
+            if($resultObjectTicket && !$isTicketObjectCreated){
+                $event->googlepay_ticket_id = $objectId;
+                $event->save(false);
+            }
+
+
+            // put into JSON Web Token (JWT) format for Google Pay API for Passes
+            // only need to add objectId in JWT because class and object were pre -inserted
+            $googlePassJwt = new GpapJwt();
+            $googlePassJwt->addEventTicketObject(array("id" => $objectId));
+
+            // sign JSON to make signed JWT
+            $signedJwt = $googlePassJwt->generateSignedJwt();
+        } catch (\Exception $e) {
+            var_dump($e->getMessage());
+        }
+
+        // return "skinny" JWT. Try putting it into save link.
+        // See https://developers.google.com/pay/passes/guides/get-started/implementing-the-api/save-to-google-pay#add-link-to-email
+        return $signedJwt;
+    }
+    /**
+     *
+     */
+    public function defineServiceAccount(){
+        // Identifiers of Service account
+        $googleApiParams = \Yii::$app->params['googleApi'] ?: [];
+        define('SERVICE_ACCOUNT_EMAIL_ADDRESS', $googleApiParams['serviceAccountEmail']);
+        define('SERVICE_ACCOUNT_FILE',\Yii::getAlias($googleApiParams['serviceAccountFile']));
+
+        // Used by the Google Pay API for Passes Client library
+        define('APPLICATION_NAME', \Yii::$app->name);
+
+        // Identifier of Google Pay API for Passes Merchant Center
+        define('ISSUER_ID', $googleApiParams['issuerId']);
+
+        // List of origins for save to phone button. Used for JWT
+        //// See https://developers.google.com/pay/passes/reference/s2w-reference
+        $ORIGINS = array('https://pre-prod-sql8.stage.demotestwip.it');
+
+        // Constants that are application agnostic. Used for JWT
+        define('AUDIENCE', 'google');
+        define('JWT_TYPE', 'savetoandroidpay');
+        define('SCOPES', 'https://www.googleapis.com/auth/wallet_object.issuer');
+
+        // Load the private key as String from service account file
+        $jsonFile = file_get_contents(SERVICE_ACCOUNT_FILE);
+        $credentialJson = json_decode($jsonFile, true);
+        define('SERVICE_ACCOUNT_PRIVATE_KEY',$credentialJson['private_key']);
+    }
+
+    /**
+     * @param $id
+     * @return string
+     */
+    public function generateTicketClassId($id){
+        $vertical = "EVENTTICKET";
+        $classUid = $vertical . "_CLASS_" . $id . uniqid('', true);
+        $classId = sprintf("%s.%s", ISSUER_ID, $classUid);
+        return $classId;
+    }
+
+    /**
+     * @param $id
+     * @return string
+     */
+    public function generateTicketObjectId($id){
+        $vertical = "EVENTTICKET";
+        $objectUid= $vertical."_OBJECT_".$id.uniqid('', true);
+        $objectId = sprintf("%s.%s", ISSUER_ID, $objectUid);
+        return $objectId;
+    }
+
+    /**
+     * @param $event
+     * @return string
+     */
+    public function getTicketClassId($event){
+        if(!empty($event->googlepay_ticket_class_id)){
+            $classId = $event->googlepay_ticket_class_id;
+        } else {
+            $classId = $this->generateTicketClassId($event->id);
+        }
+        return $classId;
+    }
+
+    /**
+     * @param $invitation EventInvitation
+     * @return string
+     */
+    public function getTicketObjectId($invitation){
+        if(!empty($invitation->googlepay_ticket_id)){
+            $classId = $invitation->googlepay_ticket_id;
+        } else {
+            $classId = $this->generateTicketClassId($invitation->event_id);
+        }
+        return $classId;
+    }
+
 
 }
 

@@ -28,6 +28,13 @@ class EventType extends \open20\amos\events\models\base\EventType
 
     const ENABLED = 1;
     const DISABLED = 0;
+    
+    const ARRAYCSSCLASS = [
+        self::TYPE_INFORMATIVE => 'event-infos',
+        self::TYPE_OPEN => 'event-open',
+        self::TYPE_UPON_INVITATION => 'event-on-invitation',
+        self::TYPE_LIMITED_SEATS => 'event-limited-seat',
+    ];
 
     /**
      * @inheritdoc
@@ -64,5 +71,29 @@ class EventType extends \open20\amos\events\models\base\EventType
             self::TYPE_OPEN => AmosEvents::txt('#event_type_open'),
             self::TYPE_UPON_INVITATION => AmosEvents::txt('#event_type_upon_invitation'),
         ];
+    }
+    
+    /**
+     * Gets text color based on background color
+     * @return string
+     */
+    
+    public function colorText($color){
+        if(empty($color)){
+            return null;
+        }
+        $white="#FFFFFF";
+        $black="#000000";
+        list($r, $g, $b) = sscanf($color, "#%02x%02x%02x");
+        list($rw, $gw, $bw) = sscanf($white, "#%02x%02x%02x");
+        list($rb, $gb, $bb) = sscanf($black, "#%02x%02x%02x");
+
+        $difWhite=  max($r,$rw) - min($r,$rw) +
+            max($g,$gw) - min($g,$gw) +
+            max($b,$bw) - min($b,$bw);
+        $difBlack=  max($r,$rb) - min($r,$rb) +
+            max($g,$gb) - min($g,$gb) +
+            max($b,$bb) - min($b,$bb);
+        return $difWhite>$difBlack?$white:$black;
     }
 }

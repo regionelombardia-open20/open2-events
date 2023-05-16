@@ -22,6 +22,8 @@ use open20\amos\events\AmosEvents;
  * @property int $event_id
  * @property int $is_group
  * @property string $code
+ * @property string $googlepay_ticket_id
+ * @property string $apple_wallet_device_id
  * @property string $email
  * @property string $fiscal_code
  * @property string $name
@@ -96,7 +98,7 @@ class EventInvitation extends \open20\amos\core\record\Record
             [['event_id'], 'required'],
             [['event_id', 'type', 'state', 'user_id', 'partner_of', 'created_by', 'updated_by', 'deleted_by', 'accreditation_list_id', 'gdpr_answer_1', 'gdpr_answer_2', 'gdpr_answer_3', 'gdpr_answer_4', 'gdpr_answer_5'], 'integer'],
             [['presenza', 'is_group'], 'boolean'],
-            [['code', 'invitation_sent_on', 'invitation_response_on', 'created_at', 'updated_at', 'deleted_at', 'presenza_scansionata_il', 'accreditation_list_id'], 'safe'],
+            [['apple_wallet_device_id', 'googlepay_ticket_id', 'code', 'invitation_sent_on', 'invitation_response_on', 'created_at', 'updated_at', 'deleted_at', 'presenza_scansionata_il', 'accreditation_list_id'], 'safe'],
             [['code'], 'string', 'max' => 36],
             [['notes'], 'string'],
             [['email', 'company'], 'string', 'max' => 255],

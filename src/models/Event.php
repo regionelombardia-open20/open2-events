@@ -10,6 +10,7 @@
  */
 
 namespace open20\amos\events\models;
+use open20\amos\core\icons\AmosIcons;
 
 use open20\amos\admin\models\TokenGroup;
 use open20\amos\admin\models\UserProfile;
@@ -27,9 +28,11 @@ use open20\amos\core\models\MapWidgetPlaces;
 use open20\amos\core\user\User;
 use open20\amos\core\utilities\DuplicateContentUtility;
 use open20\amos\events\AmosEvents;
+use open20\amos\events\helpers\google_api\GpayUtility;
 use open20\amos\events\i18n\grammar\EventGrammar;
 use open20\amos\events\utility\EventsUtility;
 use open20\amos\events\widgets\icons\WidgetIconEvents;
+use open20\amos\news\models\base\NewsRelatedEventMm;
 use open20\amos\notificationmanager\behaviors\NotifyBehavior;
 use open20\amos\seo\behaviors\SeoContentBehavior;
 use open20\amos\seo\interfaces\SeoModelInterface;
@@ -57,79 +60,84 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
     const EVENT_MANAGER = 'EVENT_MANAGER';
     const EVENT_PARTICIPANT = 'EVENT_PARTICIPANT';
     const EVENTS_CHECK_IN = 'EVENTS_CHECK_IN';
-    
+
     /**
      * @var string
      */
     public $begin_date_hour_from;
-    
+
     /**
      * @var string $begin_date_hour_to
      */
     public $begin_date_hour_to;
-    
+
     /**
      * @var string $end_date_hour_from
      */
     public $end_date_hour_from;
-    
+
     /**
      * @var string $end_date_hour_to
      */
     public $end_date_hour_to;
-    
+
     /**
      * @var $eventLogo
      */
     private $eventLogo;
-    
+
     /**
      * @var bool $bypassEventLogoValidation
      */
     public $bypassEventLogoValidation = false;
-    
+
     /**
      * @var $eventAttachments
      */
     public $eventAttachments;
-    
+
     /**
      * @var $eventAttachmentsForItemView
      */
     public $eventAttachmentsForItemView;
-    
+
     /**
      * @var $location
      */
     public $location;
-    
+
     /**
      * @var $landingHeader
      */
     private $landingHeader;
-    
+
     /**
      * @var $agidRelatedEventsMm
      */
     public $agidRelatedEventsMm;
-    
+
+    /**
+     * @var $relatedEventsMm
+     */
+    public $relatedEventsMm;
+
     /**
      * @var $agidAdministrativePersonsMm
      */
     public $agidAdministrativePersonsMm;
-    
+
     /**
      * @var $agidEventDocumentsMm
      */
     public $agidEventDocumentsMm;
-    
+
     /**
      * @inheritdoc
      */
     public function init()
     {
         parent::init();
-        
+
         if ($this->isNewRecord) {
             $moduleEvents = \Yii::$app->getModule(AmosEvents::getModuleName());
             if (!is_null($moduleEvents)) {
@@ -139,10 +147,10 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
                 $this->registration_date_begin = date('Y-m-d');
             }
         }
-        
+
         $this->on(self::EVENT_BEFORE_VALIDATE, [$this, 'eventBeforeValidate']);
     }
-    
+
     /**
      * @inheritdoc
      */
@@ -152,15 +160,15 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
             'title',
         ];
     }
-    
+
     /**
      * @inheritdoc
      */
     public function getSchema()
     {
-    
+
     }
-    
+
     /**
      * @inheritdoc
      */
@@ -168,7 +176,7 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
     {
         return "FACILITATOR";
     }
-    
+
     /**
      * @inheritdoc
      */
@@ -180,7 +188,7 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
         $this->eventAttachmentsForItemView = $this->getEventAttachments()->all();
         $this->landingHeader = $this->getLandingHeader();
     }
-    
+
     /**
      * @inheritdoc
      */
@@ -191,7 +199,7 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
         );
         return $scenarios;
     }
-    
+
     public function behaviors()
     {
         return ArrayHelper::merge(parent::behaviors(),
@@ -210,7 +218,7 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
                 ]
             ]);
     }
-    
+
     /**
      * All creation event wizard behaviors.
      * @return array
@@ -266,7 +274,7 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
             ]
         ];
     }
-    
+
     /**
      * Getter for $this->eventLogo;
      * @return \yii\db\ActiveQuery
@@ -278,7 +286,7 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
         }
         return $this->eventLogo;
     }
-    
+
     /**
      *
      * @param type $image
@@ -287,7 +295,13 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
     {
         $this->eventLogo = $image;
     }
-    
+
+
+    public function getModelImage()
+    {
+        return $this->getEventLogo();
+    }
+
     /**
      * Getter for $this->landingHeader;
      * @return \yii\db\ActiveQuery
@@ -299,7 +313,7 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
         }
         return $this->landingHeader;
     }
-    
+
     /**
      *
      * @param type $image
@@ -308,7 +322,7 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
     {
         $this->landingHeader = $image;
     }
-    
+
     /**
      * Getter for $this->eventAttachments;
      * @return \yii\db\ActiveQuery
@@ -319,13 +333,13 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
         $query->multiple = false;
         return $query;
     }
-    
+
     /**
      * @inheritdoc
      */
     public function rules()
     {
-        
+
         $rules = ArrayHelper::merge(parent::rules(),
             [
                 [['eventAttachments'], 'file', 'maxFiles' => 0],
@@ -358,12 +372,13 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
                 // ['landingHeader', 'file', 'extensions' => 'jpeg, jpg, png, gif'],
                 [[
                     'agidRelatedEventsMm',
+                    'relatedEventsMm',
                     'agidAdministrativePersonsMm',
                     'agidEventDocumentsMm',
                 ], 'safe']
             ]);
-        
-        
+
+
         if ((!empty($this->registration_date_begin) && !empty($this->registration_date_end))) {
             $rules = ArrayHelper::merge($rules,
                 [
@@ -389,7 +404,7 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
         }
         return $rules;
     }
-    
+
     /**
      * Before validate method useful to exec some checks.
      */
@@ -402,7 +417,7 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
 //            $this->addError('agid_geolocation', AmosEvents::t('amosevents', '#agid_geolocation_error'));
 //        }
     }
-    
+
     /**
      * @inheritdoc
      */
@@ -425,11 +440,12 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
             'gdpr_question_4' => AmosEvents::t('amosevents', '#gdpr_question_4_label'),
             'gdpr_question_5' => AmosEvents::t('amosevents', '#gdpr_question_5_label'),
             'agidRelatedEventsMm' => AmosEvents::t('amosevents', '#agid_part_of'),
+            'relatedEventsMm' => AmosEvents::t('amosevents', '#part_of'),
             'agidAdministrativePersonsMm' => AmosEvents::t('amosevents', '#agid_administative_persons'),
             'agidEventDocumentsMm' => AmosEvents::t('amosevents', '#agid_event_documents'),
         ]);
     }
-    
+
     /**
      * @param $attribute
      */
@@ -454,7 +470,7 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
             }
         }
     }
-    
+
     /**
      * Funzione che crea gli eventi da visualizzare sulla mappa in caso di più eventi legati al singolo model
      * Andrà valorizzato il campo array a true nella configurazione della vista calendario nella index
@@ -463,7 +479,7 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
     {
         return NULL; //da personalizzare
     }
-    
+
     /**
      * Restituisce l'url per il calendario dell'attività
      */
@@ -475,7 +491,7 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
 //        }
         return NULL; //da personalizzare magari con Yii::$app->urlManager->createUrl([]);
     }
-    
+
     /**
      * Restituisce il colore associato all'evento
      */
@@ -486,7 +502,7 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
         }
         return $this->eventType->color;
     }
-    
+
     /**
      * Restituisce il titolo, possono essere anche più dati, associato all'evento
      */
@@ -496,6 +512,30 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
     }
     
     /**
+     * Restituisce il titolo con icona tag annessa, se presente
+     */
+    public function getEventTitlePlusTag()
+    {
+        /** @var Event $eventModel */
+        $eventModel = $this->eventsModule->createModel('Event');
+        $eventOnDB = $eventModel::find()->select('tag.icon as icon')
+        ->innerJoin('entitys_tags_mm entities_tag',
+        "entities_tag.classname = '".addslashes($this->modelClassName)."' AND entities_tag.record_id=".static::tableName().".id")        ->innerJoin('tag',"tag.id = entities_tag.tag_id")
+        ->andWhere(['entities_tag.record_id' => $this->id])
+        ->andWhere(['entities_tag.deleted_at' => null])
+          ->asArray()
+            ->all();
+        
+        $tag_Icon = '';
+        foreach($eventOnDB as $ev){
+            if($ev['icon']){
+                $tag_icon .= '<span class="glyphicon glyphicon-'.$ev['icon'].'"> </span>';
+            }
+        }
+        return $this->title." ".AmosIcons::show('file');
+    }
+
+    /**
      * Restituisce un'immagine se associata al model
      */
     public function getAvatarUrl($dimension = 'small')
@@ -504,7 +544,7 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
         //funzione da implementare
         return $url;
     }
-    
+
     /**
      * @inheritdoc
      */
@@ -550,15 +590,93 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
             ],
         ];
     }
-    
+
+    public function getGalleria()
+    {
+        if (empty($this->galleria)) {
+            $query = $this->hasMultipleFiles('event_gallery_attachment');
+            $query->multiple = false;
+            $this->event_gallery_attachment = $query->all();
+        }
+
+        return $this->event_gallery_attachment;
+    }
+
+    /**
+     * @param string $size
+     * @param bool $protected
+     * @param string $url
+     * @param bool $absolute
+     * @param bool $canCache
+     * @return string
+     */
+    public function getGalleriaUrl(
+        $size = 'original',
+        $protected = false,
+        $url = [],
+        $absolute = false,
+        $canCache = false
+    )
+    {
+        $immagini = $this->getGalleria();
+        foreach($immagini as $immagine) {
+            if ($protected) {
+                $url[] = $immagine->getUrl($size, $absolute, $canCache);
+            } else {
+                $url[] = $immagine->getWebUrl($size, $absolute, $canCache);
+            }
+        }
+
+        return $url;
+    }
+
+    public function createRelatedEventMm()
+    {
+        if (!empty($this->relatedEventMmAttribute)) {
+            foreach ($this->relatedEventMmAttribute as $value) {
+                $related_event_mm = new RelatedEventMm;
+                $related_event_mm->main_event_id = $this->id;
+                $related_event_mm->related_event_id = $value;
+                $related_event_mm->save();
+            }
+        }
+    }
+
+    /**
+     * Method to update the relationship between News and related Documenti
+     *
+     * @return void
+     */
+    public function updateRelatedEventMm()
+    {
+        $this->deleteRelatedEventMm();
+        $this->createRelatedEventMm();
+    }
+
+    /**
+     * Method to delete the relationship between News and related Documenti
+     *
+     * @return void
+     */
+    public function deleteRelatedEventMm()
+    {
+        $toDelete = RelatedEventMm::find()->andWhere(['main_event_id' => $this->id])->all();
+        foreach ($toDelete as $event) {
+            $event->delete();
+        }
+    }
+
     /**
      * @inheritdoc
      */
     public function getViewUrl()
     {
+        if (!empty($this->usePrettyUrl) && ($this->usePrettyUrl == true) && $this->hasMethod('getPrettyUrl')) {
+            return 'events/event';
+        }
         return "events/event/view";
     }
-    
+
     /**
      * @inheritdoc
      */
@@ -566,7 +684,7 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
     {
         return self::EVENTS_WORKFLOW_STATUS_PUBLISHREQUEST;
     }
-    
+
     /**
      * @inheritdoc
      */
@@ -574,7 +692,7 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
     {
         return self::EVENTS_WORKFLOW_STATUS_PUBLISHED;
     }
-    
+
     /**
      * @inheritdoc
      */
@@ -582,7 +700,7 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
     {
         return self::EVENTS_WORKFLOW_STATUS_DRAFT;
     }
-    
+
     /**
      * @inheritdoc
      */
@@ -590,7 +708,7 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
     {
         return 'EVENTS_VALIDATOR';
     }
-    
+
     /**
      * @inheritdoc
      */
@@ -602,7 +720,7 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
         ];
         return $context_roles;
     }
-    
+
     /**
      * @inheritdoc
      */
@@ -610,7 +728,7 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
     {
         return self::EVENT_PARTICIPANT;
     }
-    
+
     /**
      * @inheritdoc
      */
@@ -618,7 +736,7 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
     {
         return self::EVENT_MANAGER;
     }
-    
+
     public function getPriviledgedRoles()
     {
         return [
@@ -626,7 +744,7 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
             self::EVENTS_CHECK_IN,
         ];
     }
-    
+
     /**
      * @inheritdoc
      */
@@ -644,7 +762,7 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
                 break;
         }
     }
-    
+
     /**
      * @inheritdoc
      */
@@ -652,7 +770,7 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
     {
         return $this->community;
     }
-    
+
     /**
      * @inheritdoc
      */
@@ -670,7 +788,7 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
                 break;
         }
     }
-    
+
     /**
      * @inheritdoc
      */
@@ -678,7 +796,7 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
     {
         return 'events';
     }
-    
+
     /**
      * @inheritdoc
      */
@@ -686,7 +804,7 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
     {
         return 'event';
     }
-    
+
     /**
      * @inheritdoc
      */
@@ -694,7 +812,7 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
     {
         return 'view';
     }
-    
+
     /**
      * @inheritdoc
      */
@@ -704,12 +822,12 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
         $communityUserMms = CommunityUserMm::find()->andWhere(['community_id' => $communityId]);
         return User::find()->andFilterWhere(['not in', 'id', $communityUserMms->select('user_id')]);
     }
-    
+
     public function getPluginWidgetClassname()
     {
         return WidgetIconEvents::className();
     }
-    
+
     /**
      * This method detach SoftDeleteByBehavior from the Event model.
      * @param string $className
@@ -724,7 +842,7 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
             }
         }
     }
-    
+
     /**
      * This method detach SoftDeleteByBehavior from the Event model.
      */
@@ -732,7 +850,7 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
     {
         $this->detachBehaviorByClassName(SoftDeleteByBehavior::className());
     }
-    
+
     /**
      * @inheritdoc
      */
@@ -740,7 +858,7 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
     {
         return $this->event_commentable;
     }
-    
+
     /**
      * @return string
      */
@@ -748,7 +866,7 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
     {
         return $this->title;
     }
-    
+
     /**
      * @inheritdoc
      */
@@ -756,20 +874,20 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
     {
         return $this->summary;
     }
-    
+
     /**
      * @return string
      */
     public function getDescription($truncate)
     {
         $ret = $this->description;
-        
+
         if ($truncate) {
             $ret = $this->__shortText($this->description, 200);
         }
         return $ret;
     }
-    
+
     /**
      * @inheritdoc
      */
@@ -777,7 +895,7 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
     {
         return $this->__shortText($this->event_location, 255);
     }
-    
+
     /**
      * @return string date begin of publication
      */
@@ -785,7 +903,7 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
     {
         return $this->publication_date_begin;
     }
-    
+
     /**
      * @return string date end of publication
      */
@@ -793,7 +911,7 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
     {
         return $this->publication_date_begin;
     }
-    
+
     /**
      * @return \yii\db\ActiveQuery category of content
      */
@@ -801,15 +919,22 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
     {
         return $this->hasOne($this->eventsModule->model('EventType'), ['id' => 'event_type_id']);
     }
-    
+
     /**
      * @return string The url to view of this model
      */
     public function getFullViewUrl()
     {
-        return Url::toRoute(["/" . $this->getViewUrl(), "id" => $this->id]);
+        if (!empty($this->usePrettyUrl) && ($this->usePrettyUrl == true)) {
+            return Url::toRoute(["/".$this->getViewUrl()."/".$this->id."/".$this->getPrettyUrl()]);
+        } else if (!empty($this->useFrontendView) && ($this->useFrontendView == true) && method_exists($this,
+                'getBackendobjectsUrl')) {
+            return $this->getBackendobjectsUrl();
+        } else {
+            return Url::toRoute(["/".$this->getViewUrl(), "id" => $this->id]);
+        }
     }
-    
+
     /**
      * @return mixed
      */
@@ -817,7 +942,7 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
     {
         return new EventGrammar();
     }
-    
+
     /**
      * @return array list of statuses that for cwh is validated
      */
@@ -825,7 +950,7 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
     {
         return [$this->getValidatedStatus()];
     }
-    
+
     /**
      * @return string
      */
@@ -841,7 +966,7 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
         }
         return $url;
     }
-    
+
     /**
      * @return string
      */
@@ -870,7 +995,7 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
         }
         return $address;
     }
-    
+
     /**
      * @return string
      */
@@ -902,7 +1027,7 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
         }
         return $address;
     }
-    
+
     /**
      * @return \yii\db\ActiveQuery
      */
@@ -910,7 +1035,7 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
     {
         return $this->hasOne(MapWidgetPlaces::className(), ['place_id' => 'agid_geolocation']);
     }
-    
+
     /**
      * Returns the AGID geolocation in string format
      * @return string
@@ -919,11 +1044,11 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
     {
         // Gets the record by the input field
         $placeObj = PlacesComponents::getPlace($this->agid_geolocation);
-        
+
         // Return the address's string
         return PlacesComponents::getGeocodeString($placeObj);
     }
-    
+
     public function setPublicationScenario()
     {
         $moduleNews = \Yii::$app->getModule(AmosEvents::getModuleName());
@@ -933,7 +1058,7 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
             $this->setScenario(Event::SCENARIO_ORGANIZATIONALDATA);
         }
     }
-    
+
     /**
      * @param $communityId
      * @return ActiveQuery
@@ -946,13 +1071,13 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
         $userQuery = User::find()->andFilterWhere(['not in', User::tableName() . '.id', $userCommunityIds]);
         $userQuery->joinWith('userProfile');
         $userQuery->andWhere('user_profile.id is not null');
-        
+
         $userQuery->andWhere(['user_profile.attivo' => 1]);
-        
+
         $userQuery->orderBy(['cognome' => SORT_ASC, 'nome' => SORT_ASC]);
         return $userQuery;
     }
-    
+
     public function getEndDateHour()
     {
         $beginDateHour = $this->begin_date_hour ? $this->begin_date_hour : null;
@@ -978,12 +1103,12 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
         }
         return null;
     }
-    
+
     public function getGoogleEventId()
     {
         return $this->isNewRecord ? null : ('events' . $this->id);
     }
-    
+
     public function getGoogleEvent($eventCalendar = null)
     {
         $timeZone = \Yii::$app->timeZone;
@@ -998,7 +1123,7 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
         $eventCalendar->setDescription($this->summary);;
         $eventCalendarStart = new \Google_Service_Calendar_EventDateTime();
         $eventCalendarStart->setTimeZone($timeZone);
-        
+
         $eventCalendarStart->setDateTime(str_replace(' ', 'T', $this->begin_date_hour));
         $eventCalendar->setStart($eventCalendarStart);
         $endDateHour = !is_null($this->end_date_hour) ? $this->end_date_hour : $this->getEndDateHour();
@@ -1015,15 +1140,20 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
         $eventCalendar->setLocation($this->location);
         return $eventCalendar;
     }
-    
+
     /**
      * @inheritdoc
      */
     public function afterSave($insert, $changedAttributes)
     {
         PlacesComponents::checkPlace($this->agid_geolocation);
-        
+
         parent::afterSave($insert, $changedAttributes);
+
+        if ($this->eventsModule->enableRelatedEvents){
+            $this->updateRelatedEventMm();
+        }
+
         if (is_null($this->deleted_at) && is_null($this->deleted_by) && !is_null($this->begin_date_hour)) {
             $socialAuth = \Yii::$app->getModule('socialauth');
             if (!is_null($socialAuth)) {
@@ -1048,8 +1178,13 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
                 }
             }
         }
+
+
+        if($this->canUseEventPasses()) {
+            GpayUtility::createUpdateTicketClassGpay($this->id);
+        }
     }
-    
+
     /**
      * @inheritdoc
      */
@@ -1075,7 +1210,7 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
         }
         return parent::beforeDelete();
     }
-    
+
     /**
      * This method calculate the remaining seats available if the event is of type limited seats.
      * The method get all event community members not rejected including event managers.
@@ -1102,7 +1237,7 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
         }
         return $remainingSeats;
     }
-    
+
     /**
      * This method checks if there are available seats for this event.
      * If the event type does not include limited seats the method returns always true.
@@ -1120,7 +1255,7 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
         $remainingSeats = $this->getRemainingSeats();
         return ($remainingSeats > 0);
     }
-    
+
     public function getInvitationStats()
     {
         $stats = [
@@ -1135,10 +1270,10 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
             'accepted' => 0,
             'rejected' => 0,
         ];
-        
+
         /** @var EventInvitation $eventInvitationModel */
         $eventInvitationModel = $this->eventsModule->createModel('EventInvitation');
-        
+
         $invitations = $eventInvitationModel::find()->where(['event_id' => $this->id])->all();
         foreach ($invitations as $invitation) {
             if ($invitation->type == EventInvitation::INVITATION_TYPE_REGISTERED) {
@@ -1167,7 +1302,7 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
         }
         return $stats;
     }
-    
+
     /**
      * Gets invitations upon cwh preferences.
      * return array Array of users data
@@ -1176,7 +1311,7 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
     {
         /** @var EventInvitation $eventInvitationModel */
         $eventInvitationModel = $this->eventsModule->createModel('EventInvitation');
-        
+
         // Gets ids of already invited users
         $invUids = $eventInvitationModel::find()
             ->select('user_id')
@@ -1190,7 +1325,7 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
         // Gets ids of users not yet invited
         return array_diff($cwhUids, $invUids);
     }
-    
+
     /**
      * Gets invited users data for this event, excluding invites already sent
      * return array Array of users data
@@ -1200,10 +1335,10 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
         if (!$this->id) {
             return [];
         }
-        
+
         /** @var EventInvitation $eventInvitationModel */
         $eventInvitationModel = $this->eventsModule->createModel('EventInvitation');
-        
+
         // Gets all invited users (they will be all external ones)
         /** @var ActiveQuery $query */
         $query = $eventInvitationModel::find();
@@ -1252,7 +1387,7 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
         }
         return (array)$rows;
     }
-    
+
     /**
      * @inheritdoc
      */
@@ -1261,7 +1396,7 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
         $status = parent::getWorkflowBaseStatusLabel();
         return ((strlen($status) > 0) ? AmosEvents::t('amosevents', $status) : '-');
     }
-    
+
     public function getFullAddress($separator = '')
     {
         // Address
@@ -1272,10 +1407,10 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
         $city = ($this->cityLocation) ? $this->cityLocation->nome . ' ' : ''; //'-';
         $province = ($this->provinceLocation) ? ' (' . $this->provinceLocation->sigla . ') ' : ''; //'-';
         $country = ($this->countryLocation) ? $separator . $this->countryLocation->nome : ' '; //'-' ;
-        
+
         return $location . $address . $addressNumber . $cap . $city . $province . $country;
     }
-    
+
     /**
      * @param $user_id
      * @return bool
@@ -1289,7 +1424,7 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
             ->count();
         return ($count > 0);
     }
-    
+
     /**
      * @param $idDomanda
      * @throws \PHPExcel_Exception
@@ -1307,7 +1442,7 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
                     $inputFileType = \PHPExcel_IOFactory::identify($inputFileName);
                     $objReader = \PHPExcel_IOFactory::createReader($inputFileType);
                     $objPHPExcel = $objReader->load($inputFileName);
-                    
+
                     $sheet = $objPHPExcel->getSheet(0);
                     $highestRow = $sheet->getHighestRow();
                     $highestColumn = $sheet->getHighestColumn();
@@ -1322,10 +1457,10 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
                         $automatic = $Array[3];
                         $available_for_groups = $Array[4];
                         if (!empty($sector) && !empty($rowSeat) && !empty($seat) && isset($automatic) && isset($available_for_groups)) {
-                            
+
                             /** @var EventSeats $eventSeatsModel */
                             $eventSeatsModel = $this->eventsModule->createModel('EventSeats');
-                            
+
                             $structureSeats = $eventSeatsModel::find()
                                 ->andWhere(['event_id' => $this->id])
                                 ->andWhere(['sector' => $sector])
@@ -1364,7 +1499,7 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
                             );
                         }
                     }
-                    
+
                     $transaction->commit();
                     \Yii::$app->session->addFlash('success',
                         AmosEvents::t('amosevents', "Sono stati inseriti {n} posti.", ['n' => $count]));
@@ -1377,7 +1512,7 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
             }
         }
     }
-    
+
     /**
      * @return mixed
      * @throws \yii\base\InvalidConfigException
@@ -1393,7 +1528,7 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
             ->groupBy('sector')->all();
         return $sectors;
     }
-    
+
     /**
      * @param $sector
      * @return mixed
@@ -1409,10 +1544,10 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
             ->andFilterWhere(['sector' => $sector])
             ->andWhere(['status' => EventSeats::STATUS_EMPTY])
             ->all();
-        
+
         return $seats;
     }
-    
+
     /**
      * @param $n
      * @return bool
@@ -1428,7 +1563,7 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
             ->andWhere(['status' => EventSeats::STATUS_EMPTY])->count();
         return $n <= $count;
     }
-    
+
     /**
      * @param $n
      * @return bool
@@ -1444,7 +1579,7 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
             ->andWhere(['status' => EventSeats::STATUS_EMPTY])->count();
         return $count > 0;
     }
-    
+
     /**
      * @param $user_id
      * @return EventSeats
@@ -1455,7 +1590,7 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
         $seat = $this->getEventSeats()
             ->andWhere(['status' => EventSeats::STATUS_EMPTY])
             ->andWhere(['automatic' => true])->one();
-        
+
         if ($seat) {
             $seat->user_id = $user_id;
             $seat->type_of_assigned_participant = 1;
@@ -1464,7 +1599,7 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
         }
         return $seat;
     }
-    
+
     /**
      *
      * @return integer
@@ -1472,40 +1607,40 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
     public function checkParticipantsQuantity()
     {
         $count = 0;
-        
+
         /** @var EventInvitation $eventInvitationModel */
         $eventInvitationModel = $this->eventsModule->createModel('EventInvitation');
-        
+
         /** @var EventParticipantCompanion $eventParticipantCompanionModel */
         $eventParticipantCompanionModel = $this->eventsModule->createModel('EventParticipantCompanion');
-        
+
         $participants = $eventInvitationModel::find()
             ->andWhere(['event_id' => $this->id, 'state' => EventInvitation::INVITATION_STATE_ACCEPTED])
             ->andWhere(['deleted_at' => null, 'deleted_by' => null]);
-        
-        
+
+
         $count += $participants->count();
-        
+
         $companions = $eventParticipantCompanionModel::find()
             ->andWhere(['event_invitation_id' => $participants->select('id')->all()])
             ->count();
-        
+
         $count += $companions;
-        
-        
+
+
         return $count;
     }
-    
+
     /**
      * @return array
      * @throws \yii\base\InvalidConfigException
      */
     public function getSectors($empty = true)
     {
-        
+
         /** @var EventSeats $eventSeatsModel */
         $eventSeatsModel = $this->eventsModule->createModel('EventSeats');
-        
+
         /** @var ActiveQuery $query */
         $query = $eventSeatsModel::find()
             ->andWhere(['event_id' => $this->id])
@@ -1515,7 +1650,7 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
         }
         return $query->all();
     }
-    
+
     /**
      * @return bool
      */
@@ -1531,7 +1666,7 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
         }
         return false;
     }
-    
+
     /**
      * @return string
      */
@@ -1543,7 +1678,7 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
         $position .= (!is_null($this->countryLocation) ? $this->countryLocation->nome : '');
         return $position;
     }
-    
+
     /**
      *
      * @param integer $user_id
@@ -1554,9 +1689,9 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
     {
         $link = null;
         $tokengroup = TokenGroup::getTokenGroup($event_string);
-        
+
         if ($tokengroup) {
-            
+
             $tokenUser = $tokengroup->generateSingleTokenUser($user_id);
             if (!empty($tokenUser)) {
                 $link = $tokenUser->getBackendTokenLink();
@@ -1564,7 +1699,7 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
         }
         return $link;
     }
-    
+
     /**
      * @return array
      */
@@ -1576,7 +1711,7 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
             'landingHeader' => DuplicateContentUtility::ATTACHMENT_SINGLE
         ];
     }
-    
+
     /**
      * This method returns the event begin and end ready to print in a view or in a mail.
      * @return string
@@ -1603,7 +1738,7 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
         }
         return $eventBeginEnd;
     }
-    
+
     /**
      * @return string
      */
@@ -1611,7 +1746,7 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
     {
         return 'created_at';
     }
-    
+
     /**
      * @return string
      */
@@ -1619,7 +1754,7 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
     {
         return self::EVENTS_WORKFLOW_STATUS_PUBLISHED;
     }
-    
+
     /**
      * @param string $searchParam
      * @param ActiveQuery $query
@@ -1632,7 +1767,7 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
         }
         return $query;
     }
-    
+
     /**
      * @return string
      */
@@ -1640,7 +1775,7 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
     {
         return $this->title;
     }
-    
+
     /**
      * @return string
      */
@@ -1648,7 +1783,7 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
     {
         return 'title';
     }
-    
+
     /**
      * @return string
      */
@@ -1656,7 +1791,7 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
     {
         return 'status';
     }
-    
+
     /**
      * @return array
      */
@@ -1687,7 +1822,7 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
             ],
         ];
     }
-    
+
     /**
      * @return array
      */
@@ -1706,12 +1841,52 @@ class Event extends \open20\amos\events\models\base\Event implements ContentMode
             'title',
         ];
     }
-    
+
     /**
      * @return string
      */
     public function getTitleSlider()
     {
         return $this->getTitle();
+    }
+
+    /**
+     * Method to get all workflow status for model
+     *
+     * @return array
+     */
+    public function getAllWorkflowStatus(){
+
+        return ArrayHelper::map(
+                ArrayHelper::getColumn(
+                    (new \yii\db\Query())->from('sw_status')
+                    ->where(['workflow_id' => $this::EVENTS_WORKFLOW])
+                    ->orderBy(['sort_order' => SORT_ASC])
+                    ->all(),
+
+                    function ($element) {
+                        $array['status'] = $element['workflow_id'] . "/" . $element['id'];
+                        $array['label'] = AmosEvents::t('amosevents', $element['label']);
+                        return $array;
+                    }
+                ),
+            'status', 'label');
+    }
+
+
+    /**
+     * @return bool
+     */
+    public function canUseEventPasses(){
+        /** @var  $module AmosEvents*/
+        $module = \Yii::$app->getModule('events');
+        if($this->enable_ticket_wallet && !empty($module->ticketPasses['enabled']) && $module->ticketPasses['enabled'] = true
+                && !empty($this->event_location)
+                && ($this->event_type_id == EventType::TYPE_LIMITED_SEATS || $this->event_type_id == EventType::TYPE_UPON_INVITATION )
+                && $this->has_tickets
+        ){
+            return true;
+        }
+        return false;
     }
 }

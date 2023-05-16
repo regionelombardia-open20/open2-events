@@ -25,6 +25,7 @@ use yii\helpers\ArrayHelper;
  * @property integer $locationRequested
  * @property integer $durationRequested
  * @property integer $logoRequested
+ * @property string $type_icon
  * @property integer $enabled
  * @property integer $event_type
  * @property integer $limited_seats
@@ -76,7 +77,7 @@ class EventType extends \open20\amos\core\record\Record
             [['title', 'description', 'color', 'event_context_id'], 'required'],
             [['enabled', 'created_at', 'updated_at', 'deleted_at'], 'safe'],
             [['locationRequested', 'durationRequested', 'logoRequested', 'enabled', 'event_context_id', 'created_by', 'updated_by', 'deleted_by'], 'integer'],
-            [['title'], 'string', 'max' => 60],
+            [['title','type_icon'], 'string', 'max' => 60],
             [['description'], 'string', 'max' => 2000],
             [['color'], 'string', 'max' => 255],
         ];
@@ -95,6 +96,7 @@ class EventType extends \open20\amos\core\record\Record
             'locationRequested' => AmosEvents::t('amosevents', 'Location Requested'),
             'durationRequested' => AmosEvents::t('amosevents', 'Duration Requested'),
             'logoRequested' => AmosEvents::t('amosevents', 'Logo Requested'),
+            'type_icon' => AmosEvents::t('amosevents', 'Icona Evento'),
             'enabled' => AmosEvents::t('amosevents', 'Enabled'),
             'event_context_id' => AmosEvents::t('amosevents', 'Event Context ID'),
             'created_at' => AmosEvents::t('amosevents', 'Created At'),

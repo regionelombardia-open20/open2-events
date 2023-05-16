@@ -31,7 +31,7 @@ class m190510_082640_fix_event_types_values_2 extends Migration
             $this->alterColumn(EventType::tableName(), 'manage_subscritions_queue', $this->boolean()->notNull()->defaultValue(0)->comment('Gestione della coda di iscrizioni?')->after('limited_seats'));
             $this->alterColumn(EventType::tableName(), 'partners', $this->boolean()->notNull()->defaultValue(0)->comment('Iscrizione di accomapgnatori?')->after('manage_subscritions_queue'));
         } catch (\Exception $exception) {
-            MigrationCommon::printConsoleMessage('Errore spostamento colonne tabella event_type');
+            MigrationCommon::printConsoleMessage('Errore spostamento colonne tabella event_type '.$exception->getMessage());
             return false;
         }
 
@@ -62,7 +62,7 @@ class m190510_082640_fix_event_types_values_2 extends Migration
                 }
             }
         } catch (\Exception $exception) {
-            MigrationCommon::printConsoleMessage('Errore aggiornamento valori tabella event_type');
+            MigrationCommon::printConsoleMessage('Errore aggiornamento valori tabella event_type '.$exception->getMessage());
             return false;
         }
 

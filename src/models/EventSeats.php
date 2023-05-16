@@ -229,7 +229,12 @@ class EventSeats extends \open20\amos\events\models\base\EventSeats
     /**
      * @return string
      */
-    public function getStringCoordinateSeat(){
+    public function getStringCoordinateSeat($format = 1){
+        if($format == 2) {
+            return AmosEvents::t('amosevents', 'Settore').' ' . $this->sector
+                .' - '.  AmosEvents::t('amosevents', 'Fila') .' ' . $this->row
+                .' - '.AmosEvents::t('amosevents', 'Posto').' ' . $this->seat;
+        }
         return AmosEvents::t('amosevents', 'Settore').': ' . $this->sector
             .' - '.  AmosEvents::t('amosevents', 'Fila') .': ' . $this->row
             .' - '.AmosEvents::t('amosevents', 'Posto').': ' . $this->seat;

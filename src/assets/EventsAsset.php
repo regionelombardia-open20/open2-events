@@ -50,7 +50,7 @@ class EventsAsset extends AssetBundle
         $moduleL = \Yii::$app->getModule('layout');
 
         if(!empty(\Yii::$app->params['dashboardEngine']) && \Yii::$app->params['dashboardEngine'] == WidgetAbstract::ENGINE_ROWS){
-            $this->css = ['less/events_fullsize.less','less/calendary.less'];
+            $this->css = ['less/events_fullsize.less','less/calendary.less', 'less/events_design_bi.less'];
         }
 
         if(!empty($moduleL))

@@ -54,6 +54,8 @@ class EventSearch extends Event implements SearchModelInterface, CmsModelInterfa
      */
     private $container;
 
+    public $eventsModule;
+
     /**
      * @inheritdoc
      */
@@ -62,7 +64,13 @@ class EventSearch extends Event implements SearchModelInterface, CmsModelInterfa
         $this->container = new Container();
         $this->container->set('notify', new NotifyWidgetDoNothing());
 
+        $this->eventsModule = \Yii::$app->getModule(AmosEvents::getModuleName());
+
         parent::__construct($config);
+         /** @var Event $eventModel */
+        $eventModel = AmosEvents::instance()->createModel('Event');
+        $this->modelClassName = $eventModel::className();
+        $this->modelFormName = $eventModel->formName();
     }
 
     /**
@@ -187,6 +195,24 @@ class EventSearch extends Event implements SearchModelInterface, CmsModelInterfa
         return $eventModel::find()->distinct();
     }
 
+    	
+    /**
+     * 
+     * @return array
+     */
+    public function createOrderClause()
+    {
+		
+        return [
+            'attributes' => [
+                $this->orderAttribute,
+            ],
+            'defaultOrder' => [
+                $this->orderAttribute => (int)$this->orderType,
+            ]
+        ];
+    }
+    
     /**
      * @param array $params
      * @param string $queryType
@@ -196,7 +222,8 @@ class EventSearch extends Event implements SearchModelInterface, CmsModelInterfa
      * @throws InvalidConfigException
      * @throws NotInstantiableException
      */
-    public function search($params, $queryType = null, $limit = null, $onlyDrafts = false)
+     
+    public function search($params, $queryType = null, $limit = null, $onlyDrafts = false, $pageSize = null)
     {
         $query = $this->buildQuery($params, $queryType, $onlyDrafts);
 
@@ -219,7 +246,34 @@ class EventSearch extends Event implements SearchModelInterface, CmsModelInterfa
         if (!($this->load($params) && $this->validate())) {
             return $dataProvider;
         }
+        
+        // Verifico se il modulo supporta i TAG e, in caso, ricerco anche fra quelli
+        if (isset($params[$this->formName()]['tagValues'])) {
 
+            $tagValues = $params[$this->formName()]['tagValues'];
+
+            $this->setTagValues($tagValues);
+            if (is_array($tagValues) && !empty($tagValues)) {
+                $orQueries = null;
+                $i         = 0;
+                foreach ($tagValues as $rootId => $tagId) {
+                    if (!empty($tagId)) {
+                        if ($i == 0) {
+                            $query->innerJoin('entitys_tags_mm entities_tag',
+                                "entities_tag.classname = '".addslashes($this->eventsModule->model('Event'))."' AND entities_tag.record_id=".static::tableName().".id");
+                            $orQueries[] = 'or';
+                        }
+                        $tags        = explode(',', $tagId);
+                        $tags        = array_unique($tags);
+                        $orQueries[] = ['and', ["entities_tag.tag_id" => $tags], ['entities_tag.root_id' => $rootId], ['entities_tag.deleted_at' => null]];
+                        $i++;
+                    }
+                }
+                if (!empty($orQueries)) {
+                    $query->andWhere($orQueries);
+                }
+            }
+        }
         $query
             ->joinWith('eventType')
             ->andFilterWhere(
@@ -238,6 +292,42 @@ class EventSearch extends Event implements SearchModelInterface, CmsModelInterfa
             ->andFilterWhere(['like', self::tableName() . '.description', $this->description])
             ->andFilterWhere(['>=', self::tableName() . '.begin_date_hour', $this->begin_date_hour])
             ->andFilterWhere(['<=', self::tableName() . '.end_date_hour', $this->end_date_hour]);
+
+
+        // AGID 
+        if( $this->eventsModule->enableAgid ){
+            if( !empty($params['EventSearch']['status']) ){
+                $query = $query->andWhere(['status' => $params['EventSearch']['status'] ]);
+            }
+        }
+
+
+        return $dataProvider;
+    }
+    
+    /**
+     * Search for events own interest if logged. all event if not
+     *
+     * @param array $params $_GET search parametrs
+     * @param int|null $limit Query limit
+     * @return ActiveDataProvider
+     */
+    
+    
+    public function cmsSearchOwnInterest($params, $limit = null)
+    {
+        if (\Yii::$app->user->isGuest) {
+            $dataProvider = $this->cmsSearch($params, $limit);
+        } else {
+            $dataProvider = $this->searchOwnInterest($params, $limit);
+        }
+
+        if (!empty($params["withPagination"])) {
+            $dataProvider->setPagination(['pageSize' => $limit]);
+            $dataProvider->query->limit(null);
+        } else {
+            $dataProvider->query->limit($limit);
+        }
 
         return $dataProvider;
     }
@@ -350,6 +440,19 @@ class EventSearch extends Event implements SearchModelInterface, CmsModelInterfa
     }
 
     /**
+     * Search for events where the the logged user is part of the staff
+     *
+     * @param array $params $_GET search parametrs
+     * @param int|null $limit Query limit
+     * @return ActiveDataProvider
+     */
+    public function searchAdmin($params, $limit = null)
+    {
+        return $this->search($params, 'admin', $limit);
+    }
+
+
+    /**
      * @param string $queryType
      * @param array $params
      * @return ActiveQuery $query
@@ -425,6 +528,9 @@ class EventSearch extends Event implements SearchModelInterface, CmsModelInterfa
                         ]
                     );
                 }
+                break;
+            case 'admin':
+                // show all events in all statuses
                 break;
         }
         if ($onlyDrafts) {
@@ -598,7 +704,7 @@ class EventSearch extends Event implements SearchModelInterface, CmsModelInterfa
         $now = date('Y-m-d');
         $tableName = $this->tableName();
         $query = $this->baseSearch($params)
-            ->leftJoin(EntitysTagsMm::tableName(), EntitysTagsMm::tableName() . ".classname = '".  Event::className() . "' and ".EntitysTagsMm::tableName(). ".record_id = ". Event::tableName() . ".id")    
+            ->leftJoin(EntitysTagsMm::tableName(), EntitysTagsMm::tableName() . ".classname = '". addslashes(Event::className()) . "' and ".EntitysTagsMm::tableName(). ".record_id = ". Event::tableName() . ".id")    
             ->andWhere([
                 $tableName . '.status' => Event::EVENTS_WORKFLOW_STATUS_PUBLISHED,
                 $tableName . '.primo_piano' => 1
@@ -647,6 +753,11 @@ class EventSearch extends Event implements SearchModelInterface, CmsModelInterfa
             foreach ($commands as $command) {
                 $query->andWhere(eval("return " . $command . ";"));
             }
+        }
+
+        // AGID 
+        if( $this->eventsModule->enableAgid ){
+            $query->orderBy(['begin_date_hour' => SORT_DESC]);
         }
 
         return $dataProvider;

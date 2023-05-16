@@ -11,17 +11,23 @@
 
 namespace open20\amos\events\models\base;
 
-use open20\amos\attachments\behaviors\FileBehavior;
-use open20\amos\community\models\CommunityInterface;
-use open20\amos\core\interfaces\CmsModuleInterface;
+use open20\amos\news\AmosNews;
+use open20\amos\news\models\base\NewsRelatedEventMm;
+use Yii;
+use DateTime;
+use yii\helpers\ArrayHelper;
+use open20\amos\events\AmosEvents;
 use open20\amos\core\module\AmosModule;
 use open20\amos\core\record\ContentModel;
-use open20\amos\events\AmosEvents;
-use open20\amos\events\validators\CapValidator;
-use open20\amos\workflow\behaviors\WorkflowLogFunctionsBehavior;
 use raoul2000\workflow\base\SimpleWorkflowBehavior;
-use Yii;
-use yii\helpers\ArrayHelper;
+use open20\amos\events\validators\CapValidator;
+use open20\amos\attachments\behaviors\FileBehavior;
+use open20\amos\core\interfaces\CmsModuleInterface;
+use open20\amos\community\models\CommunityInterface;
+use open20\amos\workflow\behaviors\WorkflowLogFunctionsBehavior;
+use open20\amos\events\models\Event as EventModel;
+use open20\amos\events\models\AgidRelatedEventMm;
+use open20\amos\events\models\RelatedEventMm;
 
 /**
  * Class Event
@@ -55,6 +61,7 @@ use yii\helpers\ArrayHelper;
  * @property integer $slots_calendar_management
  * @property integer $seats_management
  * @property integer $has_qr_code
+ * @property integer $enable_ticket_wallet
  * @property integer $abilita_codice_fiscale_in_form
  * @property integer $numero_max_accompagnatori
  * @property string $landing_url
@@ -78,6 +85,7 @@ use yii\helpers\ArrayHelper;
  * @property integer $event_membership_type_id
  * @property integer $length_mu_id
  * @property integer $ics_libero
+ * @property string $googlepay_ticket_class_id
  * @property integer $event_type_id
  * @property integer $community_id
  * @property string $gdpr_question_1
@@ -127,6 +135,7 @@ use yii\helpers\ArrayHelper;
  * @property \open20\amos\events\models\EventRoom $eventRoom
  * @property \open20\amos\events\models\AgidEventTypology $agidEventTypology
  * @property \open20\amos\events\models\AgidRelatedEventMm[] $agidRelatedEventMms
+ * @property \open20\amos\events\models\RelatedEventMm[] $relatedEventMms
  * @property \open20\amos\events\models\Event[] $agidRelatedEvents
  * @property \open20\amos\events\models\AgidAdministrativePersonsMm[] $agidAdministrativePersonsMms
  * @property \open20\agid\person\models\AgidPerson[] $agidAdministrativePersons
@@ -134,6 +143,7 @@ use yii\helpers\ArrayHelper;
  * @property \open20\amos\documenti\models\Documenti[] $agidEventDocuments
  * @property \amos\sitemanagement\models\SiteManagementSlider $sliderImage
  * @property \amos\sitemanagement\models\SiteManagementSlider $sliderVideo
+ * @property array $relatedEventMmAttribute
  *
  * @package open20\amos\events\models\base
  */
@@ -143,15 +153,15 @@ abstract class Event extends ContentModel implements CommunityInterface
     const EVENTS_WORKFLOW_STATUS_DRAFT = 'EventWorkflow/DRAFT';
     const EVENTS_WORKFLOW_STATUS_PUBLISHREQUEST = 'EventWorkflow/PUBLISHREQUEST';
     const EVENTS_WORKFLOW_STATUS_PUBLISHED = 'EventWorkflow/PUBLISHED';
-    
+
     const BOOLEAN_FIELDS_VALUE_YES = 1;
     const BOOLEAN_FIELDS_VALUE_NO = 0;
-    
+
     /**
      * Used for create events in the traditional form (action create).
      */
     const SCENARIO_CREATE = 'scenario_create';
-    
+
     /**
      * All the scenarios listed below are for the wizard.
      */
@@ -160,24 +170,34 @@ abstract class Event extends ContentModel implements CommunityInterface
     const SCENARIO_ORGANIZATIONALDATA = 'scenario_organizationaldata';
     const SCENARIO_PUBLICATION = 'scenario_publication';
     const SCENARIO_SUMMARY = 'scenario_summary';
-    
+
     const SCENARIO_ORG_HIDE_PUBBLICATION_DATE = 'scenario_org_hide_pubblication_date';
     const SCENARIO_CREATE_HIDE_PUBBLICATION_DATE = 'scenario_create_hide_pubblication_date';
-    
+
     /**
      * @var AmosEvents $eventsModule
      */
     public $eventsModule = null;
-    
+
+    /**
+     * @var File[] $event_gallery_attachment
+     */
+    public $event_gallery_attachment;
+
+    /**
+     * @var array $relatedEventMmAttribute
+     */
+    public $relatedEventMmAttribute;
+
     /**
      * @inheritdoc
      */
     public function init()
     {
-        $this->eventsModule = AmosEvents::instance();
+        $this->getModuleEvents();
         
         parent::init();
-        
+
         if ($this->isNewRecord) {
             if (!is_null($this->eventsModule)) {
                 if ($this->eventsModule->hidePubblicationDate) {
@@ -188,14 +208,26 @@ abstract class Event extends ContentModel implements CommunityInterface
             }
             $this->event_membership_type_id = \open20\amos\events\models\EventMembershipType::TYPE_OPEN;
             $this->status = $this->getWorkflowSource()->getWorkflow(self::EVENTS_WORKFLOW)->getInitialStatusId();
-            
+
             if ($this->status == self::EVENTS_WORKFLOW_STATUS_PUBLISHED) {
                 $this->validated_at_least_once = Event::BOOLEAN_FIELDS_VALUE_YES;
                 $this->visible_in_the_calendar = Event::BOOLEAN_FIELDS_VALUE_YES;
             }
         }
     }
-    
+
+    /**
+     *
+     * @return AmosEvents
+     */
+    public function getModuleEvents()
+    {
+        if (empty($this->moduleEvents)) {
+            $this->eventsModule = AmosEvents::instance();
+        }
+        return $this->eventsModule;
+    }
+
     /**
      * @inheritdoc
      */
@@ -203,7 +235,7 @@ abstract class Event extends ContentModel implements CommunityInterface
     {
         return 'event';
     }
-    
+
     /**
      * @inheritdoc
      */
@@ -214,12 +246,12 @@ abstract class Event extends ContentModel implements CommunityInterface
             if ($this->eventsModule->eventLengthRequired) {
                 $requiredFields = ArrayHelper::merge($requiredFields, ['length']);
             }
-    
+
             if ($this->eventsModule->eventMURequired) {
                 $requiredFields = ArrayHelper::merge($requiredFields, ['length_mu_id']);
             }
         }
-        
+
         if ($this->eventsModule->enableAgid) {
             $requiredFields[] = 'agid_event_typology_id';
             $requiredFields[] = 'agid_description';
@@ -228,7 +260,7 @@ abstract class Event extends ContentModel implements CommunityInterface
             $requiredFields[] = 'agid_dates_and_hours';
             ArrayHelper::removeValue($requiredFields, 'summary');
         }
-        
+
         $rules = ArrayHelper::merge(
             parent::rules(), [
             [$requiredFields, 'required'],
@@ -270,6 +302,8 @@ abstract class Event extends ContentModel implements CommunityInterface
                 'registration_date_end',
                 'seats_management',
                 'publication_date_end',
+                'seats_management',
+                'googlepay_ticket_class_id'
             ], 'safe'],
             [[
                 'primo_piano',
@@ -295,6 +329,7 @@ abstract class Event extends ContentModel implements CommunityInterface
                 'ics_libero',
                 'agid_event_typology_id',
                 'agid_document_id',
+                'enable_ticket_wallet'
             ], 'integer'],
             [['length'], 'number', 'min' => 1, 'integerOnly' => true],
             [[
@@ -308,7 +343,6 @@ abstract class Event extends ContentModel implements CommunityInterface
                 'email_invitation_custom',
                 'thank_you_page_already_registered_view',
                 'token_group_string_code',
-                'agid_description',
                 'agid_georeferencing',
                 'agid_website',
                 'agid_geolocation',
@@ -324,8 +358,22 @@ abstract class Event extends ContentModel implements CommunityInterface
                 'agid_contact',
                 'agid_other_informations',
             ], 'string'],
+            [['agid_description'], \open20\amos\core\validators\StringHtmlValidator::className($length = 350), 'max' => 350],
             [['event_address_cap'], CapValidator::className()],
             [['event_address_cap'], 'string', 'max' => 5],
+            [['event_location'],'required','when' => function ($model) {
+                /** @var \open20\amos\events\models\Event $model */
+                if (is_null($this->eventType)) {
+                    return false;
+                }
+                return (
+                    ($this->eventType->event_type == \open20\amos\events\models\EventType::TYPE_LIMITED_SEATS
+                     ||$this->eventType->event_type == \open20\amos\events\models\EventType::TYPE_UPON_INVITATION)
+                        ? true : false);
+            }, 'whenClient' => "function (attribute, value) {
+                var type = $('#event-event_type_id').val();
+                return (type == ".\open20\amos\events\models\EventType::TYPE_UPON_INVITATION ." || type == ".\open20\amos\events\models\EventType::TYPE_LIMITED_SEATS .");
+            }"],
             [['event_location', 'event_address', 'event_address_cap', 'event_address_house_number', 'country_location_id'], 'required', 'when' => function ($model) {
                 /** @var \open20\amos\events\models\Event $model */
                 if (is_null($this->eventType)) {
@@ -365,22 +413,115 @@ abstract class Event extends ContentModel implements CommunityInterface
             }, 'whenClient' => "function (attribute, value) {
                 return " . (!is_null($this->eventType) ? $this->eventType->limited_seats == 1 ? 1 : 0 : 0) . ";
             }"],
-            ['begin_date_hour', 'compare', 'compareAttribute' => 'end_date_hour', 'operator' => '<='],
-            ['end_date_hour', 'compare', 'compareAttribute' => 'begin_date_hour', 'operator' => '>='],
+            // ['begin_date_hour', 'compare', 'compareAttribute' => 'end_date_hour', 'operator' => '<='],
+            // ['end_date_hour', 'compare', 'compareAttribute' => 'begin_date_hour', 'operator' => '>='],
+            ['begin_date_hour', 'checkBeginDateHour'],
         ]);
-        
-        if ($this->scenario != self::SCENARIO_ORG_HIDE_PUBBLICATION_DATE && $this->scenario != self::SCENARIO_CREATE_HIDE_PUBBLICATION_DATE && $this->scenario
-            && (!empty($this->publication_date_begin) && !empty($this->publication_date_end))) {
-            $rules = ArrayHelper::merge($rules, [
-                ['publication_date_begin', 'compare', 'compareAttribute' => 'publication_date_end', 'operator' => '<='],
-                ['publication_date_end', 'compare', 'compareAttribute' => 'publication_date_begin', 'operator' => '>='],
-                ['publication_date_begin', 'checkDate'],
-            ]);
+
+
+        // agid case
+        if( $this->eventsModule->enableAgid ){
+
+
+            if ($this->scenario != self::SCENARIO_ORG_HIDE_PUBBLICATION_DATE && $this->scenario != self::SCENARIO_CREATE_HIDE_PUBBLICATION_DATE && $this->scenario
+                && (!empty($this->publication_date_begin) && !empty($this->publication_date_end))) {
+
+                $rules = ArrayHelper::merge($rules, [
+                    ['publication_date_begin', 'checkDate'],
+                    ['publication_date_end', 'compareDate']
+                ]);
+            }
+
+        }else{
+
+            // default rules
+            if ($this->scenario != self::SCENARIO_ORG_HIDE_PUBBLICATION_DATE && $this->scenario != self::SCENARIO_CREATE_HIDE_PUBBLICATION_DATE && $this->scenario
+                && (!empty($this->publication_date_begin) && !empty($this->publication_date_end))) {
+                $rules = ArrayHelper::merge($rules, [
+                    ['publication_date_begin', 'compare', 'compareAttribute' => 'publication_date_end', 'operator' => '<='],
+                    ['publication_date_end', 'compare', 'compareAttribute' => 'publication_date_begin', 'operator' => '>='],
+                    ['publication_date_begin', 'checkDate'],
+                ]);
+            }
         }
-        
+
+        if ($this->eventsModule->enableGalleryAttachment)
+        {
+            $rules[] = [['event_gallery_attachment'], 'file', 'maxFiles' => 100];
+        }
+
+        if($this->eventsModule->enableRelatedEvents){
+            $rules[] = [
+                ['relatedEventMmAttribute'], 'safe'
+            ];
+        }
+
         return $rules;
     }
-    
+
+
+    /**
+     * Method to compare begin_date_hour with end_date_hour
+     *
+     * @return void
+     */
+    public function checkBeginDateHour($attribute){
+
+        $isValid = true;
+
+        if( empty($this->$attribute) && !empty($this->end_date_hour) ){
+
+            $isValid = false;
+        }
+
+        if( !empty($this->$attribute) && !empty($this->end_date_hour) ){
+
+            if( date($this->$attribute) <= date($this->end_date_hour) ){
+
+                $isValid = true;
+            }else {
+
+                $isValid = false;
+            }
+        }
+
+        if( !empty($this->$attribute) && empty($this->end_date_hour) ){
+
+            $isValid = true;
+        }
+
+        if (!$isValid) {
+            $this->addError($attribute, $this->getAttributeLabel($attribute) . ' ' . AmosEvents::t('amosevents', "non può essere inferiore alla data odierna"));
+        }
+    }
+
+
+    /**
+     * Method to compare publication_date_begin with publication_date_end
+     *
+     * @param string $attribute
+     * @param [type] $params
+     * @return void
+     */
+    public function compareDate($attribute, $params){
+
+        $publication_date_begin = new DateTime($this->publication_date_begin);
+        $publication_date_end = new DateTime($this->$attribute);
+
+        if($publication_date_begin->format("Y-m-d H:i") < $publication_date_end->format("Y-m-d H:i")) {
+
+            $isValid = true;
+
+        }else{
+
+            $isValid = false;
+        }
+
+        if (!$isValid) {
+            $this->addError($attribute, $this->getAttributeLabel($attribute) . ' ' . AmosEvents::t('amosevents', "non può essere inferiore alla data di pubblicazione"));
+        }
+    }
+
     /**
      * Validation of $attribute if the attribute publication date of the module is true
      * @param string $attribute
@@ -394,12 +535,12 @@ abstract class Event extends ContentModel implements CommunityInterface
                 $isValid = false;
             }
         }
-        
+
         if (!$isValid) {
-            $this->addError($attribute, $this->getAttributeLabel($attribute) . ' ' . AmosEvents::t('amosevents', "may not be less than today's date"));
+            $this->addError($attribute, $this->getAttributeLabel($attribute) . ' ' . AmosEvents::t('amosevents', "non può essere inferiore alla data di pubblicazione"));
         }
     }
-    
+
     /**
      * @inheritdoc
      */
@@ -422,7 +563,7 @@ abstract class Event extends ContentModel implements CommunityInterface
             ]
         );
     }
-    
+
     /**
      * @inheritdoc
      */
@@ -432,22 +573,22 @@ abstract class Event extends ContentModel implements CommunityInterface
             parent::scenarios(),
             $this->createActionScenarios()
         );
-        
+
         /** @var AmosEvents $eventModule */
         $eventModule = Yii::$app->getModule(AmosEvents::getModuleName());
         if ($eventModule->params['site_publish_enabled']) {
             $scenarios[self::SCENARIO_CREATE][] = 'primo_piano';
         }
-        
+
         if ($eventModule->params['site_featured_enabled']) {
             $scenarios[self::SCENARIO_CREATE][] = 'in_evidenza';
         }
-        
+
         $scenarios[self::SCENARIO_CREATE_HIDE_PUBBLICATION_DATE] = $scenarios[self::SCENARIO_CREATE];
-        
+
         return $scenarios;
     }
-    
+
     /**
      * All create action behaviors.
      * @return array
@@ -465,8 +606,8 @@ abstract class Event extends ContentModel implements CommunityInterface
             ]
         ];
     }
-    
-    
+
+
     /**
      * @inheritdoc
      */
@@ -480,9 +621,9 @@ abstract class Event extends ContentModel implements CommunityInterface
             'summary' => ($enableAgid ? AmosEvents::t('amosevents', '#agid_subtitle') : AmosEvents::t('amosevents', 'Summary')),
             'agid_description' => AmosEvents::t('amosevents', 'Description'),
             'description' => ($enableAgid ? AmosEvents::t('amosevents', '#agid_introduction') : AmosEvents::t('amosevents', 'Description')),
-            'begin_date_hour' => ($enableAgid ? AmosEvents::t('amosevents', '#agid_begin_date') : AmosEvents::t('amosevents', 'Begin Date And Hour')),
+            'begin_date_hour' => ($enableAgid ? AmosEvents::t('amosevents', '#agid_begin_date_hour') : AmosEvents::t('amosevents', 'Begin Date And Hour')),
             'length' => AmosEvents::t('amosevents', 'Length'),
-            'end_date_hour' => ($enableAgid ? AmosEvents::t('amosevents', '#agid_end_date') : AmosEvents::t('amosevents', 'End Date And Hour')),
+            'end_date_hour' => ($enableAgid ? AmosEvents::t('amosevents', '#agid_end_date_hour') : AmosEvents::t('amosevents', 'End Date And Hour')),
             'ics_libero' => AmosEvents::t('amosevents', 'ICS scaricabile senza login'),
             'notes' => AmosEvents::t('amosevents', '#participant_note'),
             'publication_date_begin' => AmosEvents::t('amosevents', 'Data e ora di inizio pubblicazione'),
@@ -520,7 +661,7 @@ abstract class Event extends ContentModel implements CommunityInterface
             'created_at' => AmosEvents::t('amosevents', 'Created At'),
             'updated_at' => AmosEvents::t('amosevents', 'Updated At'),
             'deleted_at' => AmosEvents::t('amosevents', 'Deleted At'),
-            'created_by' => AmosEvents::t('amosevents', 'Created By'),
+            'created_by' => $enableAgid ? AmosEvents::t('amosevents', '#agid_created_by') : AmosEvents::t('amosevents', 'Created By'),
             'updated_by' => AmosEvents::t('amosevents', 'Updated By'),
             'deleted_by' => AmosEvents::t('amosevents', 'Deleted By'),
             'primo_piano' => AmosEvents::t('amosevents', 'Pubblica sul sito'),
@@ -551,17 +692,29 @@ abstract class Event extends ContentModel implements CommunityInterface
             'agid_website' => AmosEvents::t('amosevents', '#agid_website'),
             'agid_other_informations' => AmosEvents::t('amosevents', '#agid_other_informations'),
             'agid_geolocation' => AmosEvents::t('amosevents', '#agid_geolocation'),
+            'enable_ticket_wallet' => AmosEvents::t('amosevents', 'Abilita biglietto su wallet'),
+            "event_gallery_attachment" => AmosEvents::t('amosevents', 'Immagini allegate'),
+            "relatedEventMmAttribute" => AmosEvents::t('amosevents', 'Eventi Correlati'),
+
         ]);
     }
-    
+
+    public function afterFind()
+    {
+        if($this->eventsModule->enableRelatedEvents){
+            $this->relatedEventMmAttribute = ArrayHelper::map(RelatedEventMm::find()->andWhere(['main_event_id' => $this->id])->asArray()->all(), 'related_event_id', 'related_event_id');
+        }
+        return parent::afterFind();
+    }
+
     /**
      * @return \yii\db\ActiveQuery
      */
     public function getEventType()
     {
-        return $this->hasOne($this->eventsModule->model('EventType'), ['id' => 'event_type_id']);
+        return $this->hasOne($this->getModuleEvents()->model('EventType'), ['id' => 'event_type_id']);
     }
-    
+
     /**
      * @inheritdoc
      */
@@ -569,7 +722,7 @@ abstract class Event extends ContentModel implements CommunityInterface
     {
         return $this->community_id;
     }
-    
+
     /**
      * @inheritdoc
      */
@@ -577,7 +730,7 @@ abstract class Event extends ContentModel implements CommunityInterface
     {
         $this->community_id = $communityId;
     }
-    
+
     /**
      * @return \yii\db\ActiveQuery
      */
@@ -585,7 +738,7 @@ abstract class Event extends ContentModel implements CommunityInterface
     {
         return $this->hasOne(\open20\amos\community\models\Community::className(), ['id' => 'community_id']);
     }
-    
+
     /**
      * @return \yii\db\ActiveQuery
      */
@@ -593,7 +746,7 @@ abstract class Event extends ContentModel implements CommunityInterface
     {
         return $this->hasMany(\open20\amos\community\models\CommunityUserMm::className(), ['community_id' => 'community_id']);
     }
-    
+
     /**
      * @return string
      */
@@ -601,7 +754,7 @@ abstract class Event extends ContentModel implements CommunityInterface
     {
         return '' . $this->eventType->title;
     }
-    
+
     /**
      * @return \yii\db\ActiveQuery
      */
@@ -609,7 +762,7 @@ abstract class Event extends ContentModel implements CommunityInterface
     {
         return $this->hasOne(\open20\amos\comuni\models\IstatComuni::className(), ['id' => 'city_location_id']);
     }
-    
+
     /**
      * @return \yii\db\ActiveQuery
      */
@@ -617,7 +770,7 @@ abstract class Event extends ContentModel implements CommunityInterface
     {
         return $this->hasOne(\open20\amos\comuni\models\IstatProvince::className(), ['id' => 'province_location_id']);
     }
-    
+
     /**
      * @return \yii\db\ActiveQuery
      */
@@ -625,7 +778,7 @@ abstract class Event extends ContentModel implements CommunityInterface
     {
         return $this->hasOne(\open20\amos\comuni\models\IstatNazioni::className(), ['id' => 'country_location_id']);
     }
-    
+
     /**
      * @return \yii\db\ActiveQuery
      */
@@ -633,7 +786,7 @@ abstract class Event extends ContentModel implements CommunityInterface
     {
         return $this->hasOne($this->eventsModule->model('EventMembershipType'), ['id' => 'event_membership_type_id']);
     }
-    
+
     /**
      * @return \yii\db\ActiveQuery
      */
@@ -641,7 +794,7 @@ abstract class Event extends ContentModel implements CommunityInterface
     {
         return $this->hasOne($this->eventsModule->model('EventLengthMeasurementUnit'), ['id' => 'length_mu_id']);
     }
-    
+
     public function countGdprQuestions()
     {
         $count = 0;
@@ -664,7 +817,7 @@ abstract class Event extends ContentModel implements CommunityInterface
         }
         return $count;
     }
-    
+
     /**
      * @return \yii\db\ActiveQuery
      */
@@ -672,7 +825,7 @@ abstract class Event extends ContentModel implements CommunityInterface
     {
         return $this->hasMany($this->eventsModule->model('EventSeats'), ['event_id' => 'id']);
     }
-    
+
     /**
      * @return \yii\db\ActiveQuery
      */
@@ -680,7 +833,7 @@ abstract class Event extends ContentModel implements CommunityInterface
     {
         return $this->hasMany($this->eventsModule->model('EventCalendars'), ['event_id' => 'id']);
     }
-    
+
     /**
      * @return \yii\db\ActiveQuery
      */
@@ -688,7 +841,7 @@ abstract class Event extends ContentModel implements CommunityInterface
     {
         return $this->hasOne($this->eventsModule->model('EventRoom'), ['id' => 'event_room_id']);
     }
-    
+
     /**
      * @return \yii\db\ActiveQuery
      */
@@ -696,7 +849,7 @@ abstract class Event extends ContentModel implements CommunityInterface
     {
         return $this->hasOne($this->eventsModule->model('AgidEventTypology'), ['id' => 'agid_event_typology_id']);
     }
-    
+
     /**
      * @return \yii\db\ActiveQuery
      */
@@ -704,7 +857,7 @@ abstract class Event extends ContentModel implements CommunityInterface
     {
         return $this->hasMany($this->eventsModule->model('AgidRelatedEventMm'), ['main_event_id' => 'id']);
     }
-    
+
     /**
      * @return \yii\db\ActiveQuery
      */
@@ -712,7 +865,12 @@ abstract class Event extends ContentModel implements CommunityInterface
     {
         return $this->hasMany($this->eventsModule->model('Event'), ['id' => 'related_event_id'])->via('agidRelatedEventMms');
     }
-    
+
+    public function getRelatedEventMms()
+    {
+        return $this->hasMany($this->eventsModule->model('RelatedEventMm'), ['main_event_id' => 'id']);
+    }
+
     /**
      * @return \yii\db\ActiveQuery
      */
@@ -720,7 +878,7 @@ abstract class Event extends ContentModel implements CommunityInterface
     {
         return $this->hasMany($this->eventsModule->model('AgidAdministrativePersonsMm'), ['event_id' => 'id']);
     }
-    
+
     /**
      * @return \yii\db\ActiveQuery
      */
@@ -733,7 +891,7 @@ abstract class Event extends ContentModel implements CommunityInterface
         }
         return $this->hasMany($agidPersonModule->getModelClassName(), ['id' => 'person_id'])->via('agidAdministrativePersonsMms');
     }
-    
+
     /**
      * @return \yii\db\ActiveQuery
      */
@@ -741,7 +899,7 @@ abstract class Event extends ContentModel implements CommunityInterface
     {
         return $this->hasMany($this->eventsModule->model('AgidEventDocumentsMm'), ['event_id' => 'id']);
     }
-    
+
     /**
      * @return \yii\db\ActiveQuery
      */
@@ -754,7 +912,7 @@ abstract class Event extends ContentModel implements CommunityInterface
         }
         return $this->hasMany($documentiModule->getModelClassName(), ['id' => 'document_id'])->via('agidEventDocumentsMms');
     }
-    
+
     /**
      * @return \yii\db\ActiveQuery
      */
@@ -767,7 +925,7 @@ abstract class Event extends ContentModel implements CommunityInterface
         }
         return $this->hasOne(\amos\sitemanagement\models\SiteManagementSlider::className(), ['id' => 'agid_image_slider_id']);
     }
-    
+
     /**
      * @return \yii\db\ActiveQuery
      */
@@ -780,4 +938,67 @@ abstract class Event extends ContentModel implements CommunityInterface
         }
         return $this->hasOne(\amos\sitemanagement\models\SiteManagementSlider::className(), ['id' => 'agid_video_slider_id']);
     }
+
+    /**
+     * Method to get all events related events
+     *
+     * @param boolean $only_validated
+     * @return array | model | Event
+     */
+    public function getAllAgidRelatedEvents($only_validated = true){
+
+        $related_event_id = ArrayHelper::getColumn(
+            $this->agidRelatedEventMms,
+
+            function ($element) {
+                return $element['related_event_id'];
+            }
+        );
+
+        $related_events = EventModel::find()
+                            ->andWhere([ 'id' => $related_event_id ]);
+
+
+        if($only_validated){
+
+            $related_events = $related_events->andWhere([ 'status' => $this::EVENTS_WORKFLOW_STATUS_PUBLISHED ]);
+        }
+
+        return $related_events = $related_events->andWhere([ 'deleted_at' => null ])->all();
+    }
+
+
+    /**
+     * Metodo per il ritorno dei degli eventi figli per uno specifico evento
+     *
+     * @param boolean $only_validated
+     *
+     * @return array | model | Event
+     */
+    public function getAllMainEvents($only_validated = true){
+
+        // estrazione di tutti gli eventi che hanno related id $this->id
+        $main_event_id = ArrayHelper::getColumn(
+                        AgidRelatedEventMm::find()->where(['related_event_id' => $this->id])
+                        ->andwhere(['deleted_at' => null])
+                        ->all(),
+
+            function ($element) {
+                return $element['main_event_id'];
+            }
+        );
+
+        // controllo lo stato dell'evento
+        $main_events = EventModel::find()
+                        ->andWhere([ 'id' => $main_event_id ])
+                        ->andWhere(['primo_piano' => 1])
+                        ->andWhere(['in_evidenza' => 1]);
+
+        if($only_validated){
+            $main_events = $main_events->andWhere([ 'status' => $this::EVENTS_WORKFLOW_STATUS_PUBLISHED ]);
+        }
+
+        return $main_events = $main_events->andWhere([ 'deleted_at' => null ])->all();
+    }
+
 }

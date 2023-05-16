@@ -27,6 +27,7 @@ use open20\amos\core\user\User;
 use open20\amos\core\utilities\Email;
 use open20\amos\core\widget\WidgetAbstract;
 use open20\amos\events\AmosEvents;
+use open20\amos\events\helpers\google_api\GpayUtility;
 use open20\amos\events\models\Event;
 use open20\amos\events\models\EventAccreditationList;
 use open20\amos\events\models\EventInvitation;
@@ -44,6 +45,10 @@ use open20\amos\events\utility\EventMailUtility;
 use open20\amos\events\utility\EventsUtility;
 use open20\amos\events\utility\ICS;
 use open20\amos\events\utility\MultipleModel;
+use open20\amos\events\widgets\icons\WidgetIconAllEvents;
+use open20\amos\events\widgets\icons\WidgetIconEventOwnInterest;
+use open20\amos\events\widgets\icons\WidgetIconEventsCreatedBy;
+use open20\amos\events\widgets\icons\WidgetIconEventsToPublish;
 use kartik\mpdf\Pdf;
 use moonland\phpexcel\Excel;
 use Yii;
@@ -63,13 +68,19 @@ use yii\web\Response;
  * This is the class for controller "EventController".
  * @package open20\amos\events\controllers
  */
-class EventController extends base\EventController
-{
+class EventController extends base\EventController {
+
     /**
      * @var string $layout
      */
     public $layout = 'list';
     private $min_seats_event = 1;
+
+    /**
+     * @var AmosEvents $amosEventsModule
+     */
+    public $amosEventsModule = null;
+    protected $myCurrentView;
 
     /**
      * M2MWidgetControllerTrait
@@ -79,8 +90,7 @@ class EventController extends base\EventController
     /**
      * @inheritdoc
      */
-    public function behaviors()
-    {
+    public function behaviors() {
         return ArrayHelper::merge(parent::behaviors(),
             [
                 'access' => [
@@ -97,6 +107,8 @@ class EventController extends base\EventController
                                 'validate',
                                 'reject',
                                 'own-interest',
+				'esporta',
+				'admin'events'
                             ],
                             'roles' => ['EVENTS_ADMINISTRATOR']
                         ],
@@ -254,8 +266,7 @@ class EventController extends base\EventController
     /**
      * @inheritdoc
      */
-    public function init()
-    {
+    public function init() {
         parent::init();
 
         $this->setMmTableName(CommunityUserMm::className());
@@ -267,34 +278,71 @@ class EventController extends base\EventController
         $this->setModuleClassName(AmosEvents::className());
         $this->setCustomQuery(true);
         $this->on(M2MEventsEnum::EVENT_BEFORE_CANCEL_ASSOCIATE_M2M, [$this, 'beforeCancelAssociateM2m']);
+
+        // set layout view (calendar or grid)
+        $this->amosEventsModule = Yii::$app->getModule(AmosEvents::getModuleName());
+
+        if (Yii::$app->getRequest()->getQueryParam('currentView')) {
+            $this->myCurrentView = Yii::$app->getRequest()->getQueryParam('currentView');
+        }
+
+        if (empty($this->myCurrentView)) {
+            if (empty($this->amosEventsModule->defaultView)) {
+                $this->myCurrentView = reset($this->amosEventsModule->defaultListViews);
+            } else {
+                $this->myCurrentView = $this->amosEventsModule->defaultView;
+            }
+        }
     }
 
 
 
-
-    public function beforeAction($action)
-    {
+    /**
+     * 
+     * @param type $action
+     * @return boolean
+     */
+    public function beforeAction($action) {
         if (\Yii::$app->user->isGuest) {
             $titleSection = AmosEvents::t('amosevents', '#widget_icon_events_label');
-            $urlLinkAll   = '/events/event/all-events';
 
-            
-            
+            $urlLinkAll = '';
+
+            $ctaLoginRegister = Html::a(
+                            AmosEvents::t('amosevents', '#beforeActionCtaLoginRegister'),
+                            isset(\Yii::$app->params['linkConfigurations']['loginLinkCommon']) ? \Yii::$app->params['linkConfigurations']['loginLinkCommon'] : \Yii::$app->params['platform']['backendUrl'] . '/' . AmosAdmin::getModuleName() . '/security/login',
+                            [
+                                'title' => AmosEvents::t(
+                                        'AmosEvents', '#click_to_login_or_register',
+                                        ['platformName' => \Yii::$app->name]
+                                )
+                            ]
+            );
+            $subTitleSection = Html::tag(
+                            'p',
+                            AmosEvents::t(
+                                    'AmosEvents', '#beforeActionSubtitleSectionGuest', ['ctaLoginRegister' => $ctaLoginRegister]
+                            )
+            );
         } else {
             $titleSection = AmosEvents::t('amosevents', '#widget_icon_events_label');
-           
+            $labelLinkAll = AmosEvents::t('amosevents', '#widget_icon_all_events_label');
+            $titleLinkAll = AmosEvents::t('amosevents', '#widget_icon_all_events_description');
+            $urlLinkAll = '/events/event/all-events';
+
+            $subTitleSection = Html::tag('p', AmosEvents::t('amosevents', '#beforeActionSubtitleSectionLogged'));
         }
 
-        $labelCreate = AmosEvents::t('amosevents', 'Nuovo Evento');
-        $titleCreate =AmosEvents::t('amosevents', 'Crea un nuovo evento');
-        $labelManage = AmosEvents::t('amosevents', 'Gesitsci');
+        $labelCreate = AmosEvents::t('amosevents', 'Nuovo');
+        $titleCreate = AmosEvents::t('amosevents', 'Crea un nuovo evento');
+        $labelManage = AmosEvents::t('amosevents', 'Gestisci');
         $titleManage = AmosEvents::t('amosevents', 'Gestisci gli eventi');
-        $urlCreate   = '/events/event/create';
-        $urlManage   = '#';
+        $urlCreate = '/events/event/create';
+        $urlManage = null;
 
         $this->view->params = [
             'isGuest' => \Yii::$app->user->isGuest,
-            'modelLabel' => 'eventi',
+            'modelLabel' => AmosEvents::t('amosevents', '#events'),
             'titleSection' => $titleSection,
             'subTitleSection' => $subTitleSection,
             'urlLinkAll' => $urlLinkAll,
@@ -312,19 +360,19 @@ class EventController extends base\EventController
             return false;
         }
 
+        if (\Yii::$app->controller->module->useFrontendView == true) {
+            return true;
+        }
+
         // other custom code here
 
         return true;
     }
 
-
-
-
     /**
      * @param \yii\base\Event $event
      */
-    public function beforeCancelAssociateM2m($event)
-    {
+    public function beforeCancelAssociateM2m($event) {
         $urlPrevious = Yii::$app->session->get(AmosAdmin::beginCreateNewSessionKey());
         if (!$urlPrevious) {
             $urlPrevious = Url::previous();
@@ -335,8 +383,7 @@ class EventController extends base\EventController
     /**
      * @return mixed
      */
-    public function actionAssociateUserToEventM2m()
-    {
+    public function actionAssociateUserToEventM2m() {
         Url::remember();
         $this->setUpLayout('main');
         $this->setMmTableName(CommunityUserMm::className());
@@ -357,8 +404,7 @@ class EventController extends base\EventController
     /**
      * @return string
      */
-    public function actionCreatedBy()
-    {
+    public function actionCreatedBy() {
         $this->setDataProvider($this->modelSearch->searchCreatedBy(Yii::$app->request->getQueryParams()));
 
         if ($this->eventsModule->actionCreatedByOnlyViewGrid) {
@@ -366,24 +412,54 @@ class EventController extends base\EventController
                 'grid' => [
                     'name' => 'grid',
                     'label' => AmosEvents::t('amosevents',
-                        '{tableIcon}' . Html::tag('p', AmosEvents::t('amosevents', 'Table')),
-                        [
-                            'tableIcon' => AmosIcons::show('view-list-alt')
-                        ]),
+                            '{tableIcon}' . Html::tag('p', AmosEvents::t('amosevents', 'Table')),
+                            [
+                                'tableIcon' => AmosIcons::show('view-list-alt')
+                            ]),
                     'url' => '?currentView=grid'
                 ]
             ]);
             $this->setCurrentView($this->getAvailableView('grid'));
         }
 
+        // AGID ENABLE
+        if ($this->amosEventsModule->enableAgid) {
+
+            $this->setAgidEventDataProvider();
+        }
+        if (!\Yii::$app->user->isGuest) {
+            $this->view->params['titleSection'] = AmosEvents::t('amosevents', 'Created by me');
+        }
+
+
         return $this->baseListsAction(AmosEvents::t('amosevents', 'Created by me'));
+    }
+
+    public function actionAdminEvents()
+    {
+        $this->view->params['titleSection'] = AmosEvents::t('amosevents', 'Amministra eventi');
+
+        $this->setDataProvider($this->modelSearch->searchAdmin(Yii::$app->request->getQueryParams()));
+        $this->setAvailableViews([
+            'grid' => [
+                'name' => 'grid',
+                'label' => AmosEvents::t('amosevents',
+                    '{tableIcon}' . Html::tag('p', AmosEvents::t('amosevents', 'Table')),
+                    [
+                        'tableIcon' => AmosIcons::show('view-list-alt')
+                    ]),
+                'url' => '?currentView=grid'
+            ]
+        ]);
+        $this->setCurrentView($this->getAvailableView('grid'));
+
+        return $this->baseListsAction(AmosEvents::t('amosevents', 'Amministra Eventi'), true);
     }
 
     /**
      * @return string
      */
-    public function actionCalculateEndDateHour()
-    {
+    public function actionCalculateEndDateHour() {
         $retval = [];
         if (Yii::$app->getRequest()->getIsAjax()) {
             $post = Yii::$app->getRequest()->post();
@@ -418,8 +494,7 @@ class EventController extends base\EventController
     /**
      * @return bool|string
      */
-    public function actionGetEventById()
-    {
+    public function actionGetEventById() {
         /**
          * post('id') is in the form 'cal-event-$id'
          */
@@ -438,9 +513,26 @@ class EventController extends base\EventController
     /**
      * @return string
      */
-    public function actionToPublish()
-    {
+    public function actionToPublish() {
+        $this->setAvailableViews([
+            'grid' => [
+                'name' => 'grid',
+                'label' => AmosEvents::t('amosevents',
+                        '{tableIcon}' . Html::tag('p', AmosEvents::t('amosevents', 'Table')),
+                        [
+                            'tableIcon' => AmosIcons::show('view-list-alt')
+                        ]),
+                'url' => '?currentView=grid'
+            ]
+        ]);
+        $this->setCurrentView($this->getAvailableView('grid'));
         $this->setDataProvider($this->modelSearch->searchToPublish(Yii::$app->request->getQueryParams()));
+
+        // AGID ENABLE
+        if ($this->amosEventsModule->enableAgid) {
+
+            $this->setAgidEventDataProvider();
+        }
 
         return $this->baseListsAction(AmosEvents::t('amosevents', 'To publish'), true, 'toPublish');
     }
@@ -448,8 +540,7 @@ class EventController extends base\EventController
     /**
      * @return string
      */
-    public function actionManagement()
-    {
+    public function actionManagement() {
         $this->setDataProvider($this->modelSearch->searchManagement(Yii::$app->request->getQueryParams()));
 
         return $this->baseListsAction(AmosEvents::t('amosevents', 'Events management'), true, 'management');
@@ -459,14 +550,24 @@ class EventController extends base\EventController
      * Lists own interests Event models.
      * @return string
      */
-    public function actionOwnInterest()
-    {
-        $moduleNotify = \Yii::$app->getModule('notify');
-        if ($moduleNotify) {
-            /** @var \open20\amos\notificationmanager\AmosNotify $moduleNotify */
-            $this->modelSearch->setNotifier($moduleNotify);
+    public function actionOwnInterest() {
+        if ($this->moduleNotify) {
+            $this->modelSearch->setNotifier($this->moduleNotify);
         }
         $this->setDataProvider($this->modelSearch->searchCalendarView(Yii::$app->request->getQueryParams()));
+
+        $this->setCurrentView($this->getAvailableView($this->myCurrentView));
+
+        if (!\Yii::$app->user->isGuest) {
+            $bc = $this->model->getBullet(\open20\amos\core\record\Record::BULLET_TYPE_OWN, true);
+            $this->view->params['titleSection'] = AmosEvents::t('amosevents', '#widget_icon_event_own_interest_description');
+            $this->view->params['bulletCount'] = $bc;
+        }
+        // AGID ENABLE
+        if ($this->amosEventsModule->enableAgid) {
+
+            $this->setAgidEventDataProvider();
+        }
 
         return $this->baseListsAction(AmosEvents::t('amosevents', '#page_title_own_interest'));
     }
@@ -475,14 +576,31 @@ class EventController extends base\EventController
      * Lists all Event models.
      * @return string
      */
-    public function actionAllEvents()
-    {
-        $moduleNotify = \Yii::$app->getModule('notify');
-        if ($moduleNotify) {
-            /** @var \open20\amos\notificationmanager\AmosNotify $moduleNotify */
-            $this->modelSearch->setNotifier($moduleNotify);
+    public function actionAllEvents() {
+        if ($this->moduleNotify) {
+            $this->modelSearch->setNotifier($this->moduleNotify);
         }
         $this->setDataProvider($this->modelSearch->searchAllEvents(Yii::$app->request->getQueryParams()));
+
+        $this->setCurrentView($this->getAvailableView($this->myCurrentView));
+
+        // AGID ENABLE
+        if ($this->amosEventsModule->enableAgid) {
+
+            $this->setAgidEventDataProvider();
+        }
+        if (!\Yii::$app->user->isGuest) {
+            $bc = $this->model->getBullet(\open20\amos\core\record\Record::BULLET_TYPE_ALL, true);
+            $this->view->params['titleSection'] = AmosEvents::t('amosevents', '#all_events');
+            $this->view->params['labelLinkAll'] = AmosEvents::t('amosevents', '#page_title_own_interest');
+            $this->view->params['urlLinkAll'] = AmosEvents::t('amosevents', '/events/event/own-interest');
+            $this->view->params['titleLinkAll'] = AmosEvents::t(
+                            'amosevents', '#widget_icon_event_own_interest_description'
+            );
+            $this->view->params['bulletCount'] = $bc;
+        } else {
+            $this->view->params['titleSection'] = AmosEvents::t('amosevents', '#all_events');
+        }
 
         return $this->baseListsAction(AmosEvents::t('amosevents', '#all_events'));
     }
@@ -491,26 +609,29 @@ class EventController extends base\EventController
      * Lists all Event models.
      * @return string
      */
-    public function actionSubscribedEvents()
-    {
-        $moduleNotify = \Yii::$app->getModule('notify');
-        if ($moduleNotify) {
-            /** @var \open20\amos\notificationmanager\AmosNotify $moduleNotify */
-            $this->modelSearch->setNotifier($moduleNotify);
+    public function actionSubscribedEvents() {
+        if ($this->moduleNotify) {
+            $this->modelSearch->setNotifier($this->moduleNotify);
         }
         $this->setAvailableViews([
             'grid' => [
                 'name' => 'grid',
                 'label' => AmosEvents::t('amosevents',
-                    '{tableIcon}' . Html::tag('p', AmosEvents::t('amosevents', 'Table')),
-                    [
-                        'tableIcon' => AmosIcons::show('view-list-alt')
-                    ]),
+                        '{tableIcon}' . Html::tag('p', AmosEvents::t('amosevents', 'Table')),
+                        [
+                            'tableIcon' => AmosIcons::show('view-list-alt')
+                        ]),
                 'url' => '?currentView=grid'
             ]
         ]);
         $this->setCurrentView($this->getAvailableView('grid'));
         $this->setDataProvider($this->modelSearch->searchSubscribedEvents(Yii::$app->request->getQueryParams()));
+
+        // AGID ENABLE
+        if ($this->amosEventsModule->enableAgid) {
+
+            $this->setAgidEventDataProvider();
+        }
 
         return $this->baseListsAction(AmosEvents::t('amosevents', '#subscribed_events'));
     }
@@ -519,8 +640,7 @@ class EventController extends base\EventController
      * @return string|\yii\web\Response
      * @throws \yii\base\InvalidConfigException
      */
-    public function actionSubscribeAndRegister()
-    {
+    public function actionSubscribeAndRegister() {
         $this->setUpLayout('main');
         // Some stuff
         $ses = Yii::$app->getSession();
@@ -534,7 +654,7 @@ class EventController extends base\EventController
         $eventInvitationModel = $this->eventsModule->createModel('EventInvitation');
         $invitation = $eventInvitationModel::findOne(['code' => $code]);
         if (!$invitation || $invitation->state != EventInvitation::INVITATION_STATE_INVITED) {
-            $ses->addFlash('danger', 'Invito non trovato');
+            $ses->addFlash('danger', AmosEvents::t('amosevents', 'Invito non trovato'));
             return $this->redirect('/');
         }
 
@@ -542,10 +662,10 @@ class EventController extends base\EventController
         $event = $invitation->event;
         $eventId = $event->id;
         if (!$event) {
-            $ses->addFlash('danger', 'Evento non trovato');
+            $ses->addFlash('danger', AmosEvents::t('amosevents', 'Event not found'));
             return $this->redirect('/');
         } else if (!$event->community_id) {
-            $ses->addFlash('danger', 'Community non trovata');
+            $ses->addFlash('danger', AmosEvents::t('amosevents', 'Community non trovata'));
             return $this->redirect('/');
         }
 
@@ -555,7 +675,7 @@ class EventController extends base\EventController
             $to = $event->registration_date_end ? strtotime($event->registration_date_end) : PHP_INT_MAX;
             $now = time();
             if ($now < $from || $now > $to) {
-                $ses->addFlash('danger', 'Iscrizioni chiuse');
+                $ses->addFlash('danger', AmosEvents::t('amosevents', 'Iscrizioni chiuse'));
                 return $this->redirect('/');
             }
         }
@@ -584,7 +704,7 @@ class EventController extends base\EventController
                 $userProfile = null;
                 if ($invitation->type == EventInvitation::INVITATION_TYPE_IMPORTED) {
                     $userNew = AmosAdmin::getInstance()->createNewAccount(
-                        $invitation->name, $invitation->surname, $invitation->email, 1
+                            $invitation->name, $invitation->surname, $invitation->email, 1
                     );
                     if (isset($userNew['user']) && !is_null($userNew['user'])) {
                         $user = $userNew['user'];
@@ -593,8 +713,8 @@ class EventController extends base\EventController
                     } else {
                         if (isset($userNew['error']) && ($userNew['error'] == UserProfileUtility::UNABLE_TO_CREATE_USER_ERROR)) {
                             $ses->addFlash('info',
-                                AmosEvents::t('amosevents', '{username} Procedere con il login',
-                                    ['username' => $userNew['messages']['email'][0]]));
+                                    AmosEvents::t('amosevents', '{username} Procedere con il login',
+                                            ['username' => $userNew['messages']['email'][0]]));
 
                             $user = User::findOne(['email' => $invitation->email]);
                             $userId = $user->id;
@@ -603,7 +723,7 @@ class EventController extends base\EventController
                         } else {
                             $transaction->rollBack();
                             $ses->addFlash('danger',
-                                AmosEvents::t('amosevents', 'Qualcosa è andato storto nella creazione dell\'utente'));
+                                    AmosEvents::t('amosevents', 'Qualcosa è andato storto nella creazione dell\'utente'));
                             return $this->redirect('/');
                         }
                     }
@@ -625,15 +745,15 @@ class EventController extends base\EventController
 
                         //send email for status waiting
                         $this->doSendMailWaiting($event);
-                        $ses->addFlash('danger', 'Il numero massimo di posti disponibili è stato superato');
+                        $ses->addFlash('danger', AmosEvents::t('amosevents', 'Il numero massimo di posti disponibili è stato superato'));
                         return $this->redirect('/');
                     }
                 }
                 $communityModule = AmosCommunity::getInstance();
                 if (!is_null($communityModule)) {
                     $communityModule->createCommunityUser($event->community_id, $community_memeber_status,
-                        Event::EVENT_PARTICIPANT, $userId, $invitation->invitation_sent_on,
-                        new \yii\db\Expression('now()'), $invitation->partner_of);
+                            Event::EVENT_PARTICIPANT, $userId, $invitation->invitation_sent_on,
+                            new \yii\db\Expression('now()'), $invitation->partner_of);
                 }
 
                 // Sets invitation as accepted
@@ -663,26 +783,26 @@ class EventController extends base\EventController
                             $partnerInvitation->save();
                             // Sends e-mail
                             $urlYes = Url::base(true) . Url::toRoute(['subscribe-and-register',
-                                    'id' => $eventId, 'code' => $partnerInvitation->code]);
+                                        'id' => $eventId, 'code' => $partnerInvitation->code]);
                             $urlNo = Url::base(true) . Url::toRoute(['reject', 'id' => $eventId,
-                                    'code' => $partnerInvitation->code]);
+                                        'code' => $partnerInvitation->code]);
                             $text = $this->renderPartial('email_partner_invitation',
-                                [
-                                    'event' => $event,
-                                    'user' => $user,
-                                    'profile' => $userProfile,
-                                    'partner' => $partner,
-                                    'urlYes' => $urlYes,
-                                    'urlNo' => $urlNo,
-                                ]);
+                                    [
+                                        'event' => $event,
+                                        'user' => $user,
+                                        'profile' => $userProfile,
+                                        'partner' => $partner,
+                                        'urlYes' => $urlYes,
+                                        'urlNo' => $urlNo,
+                            ]);
                             Email::sendMail($from, [$partner['email']], 'Invito - ' . $event->title, $text, [], [], [], 0,
-                                false);
+                                    false);
                         }
                     }
                 }
 
                 if (!$userregister) {
-                    $ses->addFlash('success', AmosEvents::t('amosevents', 'Registrazione avvenuta con successo!'));
+                    $ses->addFlash('success', AmosEvents::t('amosevents', '#event_signup_thankyou_success'));
                     if ($invitation->type == EventInvitation::INVITATION_TYPE_IMPORTED) {
                         $user->generatePasswordResetToken();
                         $user->save(false);
@@ -707,18 +827,17 @@ class EventController extends base\EventController
         }
 
         return $this->render('event_invitation_confirm',
-            [
-                'event' => $event,
-                'invitation' => $invitation,
-                'partners' => $partners,
-            ]);
+                        [
+                            'event' => $event,
+                            'invitation' => $invitation,
+                            'partners' => $partners,
+        ]);
     }
 
     /**
      * @return \yii\web\Response
      */
-    public function actionSubscribe()
-    {
+    public function actionSubscribe() {
         $eventId = Yii::$app->request->get('eventId');
         /** @var Event $eventModel */
         $eventModel = $this->eventsModule->createModel('Event');
@@ -733,7 +852,7 @@ class EventController extends base\EventController
 
         if (!$communityId) {
             Yii::$app->getSession()->addFlash('danger',
-                AmosEvents::tHtml('amosevents', "It is not possible to subscribe the user. Missing parameter community."));
+                    AmosEvents::tHtml('amosevents', "It is not possible to subscribe the user. Missing parameter community."));
             return $this->redirect($defaultAction);
         }
 
@@ -746,11 +865,11 @@ class EventController extends base\EventController
         $communityUserMm->role = Event::EVENT_PARTICIPANT;
         if ($communityUserMm->save()) {
             Yii::$app->getSession()->addFlash('success',
-                AmosEvents::t('amosevents', 'Your request has been forwarded to event manager for approval.'));
+                    AmosEvents::t('amosevents', 'Your request has been forwarded to event manager for approval.'));
         } else {
             Yii::$app->getSession()->addFlash('danger',
-                AmosEvents::t('amosevents',
-                    'An error occurred. Your request has NOT been forwarded to event manager for approval'));
+                    AmosEvents::t('amosevents',
+                            'An error occurred. Your request has NOT been forwarded to event manager for approval'));
         }
 
         /////////////////////////////////////////////////////
@@ -762,12 +881,11 @@ class EventController extends base\EventController
         $userProfile = $user->getProfile();
         // Populate SUBJECT
         $subject = AmosEvents::t('amosevents', 'User') . ' ' . $userProfile->getNomeCognome() . ' ' . AmosEvents::t('amosevents',
-                'asked to join the event') . ' ' . $event->title;
+                        'asked to join the event') . ' ' . $event->title;
 
         // Populate TEXT
         $text = $subject;
-        $text .= AmosEvents::t('amosevents', 'Type') . ': ' . !is_null($event->eventType) ? $event->eventType->title
-            : '-' . '<br>';
+        $text .= AmosEvents::t('amosevents', 'Type') . ': ' . !is_null($event->eventType) ? $event->eventType->title : '-' . '<br>';
         $text .= AmosEvents::t('amosevents', 'Title') . ': ' . $event->title . '<br>';
         $text .= AmosEvents::t('amosevents', 'Summary') . ': ' . $event->summary . '<br>';
         $text .= AmosEvents::t('amosevents', 'Published by') . ': ' . UserProfile::findOne(['user_id' => $event->created_by])->getNomeCognome();
@@ -777,7 +895,7 @@ class EventController extends base\EventController
         ];
         $url = Yii::$app->urlManager->createAbsoluteUrl($createUrlParams) . '#tab-participants';
         $text .= Html::a(AmosEvents::t('amosevents', "Sign into the event to accept or reject the request."),
-            $url);
+                        $url);
 
         $files = [];
         $bcc[] = $user->email;
@@ -787,7 +905,7 @@ class EventController extends base\EventController
 
         // SEND EMAIL
         Email::sendMail(
-            $from, $to, $subject, $text, $files, $bcc, $params, $priority, $use_queue
+                $from, $to, $subject, $text, $files, $bcc, $params, $priority, $use_queue
         );
 
         return $this->redirect($defaultAction);
@@ -798,8 +916,7 @@ class EventController extends base\EventController
      * It's not the logged user that subscribe himself to an event, like normal procedure.
      * @return \yii\web\Response
      */
-    public function actionSubscribeUserToEvent()
-    {
+    public function actionSubscribeUserToEvent() {
         /** @var User $loggedUser */
         $loggedUser = Yii::$app->user->identity;
         $eventId = Yii::$app->request->get('eventId');
@@ -819,7 +936,7 @@ class EventController extends base\EventController
 
         if (!$communityId) {
             Yii::$app->getSession()->addFlash('danger',
-                AmosEvents::tHtml('amosevents', "It is not possible to subscribe the user. Missing parameter community."));
+                    AmosEvents::tHtml('amosevents', "It is not possible to subscribe the user. Missing parameter community."));
             return $this->redirect($defaultAction);
         }
 
@@ -836,9 +953,7 @@ class EventController extends base\EventController
         $communityUserMm->community_id = $communityId;
         $communityUserMm->user_id = $userId;
 
-        $status = ($this->eventsModule->forceEventSubscription == true)
-            ? CommunityUserMm::STATUS_ACTIVE
-            : CommunityUserMm::STATUS_WAITING_OK_COMMUNITY_MANAGER;
+        $status = ($this->eventsModule->forceEventSubscription == true) ? CommunityUserMm::STATUS_ACTIVE : CommunityUserMm::STATUS_WAITING_OK_COMMUNITY_MANAGER;
 
         $communityUserMm->status = $status;
         $communityUserMm->role = Event::EVENT_PARTICIPANT;
@@ -848,8 +963,8 @@ class EventController extends base\EventController
             $event->community->setCwhAuthAssignments($communityUserMm);
         } else {
             Yii::$app->getSession()->addFlash('danger',
-                AmosEvents::t('amosevents',
-                    'An error occurred. Your request has NOT been forwarded to event manager for approval'));
+                    AmosEvents::t('amosevents',
+                            'An error occurred. Your request has NOT been forwarded to event manager for approval'));
             return $this->redirect($defaultAction);
         }
 
@@ -860,48 +975,41 @@ class EventController extends base\EventController
         $to = [$user->email];
 
         // Email subject
-        $subjectMessage = ($this->eventsModule->forceEventSubscription == true)
-            ? '#user_forced_user_to_event_email_subject'
-            : '#user_invite_user_to_event_email_subject';
+        $subjectMessage = ($this->eventsModule->forceEventSubscription == true) ? '#user_forced_user_to_event_email_subject' : '#user_invite_user_to_event_email_subject';
 
         $subject = AmosEvents::t('amosevents', $subjectMessage, [
-            'nameSurname' => $loggedUser->userProfile->nomeCognome,
-            'eventTitle' => $event->title
+                    'nameSurname' => $loggedUser->userProfile->nomeCognome,
+                    'eventTitle' => $event->title
         ]);
 
         // Email text
         $text = $subject . '<br><br>';
-        $text .= (!is_null($event->eventType) ? AmosEvents::t('amosevents', 'Type') . ': ' . $event->eventType->title . '<br>'
-            : '-' . '<br>');
+        $text .= (!is_null($event->eventType) ? AmosEvents::t('amosevents', 'Type') . ': ' . $event->eventType->title . '<br>' : '-' . '<br>');
         $text .= AmosEvents::t('amosevents', 'Title') . ': ' . $event->title . '<br>';
         $text .= AmosEvents::t('amosevents', 'Summary') . ': ' . $event->summary . '<br>';
         $text .= $event->getAttributeLabel('begin_date_hour') . ': ' . Yii::$app->getFormatter()->asDatetime($event->begin_date_hour,
-                'humanalwaysdatetime') . '<br>';
-        $text .= ($event->end_date_hour ? $event->getAttributeLabel('end_date_hour') . ': ' . \Yii::$app->getFormatter()->asDatetime($event->end_date_hour) . '<br>'
-            : '-' . '<br>');
+                        'humanalwaysdatetime') . '<br>';
+        $text .= ($event->end_date_hour ? $event->getAttributeLabel('end_date_hour') . ': ' . \Yii::$app->getFormatter()->asDatetime($event->end_date_hour) . '<br>' : '-' . '<br>');
         if (
-            $event->event_location ||
-            ($event->event_address && $event->event_address_house_number) ||
-            ($event->event_address_cap && $event->cityLocation) ||
-            $event->provinceLocation ||
-            $event->countryLocation
+                $event->event_location ||
+                ($event->event_address && $event->event_address_house_number) ||
+                ($event->event_address_cap && $event->cityLocation) ||
+                $event->provinceLocation ||
+                $event->countryLocation
         ) {
             $text .= AmosEvents::t('amosevents', 'Location') . ': ' .
-                ($event->event_location ? $event->event_location . '<br>' : '') .
-                ($event->event_address ? $event->event_address : '') .
-                (($event->event_address_house_number && $event->event_address) ? ', ' . $event->event_address_house_number . '<br>'
-                    : ($event->event_address_house_number ? $event->event_address_house_number . '<br>' : '')) .
-                ($event->event_address_cap ? $event->event_address_cap : '') .
-                ($event->cityLocation ? $event->cityLocation->nome . ' ' : '') .
-                ($event->provinceLocation ? $event->provinceLocation->sigla : '') .
-                ($event->event_address_cap || $event->cityLocation || $event->provinceLocation ? ' <br>' : '') .
-                ($event->countryLocation ? $event->countryLocation->nome . ' ' : '') . '<br>';
+                    ($event->event_location ? $event->event_location . '<br>' : '') .
+                    ($event->event_address ? $event->event_address : '') .
+                    (($event->event_address_house_number && $event->event_address) ? ', ' . $event->event_address_house_number . '<br>' : ($event->event_address_house_number ? $event->event_address_house_number . '<br>' : '')) .
+                    ($event->event_address_cap ? $event->event_address_cap : '') .
+                    ($event->cityLocation ? $event->cityLocation->nome . ' ' : '') .
+                    ($event->provinceLocation ? $event->provinceLocation->sigla : '') .
+                    ($event->event_address_cap || $event->cityLocation || $event->provinceLocation ? ' <br>' : '') .
+                    ($event->countryLocation ? $event->countryLocation->nome . ' ' : '') . '<br>';
         }
 
         $url = Yii::$app->urlManager->createAbsoluteUrl($event->getFullViewUrl()) . '#tab-participants';
-        $urlLabel = ($this->eventsModule->forceEventSubscription == true)
-            ? '#view_event_details'
-            : '#sign_to_accept_or_reject';
+        $urlLabel = ($this->eventsModule->forceEventSubscription == true) ? '#view_event_details' : '#sign_to_accept_or_reject';
         $text .= Html::a(AmosEvents::t('amosevents', $urlLabel), $url);
 
         // SEND EMAIL
@@ -915,10 +1023,10 @@ class EventController extends base\EventController
         $ok = Email::sendMail($from, $to, $subject, $text, [], $bcc, [], 0, false);
         if ($ok) {
             Yii::$app->getSession()->addFlash('success',
-                AmosEvents::t('amosevents', 'Your request has been forwarded to event manager for approval.'));
+                    AmosEvents::t('amosevents', 'Your request has been forwarded to event manager for approval.'));
         } else {
             Yii::$app->getSession()->addFlash('danger',
-                AmosEvents::t('amosevents', 'An error occurred while sending notification email'));
+                    AmosEvents::t('amosevents', 'An error occurred while sending notification email'));
         }
 
         return $this->redirect($defaultAction);
@@ -927,8 +1035,7 @@ class EventController extends base\EventController
     /**
      * @return \yii\web\Response
      */
-    public function actionAccept()
-    {
+    public function actionAccept() {
         $eventId = Yii::$app->request->get('eventId');
         /** @var Event $eventModel */
         $eventModel = $this->eventsModule->createModel('Event');
@@ -942,7 +1049,7 @@ class EventController extends base\EventController
 
         if (!$communityId) {
             Yii::$app->getSession()->addFlash('danger',
-                AmosEvents::tHtml('amosevents', "It is not possible to subscribe the user. Missing parameter community."));
+                    AmosEvents::tHtml('amosevents', "It is not possible to subscribe the user. Missing parameter community."));
             return $this->redirect($defaultAction);
         }
 
@@ -957,7 +1064,7 @@ class EventController extends base\EventController
             Yii::$app->getSession()->addFlash('success', AmosEvents::t('amosevents', 'Thank you to join the event.'));
         } else {
             Yii::$app->getSession()->addFlash('danger',
-                AmosEvents::t('amosevents', 'An error occurred. You DID NOT join this event.'));
+                    AmosEvents::t('amosevents', 'An error occurred. You DID NOT join this event.'));
         }
 
         /////////////////////////////////////////////////////
@@ -969,12 +1076,11 @@ class EventController extends base\EventController
         $userProfile = $user->getProfile();
         // Populate SUBJECT
         $subject = AmosEvents::t('amosevents', 'User') . ' ' . $userProfile->getNomeCognome() . ' ' . AmosEvents::t('amosevents',
-                'accepted to join the event') . ' ' . $event->title;
+                        'accepted to join the event') . ' ' . $event->title;
 
         // Populate TEXT
         $text = $subject;
-        $text .= AmosEvents::t('amosevents', 'Type') . ': ' . !is_null($event->eventType) ? $event->eventType->title
-            : '-' . '<br>';
+        $text .= AmosEvents::t('amosevents', 'Type') . ': ' . !is_null($event->eventType) ? $event->eventType->title : '-' . '<br>';
         $text .= AmosEvents::t('amosevents', 'Title') . ': ' . $event->title . '<br>';
         $text .= AmosEvents::t('amosevents', 'Summary') . ': ' . $event->summary . '<br>';
         $text .= AmosEvents::t('amosevents', 'Published by') . ': ' . UserProfile::findOne(['user_id' => $event->created_by])->getNomeCognome();
@@ -993,7 +1099,7 @@ class EventController extends base\EventController
 
         // SEND EMAIL
         Email::sendMail(
-            $from, $to, $subject, $text, $files, $bcc, $params, $priority, $use_queue
+                $from, $to, $subject, $text, $files, $bcc, $params, $priority, $use_queue
         );
 
         return $this->redirect($defaultAction);
@@ -1006,16 +1112,15 @@ class EventController extends base\EventController
      * @return \yii\web\Response
      * @throws \yii\web\NotFoundHttpException
      */
-    public function actionValidate($id)
-    {
+    public function actionValidate($id) {
         /** @var Event $event */
         $event = $this->findModel($id);
 
         $ok = EventsUtility::checkOneConfirmedManagerPresence($event);
         if (!$ok) {
             Yii::$app->getSession()->addFlash('danger',
-                AmosEvents::t('amosevents',
-                    'The event can not be published. There must be at least one confirmed manager.'));
+                    AmosEvents::t('amosevents',
+                            'The event can not be published. There must be at least one confirmed manager.'));
             return $this->redirect(Url::previous());
         }
 
@@ -1039,8 +1144,7 @@ class EventController extends base\EventController
      * @return \yii\web\Response
      * @throws \yii\web\NotFoundHttpException
      */
-    public function actionReject($id, $visibleInCalendar)
-    {
+    public function actionReject($id, $visibleInCalendar) {
         /** @var Event $event */
         $event = $this->findModel($id);
         $event->status = Event::EVENTS_WORKFLOW_STATUS_DRAFT;
@@ -1063,8 +1167,7 @@ class EventController extends base\EventController
      * @param bool $registerSendDatetime
      * @return array Number of rows inserted
      */
-    protected function doSendInvitations($eid, array $rows, $registerSendDatetime = false)
-    {
+    protected function doSendInvitations($eid, array $rows, $registerSendDatetime = false) {
         $cnt = 0;
         $errs = '';
         /** @var Event $eventModel */
@@ -1086,23 +1189,23 @@ class EventController extends base\EventController
                     $profile = $user->userProfile;
                     // Build url signup with user's data
                     $extUrlYes = Url::base(true) . Url::toRoute([
-                            'event-signup',
-                            'eid' => $event->id,
-                            'pName' => $row['name'],
-                            'pSurname' => $row['surname'],
-                            'pEmail' => $row['email'],
-                            'pCode' => $row['code']
-                        ]);
+                                'event-signup',
+                                'eid' => $event->id,
+                                'pName' => $row['name'],
+                                'pSurname' => $row['surname'],
+                                'pEmail' => $row['email'],
+                                'pCode' => $row['code']
+                    ]);
                     $regUrlNo = '';
                     if ($this->eventsModule->saveExternalInvitations) {
                         $regUrlNo = Url::base(true) . Url::toRoute([
-                                'remove-signup-to-event',
-                                'eid' => $event->id,
-                                'iid' => $row['id'],
-                                'code' => $row['code'],
-                                'autoRemove' => 1,
-                                'saveExtInvMail' => 1
-                            ]);
+                                    'remove-signup-to-event',
+                                    'eid' => $event->id,
+                                    'iid' => $row['id'],
+                                    'code' => $row['code'],
+                                    'autoRemove' => 1,
+                                    'saveExtInvMail' => 1
+                        ]);
                     }
                     //public function actionRemoveSignupToEvent($eid, $iid, $code, $autoRemove = false)
                     $row['email'] = $user['email'];
@@ -1136,13 +1239,13 @@ class EventController extends base\EventController
                     $extUrlNo = '';
                     if ($this->eventsModule->saveExternalInvitations) {
                         $extUrlNo = Url::base(true) . Url::toRoute([
-                                'remove-signup-to-event',
-                                'eid' => $event->id,
-                                'iid' => $row['id'],
-                                'code' => $row['code'],
-                                'autoRemove' => 1,
-                                'saveExtInvMail' => 1
-                            ]);
+                                    'remove-signup-to-event',
+                                    'eid' => $event->id,
+                                    'iid' => $row['id'],
+                                    'code' => $row['code'],
+                                    'autoRemove' => 1,
+                                    'saveExtInvMail' => 1
+                        ]);
                     }
                     $text = $this->renderPartial($viewInvitation, [
                         'event' => $event,
@@ -1177,8 +1280,7 @@ class EventController extends base\EventController
      * @param array $rows Parsed rows
      * @return array Number of rows inserted
      */
-    private function doImportInvitations($eid, array $rows)
-    {
+    private function doImportInvitations($eid, array $rows) {
         $cnt = 0;
         $errs = '';
 
@@ -1212,8 +1314,7 @@ class EventController extends base\EventController
      * @return array|\yii\web\Response
      * @throws \yii\web\NotFoundHttpException
      */
-    public function actionImportInvitations($id)
-    {
+    public function actionImportInvitations($id) {
         /** @var EventInvitationsUpload $upload */
         $upload = $this->eventsModule->createModel('EventInvitationsUpload');
         if (Yii::$app->request->post() && $upload->load(Yii::$app->request->post())) {
@@ -1255,8 +1356,7 @@ class EventController extends base\EventController
      * @param Event $event
      * @throws \yii\base\InvalidConfigException
      */
-    public function doAddUsersInvitations($event)
-    {
+    public function doAddUsersInvitations($event) {
         $eventType = $event->eventType;
         if (!is_null($eventType) && $eventType->event_type == EventType::TYPE_UPON_INVITATION) {
             // Gets user ids involved using cwh tags for this event
@@ -1280,19 +1380,18 @@ class EventController extends base\EventController
     /**
      * @param Event $event
      */
-    public function doSendMailWaiting($event)
-    {
+    public function doSendMailWaiting($event) {
         // Sets sender
         $from = $this->getFromMail($event);
 
         $user = User::findOne($event->created_by);
         $profile = UserProfile::findOne(['user_id' => $event->created_by]);
         $text = $this->renderPartial('email_waiting',
-            [
-                'event' => $event,
-                'user' => $user,
-                'profile' => $profile
-            ]);
+                [
+                    'event' => $event,
+                    'user' => $user,
+                    'profile' => $profile
+        ]);
         // Sends e-mail
         Email::sendMail($from, [$user->email], 'Invito - ' . $event->title, $text, [], [], [], 0, false);
     }
@@ -1301,8 +1400,7 @@ class EventController extends base\EventController
      * @return string
      * @throws \yii\base\InvalidConfigException
      */
-    public function actionEventCalendarWidget()
-    {
+    public function actionEventCalendarWidget() {
         if (Yii::$app->request->isPost && Yii::$app->request->isAjax) {
             if (!is_null($_POST['id'])) {
                 /** @var Event $eventModel */
@@ -1324,8 +1422,7 @@ class EventController extends base\EventController
      * @return EventInvitation
      * @throws \yii\base\InvalidConfigException
      */
-    public function addParticipant($eid, $dataParticipant, $user_id, $gdpr, $inv = null, $isGroup = false)
-    {
+    public function addParticipant($eid, $dataParticipant, $user_id, $gdpr, $inv = null, $isGroup = false) {
         if (is_null($inv)) {
             /** @var EventInvitation $eventInvitationModel */
             $eventInvitationModel = $this->eventsModule->createModel('EventInvitation');
@@ -1379,8 +1476,7 @@ class EventController extends base\EventController
      * @param EventInvitation $participant
      * @param array $dataCompanion
      */
-    public function addCompanion($eid, $participant, $dataCompanion)
-    {
+    public function addCompanion($eid, $participant, $dataCompanion) {
         // Verifico se è già iscritto alla piattaforma un utente con la mail indicata
         $user = User::findOne(['email' => $dataCompanion['email']]);
         if (!$user) {
@@ -1421,8 +1517,7 @@ class EventController extends base\EventController
      * @param string $communityMemeberStatus
      * @return boolean
      */
-    public function subscribeToEventCommunity($eid, $user, $communityMemeberStatus = '')
-    {
+    public function subscribeToEventCommunity($eid, $user, $communityMemeberStatus = '') {
         $eventId = $eid;
         /** @var Event $eventModel */
         $eventModel = $this->eventsModule->createModel('Event');
@@ -1435,7 +1530,7 @@ class EventController extends base\EventController
 
         if (!$communityId) {
             Yii::$app->getSession()->addFlash('danger',
-                AmosEvents::tHtml('amosevents', "It is not possible to subscribe the user. Missing parameter community."));
+                    AmosEvents::tHtml('amosevents', "It is not possible to subscribe the user. Missing parameter community."));
             return false;
         }
 
@@ -1451,10 +1546,10 @@ class EventController extends base\EventController
 
         if ($communityUserMm->save()) {
             Yii::$app->getSession()->addFlash('success',
-                AmosEvents::t('amosevents', 'You have been registered to the event successfully.'));
+                    AmosEvents::t('amosevents', 'You have been registered to the event successfully.'));
         } else {
             Yii::$app->getSession()->addFlash('danger',
-                AmosEvents::t('amosevents', 'There were some problems with your registration to the event'));
+                    AmosEvents::t('amosevents', 'There were some problems with your registration to the event'));
         }
 
         return true;
@@ -1465,27 +1560,26 @@ class EventController extends base\EventController
      * @param integer $eid
      * @return integer
      */
-    public function checkParticipantsQuantity($eid)
-    {
+    public function checkParticipantsQuantity($eid) {
         $count = 0;
 
         /** @var EventInvitation $eventInvitationModel */
         $eventInvitationModel = $this->eventsModule->createModel('EventInvitation');
         $participants = $eventInvitationModel::find()
-            ->andWhere(['event_id' => $eid, 'state' => EventInvitation::INVITATION_STATE_ACCEPTED])
-            ->andWhere(['deleted_at' => null, 'deleted_by' => null])
-            ->asArray()
-            ->all();
+                ->andWhere(['event_id' => $eid, 'state' => EventInvitation::INVITATION_STATE_ACCEPTED])
+                ->andWhere(['deleted_at' => null, 'deleted_by' => null])
+                ->asArray()
+                ->all();
         $count = count($participants);
 
         /** @var EventParticipantCompanion $eventParticipantCompanionModel */
         $eventParticipantCompanionModel = $this->eventsModule->createModel('EventParticipantCompanion');
         foreach ($participants as $participant) {
             $companions = $eventParticipantCompanionModel::find()
-                ->andWhere(['event_invitation_id' => $participant['id']])
-                ->andWhere(['deleted_at' => null, 'deleted_by' => null])
-                ->asArray()
-                ->all();
+                    ->andWhere(['event_invitation_id' => $participant['id']])
+                    ->andWhere(['deleted_at' => null, 'deleted_by' => null])
+                    ->asArray()
+                    ->all();
             $count += count($companions);
         }
 
@@ -1503,8 +1597,7 @@ class EventController extends base\EventController
      * @return string
      * @throws \yii\base\InvalidConfigException
      */
-    public function actionEventSignup($eid, $pName = null, $pSurname = null, $pEmail = null, $emptyFields = false, $pCode = null, $isGroup = false)
-    {
+    public function actionEventSignup($eid, $pName = null, $pSurname = null, $pEmail = null, $emptyFields = false, $pCode = null, $isGroup = false) {
         $this->setUpLayout('main');
         if (Yii::$app->user->isGuest) {
             Yii::$app->params['disablePlatformLinks'] = true;
@@ -1524,25 +1617,24 @@ class EventController extends base\EventController
 
         $event = $eventModel::findOne(['id' => $eid]);
 
-
         if ($event) {
 
             $invitationUser = null;
             if ($multipleRecording == false) {
                 if (!empty($pEmail)) {
                     $invitationUser = $eventInvitationModel::find()
-                        ->andWhere(['event_id' => $eid])
-                        ->andWhere(['email' => trim($pEmail)])
-                        ->andFilterWhere(['name' => trim($pName)])
-                        ->andFilterWhere(['surname' => trim($pSurname)])
-                        ->one();
+                            ->andWhere(['event_id' => $eid])
+                            ->andWhere(['email' => trim($pEmail)])
+                            ->andFilterWhere(['name' => trim($pName)])
+                            ->andFilterWhere(['surname' => trim($pSurname)])
+                            ->one();
                 }
             }
 
             // Controllo che le iscrizioni siano aperte (data inizio < della data odierna, data fine > della data odierna)
             if ($event->isSubscribtionsOpened()) {
                 if ($event->event_type_id != EventType::TYPE_LIMITED_SEATS ||
-                    ($event->event_type_id == EventType::TYPE_LIMITED_SEATS && ($event->checkParticipantsQuantity() < $event->seats_available))
+                        ($event->event_type_id == EventType::TYPE_LIMITED_SEATS && ($event->checkParticipantsQuantity() < $event->seats_available))
                 ) {
 
                     $gdprQuestions = $this->prepareArrayGdpr($event);
@@ -1558,7 +1650,6 @@ class EventController extends base\EventController
                         $post = \Yii::$app->request->post();
                         $eventParticipantModel->load($post);
                         $participantData = $post['EventParticipantCompanion'];
-
 
                         // Controlla se qualcuno e' già stato iscritto all'evento con la stessa mail...
                         $invitationFound = $eventInvitationModel::findAll(['email' => $participantData['email'], 'event_id' => $eid]);
@@ -1614,20 +1705,20 @@ class EventController extends base\EventController
                                     $participantsWantToJoin = $companionsQuantity + 1;
 
                                     if ($event->event_type_id == EventType::TYPE_LIMITED_SEATS &&
-                                        $participantsWantToJoin > ($event->seats_available - $event->checkParticipantsQuantity())) {
+                                            $participantsWantToJoin > ($event->seats_available - $event->checkParticipantsQuantity())) {
 
                                         \Yii::$app->getSession()->addFlash('danger', AmosEvents::txt('#quantity_exceeded', ['quantity' => ($event->seats_available - $this->checkParticipantsQuantity($event->id))]));
                                         return $this->render((!empty($event->subscribe_form_page_view) ? $event->subscribe_form_page_view : 'event_signup'),
-                                            [
-                                                'event' => $event,
-                                                'userData' => $participantData,
-                                                'eventParticipantModel' => $eventParticipantModel,
-                                                'eventCompanionModel' => $eventCompanionModel,
-                                                'companions' => !empty($companionsData) ? $companionsData : [0 => $eventCompanionModel],
-                                                'gdprQuestions' => $gdprQuestions,
-                                                //'invitation' => $invitation,
-                                                //'partners' => $partners,
-                                            ]);
+                                                        [
+                                                            'event' => $event,
+                                                            'userData' => $participantData,
+                                                            'eventParticipantModel' => $eventParticipantModel,
+                                                            'eventCompanionModel' => $eventCompanionModel,
+                                                            'companions' => !empty($companionsData) ? $companionsData : [0 => $eventCompanionModel],
+                                                            'gdprQuestions' => $gdprQuestions,
+                                                        //'invitation' => $invitation,
+                                                        //'partners' => $partners,
+                                        ]);
                                     } else {
 
                                         $user = User::findOne(['email' => $participantData['email']]);
@@ -1640,11 +1731,10 @@ class EventController extends base\EventController
                                             //$sendCredential = (($event->sent_credential == 1)? (!empty($event->email_credential_view)? 0 : 1) : 0);
                                             // Creo il nuovo account utente...
                                             $newUser = AmosAdmin::getInstance()->createNewAccount(
-                                                $participantData['nome'], $participantData['cognome'],
-                                                $participantData['email'], 0
+                                                    $participantData['nome'], $participantData['cognome'],
+                                                    $participantData['email'], 0
                                             );
                                             $user = $newUser['user'];
-
 
                                             // ...e gli invio le credenziali
                                             /**
@@ -1659,10 +1749,10 @@ class EventController extends base\EventController
                                             if ($event->sent_credential == 1) {
                                                 if (!empty($event->email_credential_view)) {
                                                     $sent = EventMailUtility::sendCredentialsMail($newUserProfile,
-                                                        $event->email_credential_subject,
-                                                        $event->email_credential_view, $event->email_ticket_sender,
-                                                        $event->email_ticket_layout_custom,
-                                                        $event->getCommunityModel());
+                                                                    $event->email_credential_subject,
+                                                                    $event->email_credential_view, $event->email_ticket_sender,
+                                                                    $event->email_ticket_layout_custom,
+                                                                    $event->getCommunityModel());
                                                 } else {
                                                     $sent = UserProfileUtility::sendCredentialsMail($newUserProfile);
                                                 }
@@ -1672,7 +1762,7 @@ class EventController extends base\EventController
                                         $linkToken = null;
                                         if ($event->use_token == 1 && !empty($event->token_group_string_code)) {
                                             $linkToken = $event->getLinkWithToken($user->id,
-                                                $event->token_group_string_code);
+                                                    $event->token_group_string_code);
                                         }
 
                                         $gdprQuestions = [];
@@ -1715,58 +1805,53 @@ class EventController extends base\EventController
 
                                         // Iscrivo utente alla community dell'evento
                                         $subscribedToEventCommunity = $this->subscribeToEventCommunity($eid, $user,
-                                            $communityMemeberStatus);
+                                                $communityMemeberStatus);
 
-                                        return $this->render((!empty($event->thank_you_page_view) ? $event->thank_you_page_view
-                                            : $thankYouPageToRender),
-                                            [
-                                                'event' => $event,
-                                                'linkToken' => $linkToken,
-                                                'userData' => $participantData,
-                                                'eventParticipantModel' => $eventParticipantModel,
-                                                'eventCompanionModel' => $eventCompanionModel,
-                                                'companions' => !empty($companionsData) ? $companionsData : [0 => $eventCompanionModel],
-                                                'gdprQuestions' => $gdprQuestions,
-                                            ]);
+                                        return $this->render((!empty($event->thank_you_page_view) ? $event->thank_you_page_view : $thankYouPageToRender),
+                                                        [
+                                                            'event' => $event,
+                                                            'linkToken' => $linkToken,
+                                                            'userData' => $participantData,
+                                                            'eventParticipantModel' => $eventParticipantModel,
+                                                            'eventCompanionModel' => $eventCompanionModel,
+                                                            'companions' => !empty($companionsData) ? $companionsData : [0 => $eventCompanionModel],
+                                                            'gdprQuestions' => $gdprQuestions,
+                                        ]);
                                     }
                                 } else {
                                     \Yii::$app->getSession()->addFlash('danger',
-                                        AmosEvents::txt('Compilare tutte le domande relative alle condizioni e l\'uso dei dati personali'));
-                                    return $this->render((!empty($event->subscribe_form_page_view) ? $event->subscribe_form_page_view
-                                        : 'event_signup'),
-                                        [
-                                            'event' => $event,
-                                            'userData' => $participantData,
-                                            'eventParticipantModel' => $eventParticipantModel,
-                                            'eventCompanionModel' => $eventCompanionModel,
-                                            'companions' => !empty($companionsData) ? $companionsData : [0 => $eventCompanionModel],
-                                            'gdprQuestions' => $gdprQuestions,
-                                            //'invitation' => $invitation,
-                                            //'partners' => $partners,
-                                        ]);
+                                            AmosEvents::txt('Compilare tutte le domande relative alle condizioni e l\'uso dei dati personali'));
+                                    return $this->render((!empty($event->subscribe_form_page_view) ? $event->subscribe_form_page_view : 'event_signup'),
+                                                    [
+                                                        'event' => $event,
+                                                        'userData' => $participantData,
+                                                        'eventParticipantModel' => $eventParticipantModel,
+                                                        'eventCompanionModel' => $eventCompanionModel,
+                                                        'companions' => !empty($companionsData) ? $companionsData : [0 => $eventCompanionModel],
+                                                        'gdprQuestions' => $gdprQuestions,
+                                                    //'invitation' => $invitation,
+                                                    //'partners' => $partners,
+                                    ]);
                                 }
                             } else {
                                 \Yii::$app->getSession()->addFlash('danger',
-                                    AmosEvents::txt('This user has already been registered at this event'));
+                                        AmosEvents::txt('This user has already been registered at this event'));
                             }
                         } else {
                             \Yii::$app->getSession()->addFlash('danger',
-                                AmosEvents::txt('Controllare riempimento dei campi obbligatori'));
+                                    AmosEvents::txt('Controllare riempimento dei campi obbligatori'));
                         }
                     } else {
                         if (\Yii::$app->user) {
                             $user = User::find()->andWhere(['id' => \Yii::$app->user->id])->andWhere(['deleted_at' => null,
-                                'deleted_by' => null])->asArray()->one();
+                                        'deleted_by' => null])->asArray()->one();
                             /** @var UserProfile $userProfile */
                             $userProfile = UserProfile::find()->andWhere(['user_id' => \Yii::$app->user->id])->andWhere([
-                                'deleted_at' => null, 'deleted_by' => null])->asArray()->one();
+                                        'deleted_at' => null, 'deleted_by' => null])->asArray()->one();
                         }
-                        $userData['nome'] = !$emptyFields ? (!empty($pName) ? $pName : ($userProfile ? $userProfile['nome']
-                            : '')) : '';
-                        $userData['cognome'] = !$emptyFields ? (!empty($pSurname) ? $pSurname : ($userProfile ? $userProfile['cognome']
-                            : '')) : '';
-                        $userData['email'] = !$emptyFields ? (!empty($pEmail) ? $pEmail : ($user ? $user['email']
-                            : '')) : '';
+                        $userData['nome'] = !$emptyFields ? (!empty($pName) ? $pName : ($userProfile ? $userProfile['nome'] : '')) : '';
+                        $userData['cognome'] = !$emptyFields ? (!empty($pSurname) ? $pSurname : ($userProfile ? $userProfile['cognome'] : '')) : '';
+                        $userData['email'] = !$emptyFields ? (!empty($pEmail) ? $pEmail : ($user ? $user['email'] : '')) : '';
                         $userData['codice_fiscale'] = $userProfile ? $userProfile['codice_fiscale'] : '';
 
                         // Manage case of already accepted or rejected invitation for auto invite users or save external invitations.
@@ -1784,16 +1869,16 @@ class EventController extends base\EventController
                     }
                     if (($multipleRecording == false && ((!$this->eventsModule->saveExternalInvitations && empty($invitationUser)) || ($this->eventsModule->saveExternalInvitations && (empty($invitationUser) || (!empty($invitationUser) && $invitationUser->state == EventInvitation::INVITATION_STATE_INVITED))))) || $multipleRecording == true) {
                         return $this->render((!empty($event->subscribe_form_page_view) ? $event->subscribe_form_page_view : 'event_signup'),
-                            [
-                                'event' => $event,
-                                'userData' => !empty($userData) ? $userData : $participantData,
-                                'eventParticipantModel' => $eventParticipantModel,
-                                'eventCompanionModel' => $eventCompanionModel,
-                                'companions' => !empty($companionsData) ? $companionsData : [0 => $eventCompanionModel],
-                                'gdprQuestions' => $gdprQuestions,
-                                //'invitation' => $invitation,
-                                //'partners' => $partners,
-                            ]);
+                                        [
+                                            'event' => $event,
+                                            'userData' => !empty($userData) ? $userData : $participantData,
+                                            'eventParticipantModel' => $eventParticipantModel,
+                                            'eventCompanionModel' => $eventCompanionModel,
+                                            'companions' => !empty($companionsData) ? $companionsData : [0 => $eventCompanionModel],
+                                            'gdprQuestions' => $gdprQuestions,
+                                        //'invitation' => $invitation,
+                                        //'partners' => $partners,
+                        ]);
                     } else {
                         return $this->render((empty($event->thank_you_page_already_registered_view) ? 'already_registered' : $event->thank_you_page_already_registered_view));
                     }
@@ -1816,8 +1901,7 @@ class EventController extends base\EventController
      * @return bool|string|\yii\web\Response
      * @throws \yii\base\InvalidConfigException
      */
-    public function actionRegisterParticipant($eid, $pid, $iid, $booleanResponse = false)
-    {
+    public function actionRegisterParticipant($eid, $pid, $iid, $booleanResponse = false) {
 
         /** @var Event $eventModel */
         $eventModel = $this->eventsModule->createModel('Event');
@@ -1830,10 +1914,10 @@ class EventController extends base\EventController
         if ($event) {
 
             if ($event['has_tickets'] &&
-                $event['begin_date_hour'] == null || (
+                    $event['begin_date_hour'] == null || (
                     (strtotime("now") >= strtotime($event['begin_date_hour'])) && // per checkin X ore prima >> . ' - 6 hours')) &&
                     (date('Y-m-d H:i:s') <= date($event['end_date_hour']))
-                )
+                    )
             ) {
                 /** @var User $user */
                 $user = User::find()->andWhere(['id' => $pid])->andWhere(['deleted_at' => null, 'deleted_by' => null])->asArray()->one();
@@ -1843,7 +1927,7 @@ class EventController extends base\EventController
 
                     /** @var UserProfile $userProfile */
                     $userProfile = UserProfile::find()->andWhere(['user_id' => $user['id']])->andWhere(['deleted_at' => null,
-                        'deleted_by' => null])->asArray()->one();
+                                'deleted_by' => null])->asArray()->one();
 
                     if ($invitation) {
                         if ($invitation->user_id == $pid && $invitation->event_id == $eid) {
@@ -1862,20 +1946,20 @@ class EventController extends base\EventController
                                     $seat = $invitation->getAssignedSeat();
                                     if ($seat && $seat->status == EventSeats::STATUS_REASSIGNED) {
                                         \Yii::$app->getSession()->addFlash('warning',
-                                            AmosEvents::txt('Attenzione! Il  posto <strong>{seat}</strong> è stato riassegnato. Reindirizzare al desk accrediti!',
-                                                [
-                                                    'nomeCognome' => $userProfile['nome'] . ' ' . $userProfile['cognome'],
-                                                    'seat' => $seat->getStringCoordinateSeat()
-                                                ]));
+                                                AmosEvents::txt('Attenzione! Il  posto <strong>{seat}</strong> è stato riassegnato. Reindirizzare al desk accrediti!',
+                                                        [
+                                                            'nomeCognome' => $userProfile['nome'] . ' ' . $userProfile['cognome'],
+                                                            'seat' => $seat->getStringCoordinateSeat()
+                                        ]));
                                     }
                                 }
                                 \Yii::$app->getSession()->addFlash('success',
-                                    AmosEvents::txt('#user_registered',
-                                        ['name_surname' => $userProfile['nome'] . ' ' . $userProfile['cognome']]));
+                                        AmosEvents::txt('#user_registered',
+                                                ['name_surname' => $userProfile['nome'] . ' ' . $userProfile['cognome']]));
                             } else {
                                 \Yii::$app->getSession()->addFlash('danger',
-                                    AmosEvents::txt('Already marked as attendant',
-                                        ['name_surname' => $userProfile['nome'] . ' ' . $userProfile['cognome']]));
+                                        AmosEvents::txt('Already marked as attendant',
+                                                ['name_surname' => $userProfile['nome'] . ' ' . $userProfile['cognome']]));
                             }
                         } else {
                             if ($booleanResponse) {
@@ -1906,18 +1990,18 @@ class EventController extends base\EventController
                                 $seat = $invitation->getAssignedSeat();
                                 if ($seat && $seat->status == EventSeats::STATUS_REASSIGNED) {
                                     \Yii::$app->getSession()->addFlash('warning',
-                                        AmosEvents::txt('Attenzione! Il  posto <strong>{seat}</strong> è stato riassegnato. Reindirizzare al desk accrediti!',
-                                            [
-                                                'nomeCognome' => ' ',
-                                                'seat' => $seat->getStringCoordinateSeat()
-                                            ]));
+                                            AmosEvents::txt('Attenzione! Il  posto <strong>{seat}</strong> è stato riassegnato. Reindirizzare al desk accrediti!',
+                                                    [
+                                                        'nomeCognome' => ' ',
+                                                        'seat' => $seat->getStringCoordinateSeat()
+                                    ]));
                                 }
                             }
                             \Yii::$app->getSession()->addFlash('success',
-                                AmosEvents::txt('#user_registered', ['name_surname' => '']));
+                                    AmosEvents::txt('#user_registered', ['name_surname' => '']));
                         } else {
                             \Yii::$app->getSession()->addFlash('danger',
-                                AmosEvents::txt('Already marked as attendant', ['name_surname' => '']));
+                                    AmosEvents::txt('Already marked as attendant', ['name_surname' => '']));
                         }
                     }
                 } else {
@@ -1944,8 +2028,7 @@ class EventController extends base\EventController
      * @return bool|string|\yii\web\Response
      * @throws \yii\base\InvalidConfigException
      */
-    public function actionRemoveParticipantAttendance($eid, $pid, $iid, $booleanResponse = false)
-    {
+    public function actionRemoveParticipantAttendance($eid, $pid, $iid, $booleanResponse = false) {
 
         /** @var Event $eventModel */
         $eventModel = $this->eventsModule->createModel('Event');
@@ -1958,10 +2041,10 @@ class EventController extends base\EventController
         if ($event) {
 
             if ($event['has_tickets'] &&
-                $event['begin_date_hour'] == null || (
+                    $event['begin_date_hour'] == null || (
                     (strtotime("now") >= strtotime($event['begin_date_hour'])) && // per checkin X ore prima >> . ' - 6 hours')) &&
                     (date('Y-m-d H:i:s') <= date($event['end_date_hour']))
-                )
+                    )
             ) {
 
                 $user = User::find()->andWhere(['id' => $pid])->andWhere(['deleted_at' => null, 'deleted_by' => null])->asArray()->one();
@@ -2018,8 +2101,7 @@ class EventController extends base\EventController
      * @return bool|string|\yii\web\Response
      * @throws \yii\base\InvalidConfigException
      */
-    public function actionRegisterCompanion($eid, $pid, $cid, $iid, $booleanResponse = false)
-    {
+    public function actionRegisterCompanion($eid, $pid, $cid, $iid, $booleanResponse = false) {
 
         /** @var Event $eventModel */
         $eventModel = $this->eventsModule->createModel('Event');
@@ -2034,10 +2116,10 @@ class EventController extends base\EventController
 
         if ($event) {
             if ($event['has_tickets'] &&
-                $event['begin_date_hour'] == null || (
+                    $event['begin_date_hour'] == null || (
                     (strtotime("now") >= strtotime($event['begin_date_hour'])) && // per checkin X ore prima >> . ' - 6 hours')) &&
                     (date('Y-m-d H:i:s') <= date($event['end_date_hour']))
-                )
+                    )
             ) {
 
                 $companion = $eventParticipantCompanionModel::findOne(['id' => $cid]);
@@ -2046,10 +2128,9 @@ class EventController extends base\EventController
 
                     if ($user) {
                         $invitation = $eventInvitationModel::find()->andWhere(['id' => $iid])->andWhere(['deleted_at' => null,
-                            'deleted_by' => null])->asArray()->one();
+                                    'deleted_by' => null])->asArray()->one();
                         if ($invitation) {
-                            if ($invitation['user_id'] == $pid && $invitation['event_id'] == $eid && $companion->event_invitation_id
-                                == $iid) {
+                            if ($invitation['user_id'] == $pid && $invitation['event_id'] == $eid && $companion->event_invitation_id == $iid) {
                                 if (!$companion->presenza) {
                                     $companion->presenza = true;
                                     $companion->presenza_scansionata_il = date('Y-m-d H:i:s');
@@ -2063,21 +2144,21 @@ class EventController extends base\EventController
                                         $seat = $companion->assignedSeat;
                                         if (!empty($seat) && $seat->status == EventSeats::STATUS_REASSIGNED) {
                                             \Yii::$app->getSession()->addFlash('warning',
-                                                AmosEvents::txt('Attenzione! Il  posto <strong>{seat}</strong> è stato riassegnato. Reindirizzare al desk accrediti!',
-                                                    [
-                                                        'seat' => $seat->getStringCoordinateSeat()
-                                                    ]));
+                                                    AmosEvents::txt('Attenzione! Il  posto <strong>{seat}</strong> è stato riassegnato. Reindirizzare al desk accrediti!',
+                                                            [
+                                                                'seat' => $seat->getStringCoordinateSeat()
+                                            ]));
                                         }
                                     }
 
 
                                     \Yii::$app->getSession()->addFlash('success',
-                                        AmosEvents::txt('#companion_registered',
-                                            ['name_surname' => $companion->nome . ' ' . $companion->cognome]));
+                                            AmosEvents::txt('#companion_registered',
+                                                    ['name_surname' => $companion->nome . ' ' . $companion->cognome]));
                                 } else {
                                     \Yii::$app->getSession()->addFlash('danger',
-                                        AmosEvents::txt('Already marked as attendant',
-                                            ['name_surname' => $companion['nome'] . ' ' . $companion['cognome']]));
+                                            AmosEvents::txt('Already marked as attendant',
+                                                    ['name_surname' => $companion['nome'] . ' ' . $companion['cognome']]));
                                 }
                             } else {
                                 if ($booleanResponse) {
@@ -2122,8 +2203,7 @@ class EventController extends base\EventController
      * @return bool|string|\yii\web\Response
      * @throws \yii\base\InvalidConfigException
      */
-    public function actionRemoveCompanionAttendance($eid, $pid, $cid, $iid, $booleanResponse = false)
-    {
+    public function actionRemoveCompanionAttendance($eid, $pid, $cid, $iid, $booleanResponse = false) {
 
         /** @var Event $eventModel */
         $eventModel = $this->eventsModule->createModel('Event');
@@ -2140,23 +2220,22 @@ class EventController extends base\EventController
             if ($event['has_tickets'] && $event['begin_date_hour'] == null || (
                     (strtotime("now") >= strtotime($event['begin_date_hour'])) && // per checkin X ore prima >> . ' - 6 hours')) &&
                     (date('Y-m-d H:i:s') <= date($event['end_date_hour']))
-                )
+                    )
             ) {
 
                 $companion = $eventParticipantCompanionModel::findOne(['id' => $cid]);
                 if ($companion) {
                     $user = User::find()
-                        ->andWhere(['id' => $pid])
-                        ->andWhere(['deleted_at' => null, 'deleted_by' => null])
-                        ->asArray()
-                        ->one();
+                            ->andWhere(['id' => $pid])
+                            ->andWhere(['deleted_at' => null, 'deleted_by' => null])
+                            ->asArray()
+                            ->one();
 
                     if ($user) {
                         $invitation = $eventInvitationModel::find()->andWhere(['id' => $iid])->andWhere(['deleted_at' => null,
-                            'deleted_by' => null])->asArray()->one();
+                                    'deleted_by' => null])->asArray()->one();
                         if ($invitation) {
-                            if ($invitation['user_id'] == $pid && $invitation['event_id'] == $eid && $companion->event_invitation_id
-                                == $iid) {
+                            if ($invitation['user_id'] == $pid && $invitation['event_id'] == $eid && $companion->event_invitation_id == $iid) {
 
                                 $companion->presenza = false;
                                 $companion->presenza_scansionata_il = null;
@@ -2207,8 +2286,7 @@ class EventController extends base\EventController
      * @return mixed|\yii\web\Response
      * @throws \yii\base\InvalidConfigException
      */
-    public function actionDownloadTickets($eid, $iid, $code)
-    {
+    public function actionDownloadTickets($eid, $iid, $code) {
 
         /** @var Event $eventModel */
         $eventModel = $this->eventsModule->createModel('Event');
@@ -2223,7 +2301,6 @@ class EventController extends base\EventController
         $event = $eventModel::findOne(['id' => $eid]);
         $seatModel = null;
 
-
         $filenameTicket = 'Ticket.pdf';
 
         if ($event) {
@@ -2232,8 +2309,8 @@ class EventController extends base\EventController
                 $invitation = $eventInvitationModel::findOne(['id' => $iid, 'code' => $code]);
                 if ($invitation) {
                     $companions = $eventParticipantCompanionModel::find()
-                        ->andWhere(['event_invitation_id' => $invitation->id])
-                        ->all();
+                            ->andWhere(['event_invitation_id' => $invitation->id])
+                            ->all();
 
                     // get assignd seat
                     $seat = null;
@@ -2248,25 +2325,25 @@ class EventController extends base\EventController
                     }
 
                     $content = $this->renderPartial(
-                        !empty($event->ticket_layout_view) ? $event->ticket_layout_view : 'pdf-tickets/general-layout',
-                        [
-                            'eventData' => $event,
-                            'participantData' => [
-                                'nome' => $invitation->name,
-                                'cognome' => $invitation->surname,
-                                'azienda' => $invitation->company,
-                                'codice_fiscale' => $event->abilita_codice_fiscale_in_form ? $invitation->fiscal_code : "",
-                                'email' => $invitation->email,
-                                'note' => $invitation->notes,
-                                'accreditation_list_id' => $invitation->accreditation_list_id,
-                                'accreditationModel' => $invitation->getAccreditationList()->one(),
-                                'companion_of' => null,
-                                'seat' => $seat,
-                            ],
-                            'seatModel' => $seatModel,
-                            'qrcode' => $event->has_qr_code ? EventsUtility::createQrCode($event, $invitation,
-                                'participant', null, null, 'png') : '',
-                        ]
+                            !empty($event->ticket_layout_view) ? $event->ticket_layout_view : 'pdf-tickets/general-layout',
+                            [
+                                'eventData' => $event,
+                                'participantData' => [
+                                    'nome' => $invitation->name,
+                                    'cognome' => $invitation->surname,
+                                    'azienda' => $invitation->company,
+                                    'codice_fiscale' => $event->abilita_codice_fiscale_in_form ? $invitation->fiscal_code : "",
+                                    'email' => $invitation->email,
+                                    'note' => $invitation->notes,
+                                    'accreditation_list_id' => $invitation->accreditation_list_id,
+                                    'accreditationModel' => $invitation->getAccreditationList()->one(),
+                                    'companion_of' => null,
+                                    'seat' => $seat,
+                                ],
+                                'seatModel' => $seatModel,
+                                'qrcode' => $event->has_qr_code ? EventsUtility::createQrCode($event, $invitation,
+                                        'participant', null, null, 'png') : '',
+                            ]
                     );
 
                     foreach ($companions as $companion) {
@@ -2284,26 +2361,25 @@ class EventController extends base\EventController
 
                         /** @var EventAccreditationList $eventAccreditationListModel */
                         $eventAccreditationListModel = $this->eventsModule->createModel('EventAccreditationList');
-                        $content .= $this->renderPartial(!empty($event->ticket_layout_view) ? $event->ticket_layout_view
-                            : 'pdf-tickets/general-layout',
-                            [
-                                'eventData' => $event,
-                                'participantData' => [
-                                    'nome' => $companion->nome,
-                                    'cognome' => $companion->cognome,
-                                    'azienda' => $companion->azienda,
-                                    'codice_fiscale' => $event->abilita_codice_fiscale_in_form ? $companion->codice_fiscale : "",
-                                    'email' => $companion->email,
-                                    'note' => $companion->note,
-                                    'accreditation_list_id' => $companion->event_accreditation_list_id,
-                                    'accreditationModel' => $eventAccreditationListModel::findOne(['id' => $companion->event_accreditation_list_id]),
-                                    'companion_of' => $invitation,
-                                    'seat' => $seat,
-                                ],
-                                'seatModel' => $seatModel,
-                                'qrcode' => $event->has_qr_code ? EventsUtility::createQrCode($event, $invitation,
-                                    'companion', $companion, null, 'png') : "",
-                            ]);
+                        $content .= $this->renderPartial(!empty($event->ticket_layout_view) ? $event->ticket_layout_view : 'pdf-tickets/general-layout',
+                                [
+                                    'eventData' => $event,
+                                    'participantData' => [
+                                        'nome' => $companion->nome,
+                                        'cognome' => $companion->cognome,
+                                        'azienda' => $companion->azienda,
+                                        'codice_fiscale' => $event->abilita_codice_fiscale_in_form ? $companion->codice_fiscale : "",
+                                        'email' => $companion->email,
+                                        'note' => $companion->note,
+                                        'accreditation_list_id' => $companion->event_accreditation_list_id,
+                                        'accreditationModel' => $eventAccreditationListModel::findOne(['id' => $companion->event_accreditation_list_id]),
+                                        'companion_of' => $invitation,
+                                        'seat' => $seat,
+                                    ],
+                                    'seatModel' => $seatModel,
+                                    'qrcode' => $event->has_qr_code ? EventsUtility::createQrCode($event, $invitation,
+                                            'companion', $companion, null, 'png') : "",
+                        ]);
                     }
 
                     $pdf = new Pdf([
@@ -2319,8 +2395,8 @@ class EventController extends base\EventController
                         // your html content input
                         'content' => $content,
                         'methods' => [
-                            //'SetHeader'=>[$event->title],
-                            //'SetFooter'=>['{PAGENO}'],
+                        //'SetHeader'=>[$event->title],
+                        //'SetFooter'=>['{PAGENO}'],
                         ]
                     ]);
 
@@ -2328,8 +2404,7 @@ class EventController extends base\EventController
                     $pdf->marginTop = 5;
 
                     $invitation->ticket_downloaded_at = date("Y-m-d H:i:s");
-                    $invitation->ticket_downloaded_by = (!empty(\Yii::$app->user) && !empty(\Yii::$app->user->id)) ? \Yii::$app->user->id
-                        : $invitation->user_id;
+                    $invitation->ticket_downloaded_by = (!empty(\Yii::$app->user) && !empty(\Yii::$app->user->id)) ? \Yii::$app->user->id : $invitation->user_id;
                     $invitation->save(false);
 
                     return $pdf->render();
@@ -2353,8 +2428,7 @@ class EventController extends base\EventController
      * @param int $id dell'invito/partecipante
      * @return bool
      */
-    public function actionChangeParticipantAccreditationList($id)
-    {
+    public function actionChangeParticipantAccreditationList($id) {
 
         /** @var EventInvitation $eventInvitationModel */
         $eventInvitationModel = $this->eventsModule->createModel('EventInvitation');
@@ -2376,8 +2450,7 @@ class EventController extends base\EventController
      * @param int $id Id dell'accompagnatore
      * @return bool
      */
-    public function actionChangeCompanionAccreditationList($id)
-    {
+    public function actionChangeCompanionAccreditationList($id) {
 
         /** @var EventParticipantCompanion $eventParticipantCompanionModel */
         $eventParticipantCompanionModel = $this->eventsModule->createModel('EventParticipantCompanion');
@@ -2402,8 +2475,7 @@ class EventController extends base\EventController
      * @return string
      * @throws \yii\base\InvalidConfigException
      */
-    public function actionShowCompanionsListOnly($eid = null, $iid = null)
-    {
+    public function actionShowCompanionsListOnly($eid = null, $iid = null) {
         /** @var EventInvitation $eventInvitationModel */
         $eventInvitationModel = $this->eventsModule->createModel('EventInvitation');
 
@@ -2416,7 +2488,7 @@ class EventController extends base\EventController
             $expandRowKey = \Yii::$app->request->post('expandRowKey');
             if ($expandRowKey && !empty($expandRowKey)) {
                 $invitation = $eventInvitationModel::find()->andWhere(['user_id' => CommunityUserMm::findOne(['id' => $expandRowKey])->user_id,
-                    'event_id' => $eid])->one();
+                            'event_id' => $eid])->one();
                 $invitationId = $invitation->id;
                 $isGroup = $invitation->is_group;
             }
@@ -2431,12 +2503,12 @@ class EventController extends base\EventController
             $eventModel = $eventModelNew::findOne(['id' => $eid]);
 
             return $this->renderPartial('event_companion_list_only',
-                [
-                    'invitationId' => $invitationId,
-                    'companions' => $companions,
-                    'eventModel' => $eventModel,
-                    'isGroup' => $isGroup
-                ]);
+                            [
+                                'invitationId' => $invitationId,
+                                'companions' => $companions,
+                                'eventModel' => $eventModel,
+                                'isGroup' => $isGroup
+            ]);
         }
 
         return AmosEvents::txt('#companions_not_found');
@@ -2445,8 +2517,7 @@ class EventController extends base\EventController
     /**
      * @param int $eid ID dell'evento
      */
-    public function actionSendTicketsNotSent($eid)
-    {
+    public function actionSendTicketsNotSent($eid) {
 
         /** @var EventInvitation $eventInvitationModel */
         $eventInvitationModel = $this->eventsModule->createModel('EventInvitation');
@@ -2478,8 +2549,7 @@ class EventController extends base\EventController
      * @param $iid
      * @return \yii\web\Response
      */
-    public function actionSendTicket($eid, $iid)
-    {
+    public function actionSendTicket($eid, $iid) {
 
         /** @var EventInvitation $eventInvitationModel */
         $eventInvitationModel = $this->eventsModule->createModel('EventInvitation');
@@ -2512,8 +2582,7 @@ class EventController extends base\EventController
      * @param int $eid Id dell'evento
      * @param int $iid Id dell'invito/partecipante
      */
-    public function sendSignupConfirmEmail($eid, $iid, $linkToken = null)
-    {
+    public function sendSignupConfirmEmail($eid, $iid, $linkToken = null) {
 
         /** @var Event $eventModel */
         $eventModel = $this->eventsModule->createModel('Event');
@@ -2532,7 +2601,7 @@ class EventController extends base\EventController
         $user = User::findOne(['id' => $invitation->user_id]);
         /** @var EventParticipantCompanion $companions */
         $companions = $eventParticipantCompanionModel::find()->andWhere(['event_invitation_id' => $invitation->id])->andWhere([
-            'deleted_at' => null, 'deleted_by' => null])->asArray()->all();
+                    'deleted_at' => null, 'deleted_by' => null])->asArray()->all();
 
         /////////////////////////////////////////////////////
         // Send email to participant
@@ -2574,16 +2643,16 @@ class EventController extends base\EventController
             $linkToken = $communityUrl;
         }
         $text = $this->renderPartial((!empty($event->email_subscribe_view) ? $event->email_subscribe_view : 'event_confirm_mail'),
-            [
-                'userProfile' => $userProfile,
-                'companions' => $companions,
-                'event' => $event,
-                'linkToken' => $linkToken,
-                'invitation' => $invitation,
-                'communityLink' => $communityUrl,
-                'removeInvitationLink' => $removeInvitationUrl,
-                'downloadIcsLink' => $downloadIcsUrl,
-            ]);
+                [
+                    'userProfile' => $userProfile,
+                    'companions' => $companions,
+                    'event' => $event,
+                    'linkToken' => $linkToken,
+                    'invitation' => $invitation,
+                    'communityLink' => $communityUrl,
+                    'removeInvitationLink' => $removeInvitationUrl,
+                    'downloadIcsLink' => $downloadIcsUrl,
+        ]);
 
         $files = [];
         $bcc[] = $user->email;
@@ -2593,7 +2662,7 @@ class EventController extends base\EventController
 
         // SEND EMAIL
         Email::sendMail(
-            $from, $to, $subject, $text, $files, $bcc, $params, $priority, $use_queue
+                $from, $to, $subject, $text, $files, $bcc, $params, $priority, $use_queue
         );
 
         return true;
@@ -2603,8 +2672,7 @@ class EventController extends base\EventController
      * @param int $eid Id dell'evento
      * @param int $iid Id dell'invito/partecipante
      */
-    public function sendTicket($eid, $iid)
-    {
+    public function sendTicket($eid, $iid) {
 
         /** @var Event $eventModel */
         $eventModel = $this->eventsModule->createModel('Event');
@@ -2620,16 +2688,16 @@ class EventController extends base\EventController
 
         /** @var EventInvitation $invitation */
         $invitation = $eventInvitationModel::find()
-            ->andWhere(['id' => $iid])
-            ->andWhere(['event_id' => $eid])
-            ->one();
+                ->andWhere(['id' => $iid])
+                ->andWhere(['event_id' => $eid])
+                ->one();
 
         if ($invitation) {
             /** @var User $user */
             $user = User::findOne(['id' => $invitation->user_id]);
             /** @var EventParticipantCompanion $companions */
             $companions = $eventParticipantCompanionModel::find()->andWhere(['event_invitation_id' => $invitation->id])->andWhere([
-                'deleted_at' => null, 'deleted_by' => null])->asArray()->all();
+                        'deleted_at' => null, 'deleted_by' => null])->asArray()->all();
 
             /////////////////////////////////////////////////////
             // Send email to participant
@@ -2679,14 +2747,14 @@ class EventController extends base\EventController
             $downloadIcsUrl = Yii::$app->urlManager->createAbsoluteUrl($createDownloadIcsParams);
 
             $text = $this->renderPartial((!empty($event->email_view) ? $event->email_view : 'event_ticket_mail'),
-                [
-                    'userProfile' => $userProfile,
-                    'companions' => $companions,
-                    'downloadTicketsLink' => $url,
-                    'downloadIcsLink' => $downloadIcsUrl,
-                    'event' => $event,
-                    'invitation' => $invitation,
-                ]);
+                    [
+                        'userProfile' => $userProfile,
+                        'companions' => $companions,
+                        'downloadTicketsLink' => $url,
+                        'downloadIcsLink' => $downloadIcsUrl,
+                        'event' => $event,
+                        'invitation' => $invitation,
+            ]);
 
             $files = [];
             $bcc = []; //$user->email;
@@ -2701,7 +2769,7 @@ class EventController extends base\EventController
             }
 
             Email::sendMail(
-                $from, $to, $subject, $text, $files, $bcc, $params, $priority, $use_queue
+                    $from, $to, $subject, $text, $files, $bcc, $params, $priority, $use_queue
             );
 
             return true;
@@ -2715,8 +2783,7 @@ class EventController extends base\EventController
      * @return bool
      * @throws \Exception
      */
-    public function removeSignupToEvent($event, $invitation)
-    {
+    public function removeSignupToEvent($event, $invitation) {
         /** @var EventParticipantCompanion $eventParticipantCompanionModel */
         $eventParticipantCompanionModel = $this->eventsModule->createModel('EventParticipantCompanion');
 
@@ -2734,8 +2801,7 @@ class EventController extends base\EventController
                     $seat->save(false);
                 }
                 $companion->deleted_at = date('Y-m-d H:i:s');
-                $companion->deleted_by = (!empty(\Yii::$app->user) && !empty(\Yii::$app->user->id) ? \Yii::$app->user->id
-                    : $invitation->user_id);
+                $companion->deleted_by = (!empty(\Yii::$app->user) && !empty(\Yii::$app->user->id) ? \Yii::$app->user->id : $invitation->user_id);
                 if ($result) {
                     $result = $companion->save(false);
                 }
@@ -2793,8 +2859,7 @@ class EventController extends base\EventController
      * @return string|\yii\web\Response
      * @throws \yii\base\InvalidConfigException
      */
-    public function actionRemoveSignupToEvent($eid, $iid, $code, $autoRemove = false)
-    {
+    public function actionRemoveSignupToEvent($eid, $iid, $code, $autoRemove = false) {
         $this->setUpLayout('main');
 
         /** @var Event $eventModel */
@@ -2860,8 +2925,7 @@ class EventController extends base\EventController
      * @return string|\yii\web\Response
      * @throws \yii\base\InvalidConfigException
      */
-    public function actionSendTicketsMassive($eid)
-    {
+    public function actionSendTicketsMassive($eid) {
         $this->setUpLayout('main');
 
         /** @var Event $eventModel */
@@ -2905,9 +2969,13 @@ class EventController extends base\EventController
             }
 
             $invitations = $eventInvitationModel::find()
-                ->andWhere(['event_invitation.event_id' => $event->id])
-                ->andWhere(['event_invitation.deleted_at' => null, 'event_invitation.deleted_by' => null])
-                ->orderBy('is_ticket_sent');
+                    ->andWhere(['event_invitation.event_id' => $event->id])
+                    ->andWhere(['event_invitation.deleted_at' => null, 'event_invitation.deleted_by' => null])
+                    ->innerJoin('community_user_mm', 'community_user_mm.user_id=event_invitation.user_id')
+                    ->andWhere(['community_user_mm.community_id' => $event->community_id])
+                    ->andWhere(['community_user_mm.status' => CommunityUserMm::STATUS_ACTIVE])
+                    ->andWhere(['community_user_mm.deleted_at' => null])
+                    ->orderBy('is_ticket_sent');
 
             if ($event->seats_management) {
                 $invitations->innerJoin('event_seats', 'event_seats.user_id = event_invitation.user_id');
@@ -2922,14 +2990,13 @@ class EventController extends base\EventController
 
             $invitations->andWhere(['event_invitation.id' => $invitationsFiltered]);
 
-
             return $this->render('event_send_tickets_massive',
-                [
-                    'currentView' => $this->getCurrentView(),
-                    'invitations' => $invitations,
-                    'event' => $event,
-                    'previousUrl' => $previousUrl,
-                ]);
+                            [
+                                'currentView' => $this->getCurrentView(),
+                                'invitations' => $invitations,
+                                'event' => $event,
+                                'previousUrl' => $previousUrl,
+            ]);
         }
 
         return $this->render('event_not_found');
@@ -2939,8 +3006,7 @@ class EventController extends base\EventController
      * @param Event $event
      * @return string
      */
-    public function generateIcs($event)
-    {
+    public function generateIcs($event) {
         // Address
         $location = ($event->event_location) ? $event->event_location . ' - ' : ''; //'-';
         $address = ($event->event_address) ? $event->event_address . ', ' : ''; //'-';
@@ -2975,8 +3041,7 @@ class EventController extends base\EventController
      * @param $event
      * @return string
      */
-    public function downloadIcs($event)
-    {
+    public function downloadIcs($event) {
         $ics = $this->generateIcs($event);
 
         \Yii::$app->response->format = \yii\web\Response::FORMAT_RAW;
@@ -2991,8 +3056,7 @@ class EventController extends base\EventController
      * @return string|\yii\web\Response
      * @throws \yii\base\InvalidConfigException
      */
-    public function actionForceDownloadIcs($eid)
-    {
+    public function actionForceDownloadIcs($eid) {
         /** @var Event $eventModel */
         $eventModel = $this->eventsModule->createModel('Event');
 
@@ -3018,8 +3082,7 @@ class EventController extends base\EventController
      * @return string|\yii\web\Response
      * @throws \yii\base\InvalidConfigException
      */
-    public function actionDownloadIcs($eid, $iid = null, $code = null)
-    {
+    public function actionDownloadIcs($eid, $iid = null, $code = null) {
         /** @var Event $eventModel */
         $eventModel = $this->eventsModule->createModel('Event');
 
@@ -3051,15 +3114,13 @@ class EventController extends base\EventController
         return $this->redirect($previousUrl);
     }
 
-
     /**
      * @param $eid
      * @param $iid
      * @return string
      * @throws \yii\base\InvalidConfigException
      */
-    public function actionGetQrCodeParticipant($eid, $iid)
-    {
+    public function actionGetQrCodeParticipant($eid, $iid) {
         /** @var Event $eventModel */
         $eventModel = $this->eventsModule->createModel('Event');
 
@@ -3085,8 +3146,7 @@ class EventController extends base\EventController
      * @return string
      * @throws \yii\base\InvalidConfigException
      */
-    public function actionGetQrCodeCompanion($eid, $iid, $cid)
-    {
+    public function actionGetQrCodeCompanion($eid, $iid, $cid) {
         /** @var Event $eventModel */
         $eventModel = $this->eventsModule->createModel('Event');
 
@@ -3097,13 +3157,13 @@ class EventController extends base\EventController
         $eventParticipantCompanionModel = $this->eventsModule->createModel('EventParticipantCompanion');
 
         $event = $eventModel::find()
-            ->andWhere([
-                'id' => $eid,
-                'deleted_at' => null,
-                'deleted_by' => null
-            ])
-            ->asArray()
-            ->one();
+                ->andWhere([
+                    'id' => $eid,
+                    'deleted_at' => null,
+                    'deleted_by' => null
+                ])
+                ->asArray()
+                ->one();
 
         if ($event) {
             $invitation = $eventInvitationModel::findOne(['id' => $iid, 'event_id' => $eid]);
@@ -3124,8 +3184,7 @@ class EventController extends base\EventController
      * @return string
      * @throws \yii\base\InvalidConfigException
      */
-    public function actionParticipantDetail($eid, $iid)
-    {
+    public function actionParticipantDetail($eid, $iid) {
         $this->setUpLayout('main');
 
         /** @var Event $eventModel */
@@ -3145,11 +3204,11 @@ class EventController extends base\EventController
                 $companions = $eventParticipantCompanionModel::findAll(['event_invitation_id' => $invitation->id]);
 
                 return $this->render('event_participant_detail',
-                    [
-                        'event' => $event,
-                        'invitation' => $invitation,
-                        'companions' => $companions,
-                    ]);
+                                [
+                                    'event' => $event,
+                                    'invitation' => $invitation,
+                                    'companions' => $companions,
+                ]);
             }
 
             return AmosEvents::txt('#invitation_not_found');
@@ -3163,8 +3222,7 @@ class EventController extends base\EventController
      * @return string|\yii\web\Response
      * @throws \yii\base\InvalidConfigException
      */
-    public function actionParticipants($communityId = null)
-    {
+    public function actionParticipants($communityId = null) {
         $this->setUpLayout('main');
 
         $previousUrl = Url::previous();
@@ -3176,9 +3234,9 @@ class EventController extends base\EventController
             $event = $eventModel::findOne(['community_id' => $communityId]);
             if ($event) {
                 return $this->render(
-                    'participants', [
-                        'model' => $event,
-                    ]
+                                'participants', [
+                            'model' => $event,
+                                ]
                 );
             }
 
@@ -3195,8 +3253,7 @@ class EventController extends base\EventController
      * @return string
      * @throws \yii\base\InvalidConfigException
      */
-    public function actionDownloadParticipantsExcel($eid)
-    {
+    public function actionDownloadParticipantsExcel($eid) {
         $this->setUpLayout('main');
 
         /** @var Event $eventModel */
@@ -3229,16 +3286,13 @@ class EventController extends base\EventController
                         'name_surname' => $participant->name . ' ' . $participant->surname,
                         'companion_of' => '',
                         'company' => $participant->company,
-                        'accreditation_list' => !empty($participant->getAccreditationList()->one()) ? $participant->getAccreditationList()->one()->title
-                            : '',
+                        'accreditation_list' => !empty($participant->getAccreditationList()->one()) ? $participant->getAccreditationList()->one()->title : '',
                         'ticket_sent' => ($participant->is_ticket_sent ? Yii::t('amoscore', 'Yes') : Yii::t('amoscore',
-                            'No')
+                                'No')
                         ),
                         'downloadedat' => !empty($participant->ticket_downloaded_at) ? date("d-m-Y H:i:s",
-                            strtotime($participant->ticket_downloaded_at)) : '',
-                        'downloadedby' => !empty($participant->ticket_downloaded_by) ? (!empty(UserProfile::findOne(['user_id' => $participant->ticket_downloaded_by]))
-                            ? (UserProfile::findOne(['user_id' => $participant->ticket_downloaded_by])['nomeCognome']) : '')
-                            : '',
+                                strtotime($participant->ticket_downloaded_at)) : '',
+                        'downloadedby' => !empty($participant->ticket_downloaded_by) ? (!empty(UserProfile::findOne(['user_id' => $participant->ticket_downloaded_by])) ? (UserProfile::findOne(['user_id' => $participant->ticket_downloaded_by])['nomeCognome']) : '') : '',
                         'attendant' => ($participant->presenza ? Yii::t('amoscore', 'Yes') : Yii::t('amoscore', 'No')
                         ),
                     ];
@@ -3251,13 +3305,12 @@ class EventController extends base\EventController
                                 'name_surname' => $companion->nome . ' ' . $companion->cognome,
                                 'companion_of' => $participant->name . ' ' . $participant->surname,
                                 'company' => $companion->azienda,
-                                'accreditation_list' => !empty($companion->getAccreditationList()->one()) ? $companion->getAccreditationList()->one()->title
-                                    : '',
+                                'accreditation_list' => !empty($companion->getAccreditationList()->one()) ? $companion->getAccreditationList()->one()->title : '',
                                 'ticket_sent' => '',
                                 'downloadedat' => '',
                                 'downloadedby' => '',
                                 'attendant' => ($companion->presenza ? Yii::t('amoscore', 'Yes') : Yii::t('amoscore',
-                                    'No')
+                                        'No')
                                 ),
                             ];
                         }
@@ -3267,19 +3320,19 @@ class EventController extends base\EventController
                 header('Content-Type: application/vnd.ms-excel; charset=utf-8');
                 header("Content-Disposition: attachment; filename=\"Partecipanti Evento {$event['title']}.xlsx\"");
                 \Yii::$app->response->content = Excel::export([
-                    'models' => $results,
-                    'columns' => [
-                        'name_surname',
-                        'companion_of',
-                        'company',
-                        'accreditation_list',
-                        'ticket_sent',
-                        'downloadedat',
-                        'downloadedby',
-                        'attendant',
-                    ],
-                    'headers' => $columnsHeader,
-                    'format' => 'Xlsx'
+                            'models' => $results,
+                            'columns' => [
+                                'name_surname',
+                                'companion_of',
+                                'company',
+                                'accreditation_list',
+                                'ticket_sent',
+                                'downloadedat',
+                                'downloadedby',
+                                'attendant',
+                            ],
+                            'headers' => $columnsHeader,
+                            'format' => 'Xlsx'
                 ]);
             }
         }
@@ -3295,8 +3348,7 @@ class EventController extends base\EventController
      * @return bool|string
      * @throws \yii\base\InvalidConfigException
      */
-    public function actionRemoveCompanion($eid, $iid, $cid, $booleanResponse = false)
-    {
+    public function actionRemoveCompanion($eid, $iid, $cid, $booleanResponse = false) {
 
         /** @var Event $eventModel */
         $eventModel = $this->eventsModule->createModel('Event');
@@ -3355,8 +3407,7 @@ class EventController extends base\EventController
      * @throws \PHPExcel_Exception
      * @throws \PHPExcel_Reader_Exception
      */
-    public function actionImportSeats($id)
-    {
+    public function actionImportSeats($id) {
         /** @var  $model Event */
         $model = $this->findModel($id);
         $ok = $model->import();
@@ -3369,8 +3420,7 @@ class EventController extends base\EventController
     /**
      *
      */
-    public function actionDownloadImportFileExample()
-    {
+    public function actionDownloadImportFileExample() {
         $path = Yii::getAlias('@vendor') . '/open20/amos-events/src/downloads';
         $file = $path . '/Import_seats_example.xls';
         if (file_exists($file)) {
@@ -3383,8 +3433,7 @@ class EventController extends base\EventController
      * @return string
      * @throws NotFoundHttpException
      */
-    public function actionViewSector($id)
-    {
+    public function actionViewSector($id) {
 
         if (!empty(\Yii::$app->params['dashboardEngine']) && \Yii::$app->params['dashboardEngine'] == WidgetAbstract::ENGINE_ROWS) {
             $this->setUpLayout('main_events');
@@ -3415,11 +3464,11 @@ class EventController extends base\EventController
             'query' => $event->getEventSeats()->andWhere(['sector' => $seat->sector])
         ]);
         return $this->render('view_sector',
-            [
-                'dataProvider' => $dataProvider,
-                'model' => $event,
-                'sector' => $seat->sector
-            ]);
+                        [
+                            'dataProvider' => $dataProvider,
+                            'model' => $event,
+                            'sector' => $seat->sector
+        ]);
     }
 
     /**
@@ -3428,8 +3477,7 @@ class EventController extends base\EventController
      * @throws NotFoundHttpException
      * @throws \yii\base\InvalidConfigException
      */
-    public function actionDeleteSector($id)
-    {
+    public function actionDeleteSector($id) {
 
         /** @var EventSeats $eventSeatsModel */
         $eventSeatsModel = $this->eventsModule->createModel('EventSeats');
@@ -3441,10 +3489,9 @@ class EventController extends base\EventController
 
         $this->model = $seat->event;
         $seats = $eventSeatsModel::find()->andWhere([
-            'event_id' => $seat->event_id,
-            'sector' => $seat->sector,
-        ])->all();
-
+                    'event_id' => $seat->event_id,
+                    'sector' => $seat->sector,
+                ])->all();
 
         foreach ($seats as $seat) {
             $seat->delete();
@@ -3459,8 +3506,7 @@ class EventController extends base\EventController
      * @throws NotFoundHttpException
      * @throws \yii\base\InvalidConfigException
      */
-    public function actionEventSignupGroup($eid)
-    {
+    public function actionEventSignupGroup($eid) {
         $this->setUpLayout('form');
         $event = $this->findModel($eid);
         /** @var  $event Event */
@@ -3497,10 +3543,10 @@ class EventController extends base\EventController
                             $participantsWantToJoin = $companionsQuantity;
 
                             if ($event->event_type_id == EventType::TYPE_LIMITED_SEATS &&
-                                (
+                                    (
 //                                    ($participantsWantToJoin > ($event->seats_available - $event->checkParticipantsQuantity())) ||
-                                !$event->canSubscribeGroup($participantsWantToJoin)
-                                )
+                                    !$event->canSubscribeGroup($participantsWantToJoin)
+                                    )
                             ) {
                                 \Yii::$app->session->addFlash('danger', 'Limite posti superato');
                             } else {
@@ -3520,7 +3566,7 @@ class EventController extends base\EventController
                                     $dataParticipant ['email'] = $registerGroupForm->email;
                                     $dataParticipant ['note'] = $registerGroupForm->note;
                                     $participant = $this->addParticipant($eid, $dataParticipant,
-                                        $user->id, $gdprQuestions, $invitation, true);
+                                            $user->id, $gdprQuestions, $invitation, true);
 
                                     // Iscrivo utente alla community dell'evento
                                     $subscribedToEventCommunity = $this->subscribeToEventCommunity($eid, $user);
@@ -3532,18 +3578,18 @@ class EventController extends base\EventController
                                         $dataCompanion['cognome'] = $i;
                                         $dataCompanion['email'] = $registerGroupForm->email;
                                         $companions [] = $this->addCompanion($eid, $participant,
-                                            $dataCompanion);
+                                                $dataCompanion);
                                     }
 
                                     if ($event->seats_management) {
                                         $this->assignSeats($this->model, $participant, $companions,
-                                            $registerGroupForm->sector);
+                                                $registerGroupForm->sector);
                                     }
 
                                     $this->sendSignupConfirmEmail($event->id, $participant->id);
                                     \Yii::$app->session->addFlash('success',
-                                        AmosEvents::t('amosevents', "E' stato iscritto un gruppo di {n} persone.",
-                                            ['n' => $registerGroupForm->nSeats]));
+                                            AmosEvents::t('amosevents', "E' stato iscritto un gruppo di {n} persone.",
+                                                    ['n' => $registerGroupForm->nSeats]));
                                     return $this->redirect(['view', 'id' => $eid, '#' => 'tab-participants']);
 
 //                            return $this->render((!empty($event->thank_you_page_view) ? $event->thank_you_page_view : 'event_signup_thankyou'), [
@@ -3556,12 +3602,12 @@ class EventController extends base\EventController
 //                            ]);
                                 } else {
                                     \Yii::$app->getSession()->addFlash('danger',
-                                        AmosEvents::txt('La email del gruppo inserita è già presente nella piattaforma ma l\'utente non risulta più attivo, occorre cambiare la email o riattivare l\'utente'));
+                                            AmosEvents::txt('La email del gruppo inserita è già presente nella piattaforma ma l\'utente non risulta più attivo, occorre cambiare la email o riattivare l\'utente'));
                                 }
                             }
                         } else {
                             \Yii::$app->getSession()->addFlash('danger',
-                                AmosEvents::txt('Compilare tutte le domande relative alle condizioni e l\'uso dei dati personali'));
+                                    AmosEvents::txt('Compilare tutte le domande relative alle condizioni e l\'uso dei dati personali'));
                             return $this->redirect(['view', 'id' => $event->id, '#' => 'tab-seats_managment']);
 //                        return $this->render((!empty($event->subscribe_form_page_view) ? $event->subscribe_form_page_view : 'event_signup'), [
 //                            'event' => $event,
@@ -3576,7 +3622,7 @@ class EventController extends base\EventController
                         }
                     } else {
                         \Yii::$app->getSession()->addFlash('danger',
-                            AmosEvents::txt('This user has already been registered at this event'));
+                                AmosEvents::txt('This user has already been registered at this event'));
                     }
                 }
             }
@@ -3585,19 +3631,18 @@ class EventController extends base\EventController
         }
 
         return $this->render('event_signup_group',
-            [
-                'event' => $this->model,
-                'registerGroupForm' => $registerGroupForm,
-                'gdprQuestions' => $gdprQuestions
-            ]);
+                        [
+                            'event' => $this->model,
+                            'registerGroupForm' => $registerGroupForm,
+                            'gdprQuestions' => $gdprQuestions
+        ]);
     }
 
     /**
      * @param $event
      * @return mixed
      */
-    public function prepareArrayGdpr($event)
-    {
+    public function prepareArrayGdpr($event) {
         $gdprQuestions = [];
         if (!$this->eventsModule->enableGdpr) {
             return $gdprQuestions;
@@ -3626,23 +3671,22 @@ class EventController extends base\EventController
      * @return mixed
      * @throws \yii\base\InvalidConfigException
      */
-    public function isInvitationGroupFound($eid, $registerGroupForm)
-    {
+    public function isInvitationGroupFound($eid, $registerGroupForm) {
         /** @var EventInvitation $eventInvitationModel */
         $eventInvitationModel = $this->eventsModule->createModel('EventInvitation');
 
         $invitationFound = $eventInvitationModel::find()
-            ->andWhere(['email' => $registerGroupForm->email, 'event_id' => $eid])->count();
+                        ->andWhere(['email' => $registerGroupForm->email, 'event_id' => $eid])->count();
         // ...altrimenti cerca utente associato a un invito per evitare l'iscrizione multipla
         // cercandolo sia attraverso la sua mail...
         if ($invitationFound == 0) {
             $user = User::find()->andWhere(['OR',
-                ['email' => $registerGroupForm->email],
-                ['username' => $registerGroupForm->email],
-            ])->one();
+                        ['email' => $registerGroupForm->email],
+                        ['username' => $registerGroupForm->email],
+                    ])->one();
             if ($user) {
                 $invitationFound = $eventInvitationModel::find()
-                    ->andWhere(['user_id' => $user->id, 'event_id' => $eid])->count();
+                                ->andWhere(['user_id' => $user->id, 'event_id' => $eid])->count();
             }
         }
 
@@ -3653,8 +3697,7 @@ class EventController extends base\EventController
      * @param $registerGroupForm
      * @return User|null
      */
-    public function registerUser($registerGroupForm)
-    {
+    public function registerUser($registerGroupForm) {
         $user = User::findOne(['email' => $registerGroupForm->email]);
         // Se utente non trovato tramite email, controllo anche tramite username (PR-336)
         if (!$user) {
@@ -3664,7 +3707,7 @@ class EventController extends base\EventController
         if (!$user) {
             // Creo il nuovo account utente...
             $newUser = AmosAdmin::getInstance()->createNewAccount(
-                $registerGroupForm->groupName, 'Group', $registerGroupForm->email, 0
+                    $registerGroupForm->groupName, 'Group', $registerGroupForm->email, 0
             );
             $user = $newUser['user'];
         }
@@ -3677,8 +3720,7 @@ class EventController extends base\EventController
      * @param $companions
      * @param $selectedSector
      */
-    public function assignSeats($event, $participant, $companions, $selectedSector)
-    {
+    public function assignSeats($event, $participant, $companions, $selectedSector) {
 
         $sectors = $event->getSectorsAvailableForGroups();
         $participantAssigned = false;
@@ -3762,8 +3804,7 @@ class EventController extends base\EventController
      * @return string
      * @throws NotFoundHttpException
      */
-    public function actionAssignSeat($id, $user_id = null, $event_companion_id = null)
-    {
+    public function actionAssignSeat($id, $user_id = null, $event_companion_id = null) {
         $this->setUpLayout('form');
 
         /** @var EventSeats $eventSeatsModel */
@@ -3774,7 +3815,7 @@ class EventController extends base\EventController
 
         $this->model = $this->findModel($id);
         $n_seats_to_assign = $this->model->getEventSeats()
-            ->andWhere(['status' => [EventSeats::STATUS_EMPTY, EventSeats::STATUS_TO_REASSIGN]])->count();
+                        ->andWhere(['status' => [EventSeats::STATUS_EMPTY, EventSeats::STATUS_TO_REASSIGN]])->count();
         $user = User::findOne($user_id);
         $eventCompanion = $eventInvitationModel::findOne($event_companion_id);
 
@@ -3784,11 +3825,11 @@ class EventController extends base\EventController
         if (\Yii::$app->request->post() && $formModel->load(\Yii::$app->request->post())) {
             /** @var  $seat EventSeats */
             $seat = $eventSeatsModel::find()
-                ->andWhere(['event_id' => $id])
-                ->andWhere(['sector' => $formModel->sector])
-                ->andWhere(['row' => $formModel->row])
-                ->andWhere(['seat' => $formModel->seat])
-                ->one();
+                    ->andWhere(['event_id' => $id])
+                    ->andWhere(['sector' => $formModel->sector])
+                    ->andWhere(['row' => $formModel->row])
+                    ->andWhere(['seat' => $formModel->seat])
+                    ->one();
 
             if ($seat) {
                 if ($seat->status == EventSeats::STATUS_TO_REASSIGN) {
@@ -3807,30 +3848,31 @@ class EventController extends base\EventController
                 }
 
                 if ($seat->save()) {
+                    GpayUtility::updateTicketObjectGpay($id, $user_id);
                     \Yii::$app->session->addFlash('success',
-                        AmosEvents::t('amosevents',
-                            "Posto settore {sector} - fila {row} - posto {seat} assegnato correttamente all'utente {nomeCognome}",
-                            [
-                                'row' => $formModel->row,
-                                'sector' => $formModel->sector,
-                                'seat' => $formModel->seat,
-                                'nomeCognome' => $user->userProfile->nomeCognome
-                            ]));
+                            AmosEvents::t('amosevents',
+                                    "Posto settore {sector} - fila {row} - posto {seat} assegnato correttamente all'utente {nomeCognome}",
+                                    [
+                                        'row' => $formModel->row,
+                                        'sector' => $formModel->sector,
+                                        'seat' => $formModel->seat,
+                                        'nomeCognome' => $user->userProfile->nomeCognome
+                    ]));
                     $this->redirect(['view', 'id' => $id, '#' => 'tab-participants']);
                 } else {
                     \Yii::$app->session->addFlash('danger',
-                        AmosEvents::t('amosevents', "Errore nell'assegnamento del posto"));
+                            AmosEvents::t('amosevents', "Errore nell'assegnamento del posto"));
                 }
             }
         }
         return $this->render('assign_seat',
-            [
-                'model' => $this->model,
-                'modelForm' => $formModel,
-                'user' => $user,
-                'eventCompanion' => $eventCompanion,
-                'n_seats_to_assign' => $n_seats_to_assign
-            ]);
+                        [
+                            'model' => $this->model,
+                            'modelForm' => $formModel,
+                            'user' => $user,
+                            'eventCompanion' => $eventCompanion,
+                            'n_seats_to_assign' => $n_seats_to_assign
+        ]);
     }
 
     /**
@@ -3839,8 +3881,7 @@ class EventController extends base\EventController
      * @return string
      * @throws NotFoundHttpException
      */
-    public function actionRemoveSeat($id, $user_id = null, $event_companion_id = null)
-    {
+    public function actionRemoveSeat($id, $user_id = null, $event_companion_id = null) {
         $this->setUpLayout('form');
         $this->model = $this->findModel($id);
 
@@ -3849,12 +3890,12 @@ class EventController extends base\EventController
 
         if (!empty($event_companion_id)) {
             $seat = $eventSeatsModel::find()
-                ->andWhere(['event_id' => $id])
-                ->andWhere(['event_participant_companion_id' => $event_companion_id])->one();
+                            ->andWhere(['event_id' => $id])
+                            ->andWhere(['event_participant_companion_id' => $event_companion_id])->one();
         } else {
             $seat = $eventSeatsModel::find()
-                ->andWhere(['event_id' => $id])
-                ->andWhere(['user_id' => $user_id])->one();
+                            ->andWhere(['event_id' => $id])
+                            ->andWhere(['user_id' => $user_id])->one();
         }
         if (empty($seat)) {
             throw new NotFoundHttpException('Pagina non trovata');
@@ -3864,6 +3905,7 @@ class EventController extends base\EventController
         $seat->status = EventSeats::STATUS_TO_REASSIGN;
 
         if ($seat->save()) {
+            GpayUtility::updateTicketObjectGpay($id, $user_id);
             \Yii::$app->session->addFlash('success', AmosEvents::t('amosevents', "Posto liberato correttamente"));
         }
         return $this->redirect(['view', 'id' => $id, '#' => 'tab-participants']);
@@ -3873,8 +3915,7 @@ class EventController extends base\EventController
      * @return array
      * @throws \yii\base\InvalidConfigException
      */
-    public function actionGetRowsAjax()
-    {
+    public function actionGetRowsAjax() {
         Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
         $out = [];
         if (isset($_POST['depdrop_parents'])) {
@@ -3891,10 +3932,10 @@ class EventController extends base\EventController
                 $eventSeatsModel = $this->eventsModule->createModel('EventSeats');
 
                 $rows = $eventSeatsModel::find()
-                    ->andWhere(['event_id' => $event_id])
-                    ->andWhere(['sector' => $sector_id])
-                    ->andWhere(['status' => [EventSeats::STATUS_EMPTY, EventSeats::STATUS_TO_REASSIGN]])
-                    ->groupBy('row')->all();
+                                ->andWhere(['event_id' => $event_id])
+                                ->andWhere(['sector' => $sector_id])
+                                ->andWhere(['status' => [EventSeats::STATUS_EMPTY, EventSeats::STATUS_TO_REASSIGN]])
+                                ->groupBy('row')->all();
 
                 foreach ($rows as $row) {
                     $out [] = ['name' => $row->row, 'id' => $row->row];
@@ -3910,8 +3951,7 @@ class EventController extends base\EventController
      * @return array
      * @throws \yii\base\InvalidConfigException
      */
-    public function actionGetSeatsAjax()
-    {
+    public function actionGetSeatsAjax() {
         Yii::$app->response->format = Response::FORMAT_JSON;
         $out = [];
         if (isset($_POST['depdrop_parents'])) {
@@ -3929,11 +3969,11 @@ class EventController extends base\EventController
                 $eventSeatsModel = $this->eventsModule->createModel('EventSeats');
 
                 $seats = $eventSeatsModel::find()
-                    ->andWhere(['event_id' => $event_id])
-                    ->andWhere(['row' => $row_id])
-                    ->andWhere(['sector' => $sector_id])
-                    ->andWhere(['status' => [EventSeats::STATUS_EMPTY, EventSeats::STATUS_TO_REASSIGN]])
-                    ->groupBy('seat')->all();
+                                ->andWhere(['event_id' => $event_id])
+                                ->andWhere(['row' => $row_id])
+                                ->andWhere(['sector' => $sector_id])
+                                ->andWhere(['status' => [EventSeats::STATUS_EMPTY, EventSeats::STATUS_TO_REASSIGN]])
+                                ->groupBy('seat')->all();
 
                 foreach ($seats as $seat) {
                     $out [] = ['name' => $seat->seat, 'id' => $seat->seat];
@@ -3945,8 +3985,7 @@ class EventController extends base\EventController
         return ['output' => '', 'selected' => ''];
     }
 
-    protected function getFromMail($event)
-    {
+    protected function getFromMail($event) {
         $from = '';
         if (!empty(trim($event->email_ticket_sender))) {
             $from = $event->email_ticket_sender;
@@ -3962,25 +4001,23 @@ class EventController extends base\EventController
      * @param int $eventId
      * @return string
      */
-    public function actionEventInvitedList($eventId)
-    {
+    public function actionEventInvitedList($eventId) {
         if (\Yii::$app->request->isAjax) {
             $this->setUpLayout(false);
             $this->model = $this->findModel($eventId);
             return $this->render('event-invited-list', [
-                'model' => $this->model
+                        'model' => $this->model
             ]);
         }
         return '';
     }
-    
+
     /**
      * Action useful to search the related events that can be selected in AGID form.
      * @param string $q
      * @return array
      */
-    public function actionRelatedEventsList($q = null)
-    {
+    public function actionRelatedEventsList($q = null) {
         \Yii::$app->response->format = Response::FORMAT_JSON;
         $out = ['results' => ['id' => '', 'text' => '']];
         if (!is_null($q)) {
@@ -3994,14 +4031,13 @@ class EventController extends base\EventController
         }
         return $out;
     }
-    
+
     /**
- * Action useful to search the administrative persons that can be selected in AGID form.
- * @param string $q
- * @return array
- */
-    public function actionAgidAdministrativePersonsList($q = null)
-    {
+     * Action useful to search the administrative persons that can be selected in AGID form.
+     * @param string $q
+     * @return array
+     */
+    public function actionAgidAdministrativePersonsList($q = null) {
         \Yii::$app->response->format = Response::FORMAT_JSON;
         $out = ['results' => ['id' => '', 'text' => '']];
         if (!is_null($q)) {
@@ -4020,8 +4056,7 @@ class EventController extends base\EventController
      * @param string $q
      * @return array
      */
-    public function actionAgidPoliticPersonsList($q = null)
-    {
+    public function actionAgidPoliticPersonsList($q = null) {
         \Yii::$app->response->format = Response::FORMAT_JSON;
         $out = ['results' => ['id' => '', 'text' => '']];
         if (!is_null($q)) {
@@ -4034,14 +4069,13 @@ class EventController extends base\EventController
         }
         return $out;
     }
-    
+
     /**
      * Action useful to search the documents that can be selected in AGID form.
      * @param string $q
      * @return array
      */
-    public function actionAgidEventDocumentsList($q = null)
-    {
+    public function actionAgidEventDocumentsList($q = null) {
         \Yii::$app->response->format = Response::FORMAT_JSON;
         $out = ['results' => ['id' => '', 'text' => '']];
         if (!is_null($q)) {
@@ -4060,4 +4094,169 @@ class EventController extends base\EventController
         }
         return $out;
     }
+
+    /**
+     * Method to set dataProvider for events when Agid is enabled
+     * set dataProvider with the sorting of the fields
+     *
+     * @return void
+     */
+    public function setAgidEventDataProvider() {
+
+        $sort = $this->getDataProvider()->getSort();
+        $sort->attributes = ArrayHelper::merge($sort->attributes, [
+                    'title' => [
+                        'asc' => ['title' => SORT_ASC],
+                        'desc' => ['title' => SORT_DESC],
+                    //'default' => SORT_ASC
+                    ],
+                    'begin_date_hour' => [
+                        'asc' => ['begin_date_hour' => SORT_ASC],
+                        'desc' => ['begin_date_hour' => SORT_DESC],
+                    //'default' => SORT_ASC
+                    ],
+                    'end_date_hour' => [
+                        'asc' => ['end_date_hour' => SORT_ASC],
+                        'desc' => ['end_date_hour' => SORT_DESC],
+                    //'default' => SORT_ASC
+                    ],
+                    'status' => [
+                        'asc' => ['status' => SORT_ASC],
+                        'desc' => ['status' => SORT_DESC],
+                    //'default' => SORT_ASC
+                    ],
+                    //related columns
+                    'eventType.title' => [
+                        'asc' => ['event_type.title' => SORT_ASC],
+                        'desc' => ['event_type.title' => SORT_DESC],
+                    //'default' => SORT_ASC
+                    ],
+        ]);
+        $dataProvider = new ActiveDataProvider([
+            'query' => $this->getDataProvider()
+                    ->query
+                    ->joinWith('eventType', true),
+        ]);
+        $dataProvider->setSort($sort);
+        $this->setDataProvider($dataProvider);
+    }
+
+    /**
+     *
+     * @return array
+     */
+    public static function getManageLinks() {
+        $moduleEvents = \Yii::$app->getModule(AmosEvents::getModuleName());
+
+        if (\Yii::$app->user->can(WidgetIconAllEvents::class)) {
+            $links[] = [
+                'title' => AmosEvents::t('amosevents', '#widget_icon_all_events_description'),
+                'label' => AmosEvents::t('amosevents', 'Tutti'),
+                'url' => '/events/event/all-events'
+            ];
+        }
+        if (\Yii::$app->user->can(WidgetIconEventOwnInterest::class)) {
+            $links[] = [
+                'title' => AmosEvents::t('amosevents', 'Visualizza gli eventi di mio interesse'),
+                'label' => AmosEvents::t('amosevents', 'Di mio interesse'),
+                'url' => '/events/event/own-interest'
+            ];
+        }
+        if (\Yii::$app->user->can(WidgetIconEventsCreatedBy::class)) {
+            $links[] = [
+                'title' => AmosEvents::t('amosevents', 'Visualizza gli eventi creati da me'),
+                'label' => AmosEvents::t('amosevents', 'Created by me'),
+                'url' => '/events/event/created-by'
+            ];
+        }
+        if (\Yii::$app->user->can(WidgetIconEventsToPublish::class)) {
+            $links[] = [
+                'title' => AmosEvents::t('amosevents', 'Visualizza gli eventi da validare'),
+                'label' => AmosEvents::t('amosevents', 'Da validare'),
+                'url' => '/events/event/to-publish'
+            ];
+        }
+        if (Yii::$app->user->can('EVENTS_ADMINISTRATOR')) {
+            if(!$moduleEvents->dropdownEventTypeDisabled) {
+                $links[] = [
+                    'title' => AmosEvents::t('amosevents', 'Gestisci tipologie di evento'),
+                    'label' => AmosEvents::t('amosevents', 'Tipologie eventi'),
+                    'url' => '/events/event-type/index'
+                ];
+            }
+            $links[] = [
+                'title' => AmosEvents::t('amosevents', 'Amministra eventi'),
+                'label' => AmosEvents::t('amosevents', 'Amministra'),
+                'url' => '/events/event/admin-events'
+            ];
+        }
+        
+        return $links;
+    }
+
+    public function getGridViewColumns() {
+        $columns = [
+            'title' => [
+                'attribute' => 'title',
+                'label' => AmosEvents::t('amosevents', 'Title'),
+            ],
+            'eventType' => [
+                'attribute' => 'eventType.title',
+                'label' => AmosEvents::t('amosevents', 'Tipo di evento'),
+                'value' => 'eventType.title'
+            ],
+            'begin_date_hour:datetime' => [
+                'attribute' => 'begin_date_hour',
+                'label' => AmosEvents::t('amosevents', 'Data e ora di inizio'),
+                'format' => ['date', 'php:d/m/Y H:i:s'],
+            ],
+            'end_date_hour:datetime' => [
+                'attribute' => 'end_date_hour',
+                'label' => AmosEvents::t('amosevents', 'Data e ora di fine'),
+                'format' => ['date', 'php:d/m/Y H:i:s'],
+                'visible' => $eventsModule->enableAgid
+            ],
+            'status' => [
+                'attribute' => 'status',
+                'value' => function ($model) {
+                    /** @var \open20\amos\events\models\Event $model */
+                    return $model->getWorkflowBaseStatusLabel();
+                }
+        ]];
+        return $columns;
+    }
+
+    public function actionEsporta($id, $format = 'pdf') {
+        $model = Event::findOne($id);
+        if (!empty($model)) {
+            if ($format == 'pdf') {
+//                 $footer = $this->renderPartial('pdf/locandina', ['model' => $model]);
+                $content = $this->renderPartial('pdf/locandina', ['model' => $model]);
+//        $header = $this->renderPartial('_fattura_header_pdf');
+                // setup kartik\mpdf\Pdf component
+                $pdf = new Pdf([
+                    //'mode' => Pdf::MODE_UTF8,//per creare documento PDF/A-1b
+                    'mode' => Pdf::MODE_CORE,
+                    'format' => Pdf::FORMAT_A4,
+                    'orientation' => Pdf::ORIENT_PORTRAIT,
+                    'content' => $content,
+                    //  'cssFile' => '@vendor/kartik-v/yii2-mpdf/assets/kv-mpdf-bootstrap.min.css',
+                    'cssInline' => '.field-data { font-weight: bold; padding: 0 0 0 0; margin: -3cm 0 0 0;}',
+                    'options' => ['title' => $model->title . ' - ' . \Yii::$app->formatter->asDate($model->begin_date_hour, 'php:d/m/Y'),
+//                'mirrorMargins' => true
+                    ],
+                        /* 'methods' => [
+                          'SetHeader' => '',
+                          'SetFooter' => ''
+                          ] */
+                ]);
+
+                $pdf->getApi()->SetAutoPageBreak(true, 50);
+//                $pdf->getApi()->SetHTMLFooter($footer);
+//                $pdf->getApi()->SetHTMLFooter($footer);
+                return $pdf->output($content, $model->title . ' - ' . \Yii::$app->formatter->asDate($model->begin_date_hour, 'php:d/m/Y') . ".pdf", Pdf::DEST_BROWSER);
+            }
+        }
+    }
+
 }

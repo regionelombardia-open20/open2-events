@@ -92,7 +92,7 @@
                             if(!empty($eventData->eventLogo)){
                                 $urlLogo = $eventData->eventLogo->getWebUrl();
                             }?>
-                            <img src="<?= $eventData->eventLogo->getWebUrl()?>" width="100%" alt="giornata della ricerca" style="border: 0;height: auto;-ms-text-size-adjust: 100%;-webkit-text-size-adjust: 100%;-ms-interpolation-mode: bicubic;" class="center-on-narrow">
+                            <img src="<?= $urlLogo?>" width="100%" alt="giornata della ricerca" style="border: 0;height: auto;-ms-text-size-adjust: 100%;-webkit-text-size-adjust: 100%;-ms-interpolation-mode: bicubic;" class="center-on-narrow">
                         </td>
                     </tr>
                     <?php if(!empty($participantData['note'])){ ?>

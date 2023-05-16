@@ -12,7 +12,7 @@
         "php": ">=5.4.0",
         "cornernote/yii2-workflow-manager": "*",
         "open20/amos-admin": "^2.2.0",
-        "open20/amos-attachments": "^1.1",
+        "open20/amos-attachments": "^1.6.0",
         "open20/amos-comments":"^1.1",
         "open20/amos-community": "^1.5.29",
         "open20/amos-comuni": "*",

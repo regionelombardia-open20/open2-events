@@ -4,7 +4,7 @@
 @event-calendary-background-color: #cccccc;
 @event-calendary-font-color: #5F5F5F;
 
-.box-widget {
+.box-widget{
   .container-calendary {
     background-color: @event-calendary-background-color;
 
@@ -88,7 +88,9 @@
 
 
 /*---- OVERRIDE FULLCALENDAR -------------*/
-.box-widget {
+.box-widget,
+/* Parte calendario per nuovo widget */
+.widget-graphic-cms-bi-less.card-eventi {
   .fc {
 
     .fc-month-view {
@@ -195,7 +197,7 @@
       .fc-body {
         .fc-day-grid {
           .fc-row {
-
+            max-height: 40px !important;
             min-height: 2em;
             .fc-day-top {
               max-width: 60px;
@@ -258,6 +260,56 @@
 
       &:hover {
         opacity: 0.8
+      }
+    }
+  }
+}
+
+.widget-graphic-cms-bi-less.card-eventi {
+  #eventsOwlCarousel {
+    .owl-nav:not(.disabled) {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      display: flex;
+      left: unset;
+      bottom: unset;
+      .owl-next,
+      .owl-prev {
+        margin-left: 10px;
+        background-color: @white-color;
+        color: @black-color;
+        height: 25px;
+        width: 25px;
+        border-radius: 50%;
+        font-size: 18px;
+        line-height: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        outline: 0;
+        opacity: 1;
+        .mdi:before {
+          font-weight: bold !important;
+        }
+      }
+    }
+  }
+  .fc {
+    .fc-toolbar {
+      .fc-month-button.btn.btn-default.active {
+        font-size: 16px;
+      }
+    } 
+    .fc-view-container {
+      .fc-body {
+        .fc-day-grid {
+          .fc-row {
+            max-height: 40px !important;
+            min-height: 2em;
+          }
+        }
       }
     }
   }

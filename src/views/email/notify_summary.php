@@ -8,12 +8,10 @@
  * @package    open20\amos\notificationmanager\views\email
  * @category   CategoryName
  */
-
 use open20\amos\core\interfaces\ContentModelInterface;
 use open20\amos\core\interfaces\ViewModelInterface;
 use open20\amos\core\record\Record;
 use open20\amos\events\AmosEvents;
-
 
 /**
  * @var Record|ContentModelInterface|ViewModelInterface $model
@@ -21,7 +19,6 @@ use open20\amos\events\AmosEvents;
  * @var \open20\amos\events\models\Event $closeEvent
  * @var Record[] $arrayModels
  */
-
 $user_id = null;
 if (!empty($profile)) {
     $this->params['profile'] = $profile;
@@ -33,25 +30,30 @@ $eventsModule = AmosEvents::instance();
 /** @var \open20\amos\events\models\Event $eventModel */
 $eventModel = $eventsModule->createModel('Event');
 
-$closestEvent = $eventModel::find()
-    ->andWhere(['>', 'begin_date_hour', date('Y-m-d h:s:i')])
-    ->orderBy('begin_date_hour ASC')->one();
-
+$firstDate = null;
+foreach ((Array) $arrayModels as $model) {
+    if (empty($firstDate)) {
+        $closestEvent = $model;
+    } else {
+        if (strtotime($model->begin_date_hour) < strtotime($closestEvent->begin_date_hour)) {
+            $closestEvent = $model;
+        }
+    }
+}
 $beginDateHour = !empty($closestEvent->begin_date_hour) ? new \DateTime($closestEvent->begin_date_hour) : null;
 $logoUrl = '/img/img_default.jpg';
-if(!empty($closestEvent->eventLogo)) {
+if (!empty($closestEvent->eventLogo)) {
     $logoUrl = $closestEvent->eventLogo->getWebUrl();
 }
-$logoUrl =  Yii::$app->urlManager->createAbsoluteUrl($logoUrl);
-
-
+$logoUrl = Yii::$app->urlManager->createAbsoluteUrl($logoUrl);
 ?>
 
-<?php if(!empty($closestEvent)) {
-    $text =  \open20\amos\events\AmosEvents::t('amosevents', 'Iscriviti');
-    if(!empty($user_id)){
-        if($closestEvent->isUserSubscribedToEvent($user_id)){
-            $text =  \open20\amos\events\AmosEvents::t('amosevents', 'Accedi');
+<?php
+if (!empty($closestEvent)) {
+    $text = \open20\amos\events\AmosEvents::t('amosevents', 'Iscriviti');
+    if (!empty($user_id)) {
+        if ($closestEvent->isUserSubscribedToEvent($user_id)) {
+            $text = \open20\amos\events\AmosEvents::t('amosevents', 'Accedi');
         }
     }
     ?>
@@ -63,10 +65,10 @@ $logoUrl =  Yii::$app->urlManager->createAbsoluteUrl($logoUrl);
                     <td style="background:#297A38" width="30%">
                         <table align="center" border="0" cellpadding="0" cellspacing="0" width="100%">
                             <tr>
-                                <td width="100%" valign="top" style="font-family: sans-serif; mso-height-rule: exactly; color: #FFFFFF; padding: 10px; text-align: center; text-transform: uppercase; font-size:18px;"><strong style="font-size:46px; line-height: 1"><?= !empty($beginDateHour) ? $beginDateHour->format('d') : ''?></strong>
+                                <td width="100%" valign="top" style="font-family: sans-serif; mso-height-rule: exactly; color: #FFFFFF; padding: 10px; text-align: center; text-transform: uppercase; font-size:18px;"><strong style="font-size:46px; line-height: 1"><?= !empty($beginDateHour) ? $beginDateHour->format('d') : '' ?></strong>
                                     <br>
-                                    <?= !empty($beginDateHour) ? Yii::$app->formatter->asDate($beginDateHour, 'MMM') : ''?>&nbsp;
-                                    <?= !empty($beginDateHour) ? Yii::$app->formatter->asDate($beginDateHour, 'YYY') : ''?>
+                                    <?= !empty($beginDateHour) ? Yii::$app->formatter->asDate($beginDateHour, 'MMM') : '' ?>&nbsp;
+                                    <?= !empty($beginDateHour) ? Yii::$app->formatter->asDate($beginDateHour, 'YYY') : '' ?>
                                 </td>
                             </tr>
                         </table>
@@ -83,33 +85,33 @@ $logoUrl =  Yii::$app->urlManager->createAbsoluteUrl($logoUrl);
     <!-- CORPO EVENTO : BEGIN -->
     <tr>
         <td colspan="2" style="background: #454545; padding: 0 15px 15px 15px; text-align: center; font-family: sans-serif;  mso-height-rule: exactly;  color: #FFFFFF; text-align: left">
-            <a href="#" style="color: #FFFFFF; text-decoration:none; font-size: 24px; line-height: 28px; font-weight: bold; padding-right:3px;"><?= $closestEvent->getTitle() ?></a><span style="display: inline-block;
+            <a href="<?=Yii::$app->urlManager->createAbsoluteUrl($closestEvent->getFullViewUrl())?>" style="color: #FFFFFF; text-decoration:none; font-size: 24px; line-height: 28px; font-weight: bold; padding-right:3px;"><?= $closestEvent->getTitle() ?></a><span style="display: inline-block;
 
-                                                                margin: 2px;
-                                                                text-transform: uppercase;
-                                                                color: #7CC588;
-                                                                border: 1px solid #7CC588;
-                                                                
-                                                                line-height: 16px;
-                                                                font-size: 10px;
-                                                                vertical-align:top;
-                                                                padding: 1px 5px;" class="tag"><?= \open20\amos\events\AmosEvents::t('amosevents', 'Prossimo evento')?></span>
+                                                                                                                                                                                          margin: 2px;
+                                                                                                                                                                                          text-transform: uppercase;
+                                                                                                                                                                                          color: #7CC588;
+                                                                                                                                                                                          border: 1px solid #7CC588;
+
+                                                                                                                                                                                          line-height: 16px;
+                                                                                                                                                                                          font-size: 10px;
+                                                                                                                                                                                          vertical-align:top;
+                                                                                                                                                                                          padding: 1px 5px;" class="tag"><?= \open20\amos\events\AmosEvents::t('amosevents', 'Prossimo evento') ?></span>
             <table width="100%" style="color:#CAC8C8; line-height: normal;">
                 <tr style="font-size: 14px; padding: 0px; margin-top: 5px;">
-                    <td style="padding-top:5px; font-family: sans-serif; font-weight: bold; color:#CAC8C8;" class="place"><?= $closestEvent->event_location?></td>
+                    <td style="padding-top:5px; font-family: sans-serif; font-weight: bold; color:#CAC8C8;" class="place"><?= $closestEvent->event_location ?></td>
                 </tr>
                 <tr style="font-size: 14px; font-weight:normal; padding: 0px;">
-                    <td style="padding-bottom:5px; font-family: sans-serif; color:#CAC8C8;" class="place"><?= $closestEvent->getFullAddress()?></td>
+                    <td style="padding-bottom:5px; font-family: sans-serif; color:#CAC8C8;" class="place"><?= $closestEvent->getFullAddress() ?></td>
                 </tr>
             </table>
             <table width="100%" cellspacing="0" cellpadding="0" border="0" align="center" style="margin: auto">
 
                 <tr>
-                    <?php if (!empty($closestEvent->community)) {?> 
-                        <td style="font-size: 12px; line-height: 16px; color: #ffffff; font-family: sans-serif; font-weight:bold;"><?= "Community ". $closestEvent->community->name?></td>
+                    <?php if (!empty($closestEvent->community)) { ?> 
+                        <td style="font-size: 12px; line-height: 16px; color: #ffffff; font-family: sans-serif; font-weight:bold;"><?= "Community " . $closestEvent->community->name ?></td>
                     <?php } ?>
-                    <td align="right" width="85" valign="bottom" style="text-align: center; padding-left: 10px;"><a href="<?=Yii::$app->urlManager->createAbsoluteUrl($closestEvent->getFullViewUrl())?>" style="background: #297A38; border:3px solid #297A38; color: #ffffff; font-family: sans-serif; font-size: 11px; line-height: 22px; text-align: center; text-decoration: none; display: block; font-weight: bold; text-transform: uppercase; height: 20px;" class="button-a">
-                            <!--[if mso]>&nbsp;&nbsp;&nbsp;&nbsp;<![endif]--><?= $text?><!--[if mso]>&nbsp;&nbsp;&nbsp;&nbsp;<![endif]-->
+                    <td align="right" width="85" valign="bottom" style="text-align: center; padding-left: 10px;"><a href="<?= Yii::$app->urlManager->createAbsoluteUrl($closestEvent->getFullViewUrl()) ?>" style="background: #297A38; border:3px solid #297A38; color: #ffffff; font-family: sans-serif; font-size: 11px; line-height: 22px; text-align: center; text-decoration: none; display: block; font-weight: bold; text-transform: uppercase; height: 20px;" class="button-a">
+                            <!--[if mso]>&nbsp;&nbsp;&nbsp;&nbsp;<![endif]--><?= $text ?><!--[if mso]>&nbsp;&nbsp;&nbsp;&nbsp;<![endif]-->
                         </a></td>
                 </tr>
             </table>
@@ -151,7 +153,7 @@ $logoUrl =  Yii::$app->urlManager->createAbsoluteUrl($logoUrl);
                                         <td width="80%" border="0">
                                             <table width="100%" border="0">
                                                 <tr>
-                                                    <td style="background: #454545; text-align: center; font-family: sans-serif; font-size: 18px; mso-height-rule: exactly; line-height: normal;  text-align: left; font-weight: bold; padding-left:10px"><a href="#" style="color: #FFFFFF; text-decoration:none; padding-right:3px;"><?= $model->getTitle()?></a><span style="display: inline-block; margin: 2px;text-transform: uppercase; color: #7CC588; border: 1px solid #7CC588; line-height: 16px; font-size: 10px; vertical-align:top; padding: 1px 5px;" class="tag">Nuovo</span>
+                                                    <td style="background: #454545; text-align: center; font-family: sans-serif; font-size: 18px; mso-height-rule: exactly; line-height: normal;  text-align: left; font-weight: bold; padding-left:10px"><a href="<?=Yii::$app->urlManager->createAbsoluteUrl($model->getFullViewUrl())?>" style="color: #FFFFFF; text-decoration:none; padding-right:3px;"><?= $model->getTitle()?></a><span style="display: inline-block; margin: 2px;text-transform: uppercase; color: #7CC588; border: 1px solid #7CC588; line-height: 16px; font-size: 10px; vertical-align:top; padding: 1px 5px;" class="tag">Nuovo</span>
                                                         <table width="100%" style="color:#CAC8C8; line-height: normal;">
                                                             <tr style="font-size: 12px; padding: 0px; margin-top: 5px;">
                                                                 <td style="padding-top:5px; font-family: sans-serif; color:#CAC8C8;" class="place"><?= $model->event_location?></td>

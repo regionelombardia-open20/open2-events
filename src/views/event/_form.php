@@ -1,5 +1,4 @@
 <?php
-
 /**
  * Aria S.p.A.
  * OPEN 2.0
@@ -21,13 +20,16 @@ use open20\amos\core\forms\RequiredFieldsTipWidget;
 use open20\amos\core\forms\Tabs;
 use open20\amos\core\forms\TextEditorWidget;
 use open20\amos\core\helpers\Html;
+use open20\amos\cwh\widgets\DestinatariPlusTagWidget;
 use open20\amos\events\AmosEvents;
 use open20\amos\events\assets\EventsFilesAsset;
 use open20\amos\events\models\Event;
 use open20\amos\events\models\EventAccreditationList;
 use open20\amos\events\models\EventLengthMeasurementUnit;
+use open20\amos\events\models\EventType;
 use open20\amos\events\models\search\EventTypeSearch;
 use open20\amos\events\utility\EventsUtility;
+use open20\amos\notificationmanager\widgets\NotifyContentLanguageWidget;
 use open20\amos\workflow\widgets\WorkflowTransitionButtonsWidget;
 use open20\amos\workflow\widgets\WorkflowTransitionStateDescriptorWidget;
 use kartik\alert\Alert;
@@ -38,6 +40,7 @@ use yii\data\ActiveDataProvider;
 use yii\helpers\ArrayHelper;
 use yii\helpers\Inflector;
 use yii\helpers\Url;
+use yii\web\JsExpression;
 use yii\web\View;
 
 /**
@@ -55,6 +58,12 @@ use yii\web\View;
 
 /** @var AmosEvents $moduleEvents */
 $moduleEvents = \Yii::$app->getModule(AmosEvents::getModuleName());
+$moduleTag = \Yii::$app->getModule('tag');
+$moduleSeo = \Yii::$app->getModule('seo');
+
+$hideSeoModuleClass = $moduleEvents->hideSeoModule ? ' hidden' : '';
+$enableGalleryAttachment = $moduleEvents->enableGalleryAttachment;
+$enableRelatedEvents = $moduleEvents->enableRelatedEvents;
 
 $this->registerJs("
     $('#event-begin_date" . ((isset($fid)) ? $fid : 0) . "').change(function(){
@@ -93,13 +102,18 @@ $endDateHourId = $dateHourPrefix . '-end_date_hour' . $dateHourSuffix;
 
 $eventType = $model->eventType;
 $eventTypePresent = !is_null($eventType);
-$eventTypeWithLimitedSeats = ($eventTypePresent && $eventType->limited_seats);
+if ($eventTypePresent) {
+    $eventTypeWithLimitedSeats = $eventType->limited_seats;
+    $eventTypeInformative = ($eventType->event_type == EventType::TYPE_INFORMATIVE);
+} else {
+    $eventTypeWithLimitedSeats = false;
+    $eventTypeInformative = false;
+}
 $moduleNotify = \Yii::$app->getModule('notify');
-
 
 $js = "
     function calcEndDateHour() {
-        if (($('#" . $beginDateHourId . "').val() != '') && ($('#event-length').val() != '') && ($('#EventLengthMeasurementUnit').val() != '')) {
+        if (($('#" . $beginDateHourId . "').val() != '') && ($('#event-length').val() != '') && ($('#event-length').val() > 0) && ($('#EventLengthMeasurementUnit').val() != '')) {
             var dataArray = {
                 beginDateHour: $('#" . $beginDateHourId . "').val(),
                 lengthValue: $('#event-length').val(),
@@ -217,7 +231,8 @@ $('#event-seats_management').click(function(){
          $('#event-seats_available').val(0);
      }
 });
-JS;
+JS
+;
 
 $this->registerJs($jsTicket);
 
@@ -251,7 +266,8 @@ $("#import-invitations-form").submit(function(e) {
         }
     });
 });
-JS;
+JS
+;
 $this->registerJs($impXlsJs, yii\web\View::POS_READY);
 
 if ($moduleEvents->enableEventRooms) {
@@ -259,8 +275,9 @@ if ($moduleEvents->enableEventRooms) {
     $('#$eventRoomFieldId').on('change', function(e) {
         $('#$seatsAvailableFieldId').val($(this).find('option:selected').data('available_seats'));
     });
-JS;
-    
+JS
+;
+
     $this->registerJs($jsEventsRooms, View::POS_READY);
 }
 
@@ -273,13 +290,12 @@ $eventLengthMeasurementUnitModel = $moduleEvents->createModel('EventLengthMeasur
 $eventTypeSearchModel = $moduleEvents->createModel('EventTypeSearch');
 
 $eventsFilesAsset = EventsFilesAsset::register($this);
+$value = '';
+$disabled = false;
 
-?>
-
-<?php
 $form = ActiveForm::begin([
+    'id' => 'event_form',
     'options' => [
-        'id' => 'event_form',
         'data-fid' => (isset($fid)) ? $fid : 0,
         'data-field' => ((isset($dataField)) ? $dataField : ''),
         'data-entity' => ((isset($dataEntity)) ? $dataEntity : ''),
@@ -288,8 +304,7 @@ $form = ActiveForm::begin([
     ],
     'errorSummaryCssClass' => 'error-summary alert alert-error',
 ]);
-?>
-<?=
+
 WorkflowTransitionStateDescriptorWidget::widget([
     'form' => $form,
     'model' => $model,
@@ -299,21 +314,24 @@ WorkflowTransitionStateDescriptorWidget::widget([
 ]);
 ?>
 
-<div class="event-form col-xs-12 nop">
-    <!--    < ?= $form->errorSummary($model, ['class' => 'alert-danger alert fade in', 'role' => 'alert', 'showAllErrors' => true]);  ?>-->
+<div class="event-form">
     <?php if ($model->getScenario() == Event::SCENARIO_CREATE || $model->getScenario() == Event::SCENARIO_CREATE_HIDE_PUBBLICATION_DATE): ?>
-        
         <?php $this->beginBlock('general'); ?>
         <div class="row">
-            <div class="col-lg-6 col-sm-6">
-                <?php
+            <div class="col-md-12">
+            <?php
                 $append = '';
                 if (\Yii::$app->getUser()->can('EVENTTYPE_CREATE')) {
                     $append = ' canInsert';
                 }
-                ?>
-                
-                <?= $form->field($model, 'event_type_id')->widget(Select2::className(), [
+
+                if ($moduleEvents->dropdownEventTypeDisabled) {
+                    $value = EventType::TYPE_INFORMATIVE;
+                    $disabled = true;
+                    echo $form->field($model, 'event_type_id')->hiddenInput(['value' => $value])->label(false);
+                }
+
+                echo $form->field($model, 'event_type_id')->widget(Select2::class, [
                     'data' => $eventTypeSearchModel::searchEnabledGenericContextEventTypesReadyForSelect(),
                     'language' => substr(Yii::$app->language, 0, 2),
                     'options' => [
@@ -325,15 +343,15 @@ WorkflowTransitionStateDescriptorWidget::widget([
                         'data-field' => 'name',
                         'data-module' => 'events',
                         'data-entity' => 'event-type',
-                        'data-toggle' => 'tooltip'
+                        'data-toggle' => 'tooltip',
+                        'value' => $value,
+                        'disabled' => $disabled,
                     ],
                     'pluginOptions' => [
                         'allowClear' => true,
                     ],
-                    // 'pluginEvents' => [
-                    //     "select2:open" => "dynamicInsertOpening"
-                    // ]
-                ]) ?>
+                ]);
+            ?>
             </div>
         </div>
         <div class="row">
@@ -341,48 +359,52 @@ WorkflowTransitionStateDescriptorWidget::widget([
                 <?= $form->field($model, 'title')->textInput(['maxlength' => true])->hint(AmosEvents::t('amosevents', '#title_field_hint')) ?>
             </div>
         </div>
-        <div class="row">
-            <div class="col-xs-12">
-                <?=
-                \open20\amos\cwh\widgets\DestinatariPlusTagWidget::widget([
+        <?php if (isset($moduleCwh) && isset($moduleTag)) : ?>
+            <div class="row">
+                <div class="col-xs-12">
+                <?= DestinatariPlusTagWidget::widget([
                     'model' => $model,
                     'moduleCwh' => $moduleCwh,
                     'scope' => $scope
                 ]);
                 ?>
+                </div>
             </div>
-        </div>
+        <?php endif; ?>
         <?php $this->endBlock(); ?>
-        
+
         <?php
         $itemsTab[] = [
             'label' => AmosEvents::tHtml('amosevents', 'General'),
             'content' => $this->blocks['general'],
         ];
         ?>
-    
+
     <?php else: ?>
-        
+
         <?php $this->beginBlock('general'); ?>
-        <?= $form->field($model, 'event_type_id')->hiddenInput()->label(false) ?>
+        <?= $form->field($model, 'event_type_id')->hiddenInput(['id'])->label(false) ?>
         <div>
-            <h4><strong><?= $model->getAttributeLabel('eventType') ?>:</strong> <?= $eventTypePresent ? $eventType->title : '-' ?></h4>
+            <h4><strong><?= $model->getAttributeLabel('eventType') ?>
+                    :</strong> <?= $eventTypePresent ? $eventType->title : '-' ?></h4>
         </div>
         <?php if ($moduleEvents->viewEventSignupLinkInForm && ($model->status == Event::EVENTS_WORKFLOW_STATUS_PUBLISHED)): ?>
             <div>
-                <h4><strong><?= AmosEvents::t('amosevents', '#external_link_register') ?>
-                        :</strong> <?= Url::base(true) . Url::toRoute(['event-signup', 'eid' => $model->id]); ?></h4>
+                <h4>
+                    <strong><?= AmosEvents::t('amosevents', '#external_link_register') ?>: </strong>
+                    <?= Url::base(true) . Url::toRoute(['event-signup', 'eid' => $model->id]); ?>
+                </h4>
             </div>
         <?php endif; ?>
         <div class="row">
-            <div class="col-md-8 col-xs-12">
+            <div class="col-xs-12">
                 <?= $this->render('boxes/box_custom_fields_begin', ['form' => $form, 'model' => $model]); ?>
                 <?= $form->field($model, 'title')->textInput(['maxlength' => true])->hint(AmosEvents::t('amosevents', '#title_field_hint')) ?>
-                
+
                 <?php if ($moduleEvents->freeSelectEndOfTheEvent): ?>
                     <div class="row">
                         <div class="col-md-6 col-xs-12">
-                            <?= $form->field($model, 'begin_date_hour')->widget(DateControl::className(), [
+                            <?= $form->field($model, 'begin_date_hour')->widget(DateControl::class, [
                                 'type' => DateControl::FORMAT_DATETIME,
                                 'options' => [
                                     'id' => $beginDateHourId,
@@ -390,7 +412,7 @@ WorkflowTransitionStateDescriptorWidget::widget([
                             ]); ?>
                         </div>
                         <div class="col-md-6 col-xs-12">
-                            <?= $form->field($model, 'end_date_hour')->widget(DateControl::className(), [
+                            <?= $form->field($model, 'end_date_hour')->widget(DateControl::class, [
                                 'type' => DateControl::FORMAT_DATETIME,
                                 'options' => [
                                     'id' => $endDateHourId,
@@ -401,7 +423,7 @@ WorkflowTransitionStateDescriptorWidget::widget([
                 <?php else: ?>
                     <div class="row">
                         <div class="col-lg-5 col-sm-5">
-                            <?= $form->field($model, 'begin_date_hour')->widget(DateControl::className(), [
+                            <?= $form->field($model, 'begin_date_hour')->widget(DateControl::class, [
                                 'type' => DateControl::FORMAT_DATETIME,
                                 'options' => [
                                     'id' => $beginDateHourId,
@@ -409,10 +431,16 @@ WorkflowTransitionStateDescriptorWidget::widget([
                             ]); ?>
                         </div>
                         <div class="col-lg-3 col-sm-3">
-                            <?= $form->field($model, 'length')->textInput(['maxlength' => true, 'type' => 'number']) ?>
+                            <?= $form->field($model, 'length')->textInput([
+                                'maxlength' => true,
+                                'type' => 'number',
+                                'min' => 1,
+                                'step' => 1,
+                            ])
+                            ?>
                         </div>
                         <div class="col-lg-4 col-sm-4">
-                            <?= $form->field($model, 'length_mu_id')->widget(Select2::className(),
+                            <?= $form->field($model, 'length_mu_id')->widget(Select2::class,
                                 [
                                     'data' => EventsUtility::translateArrayValues(
                                         ArrayHelper::map(
@@ -452,8 +480,8 @@ WorkflowTransitionStateDescriptorWidget::widget([
                         <?= $form->field($model, 'end_date_hour')->hiddenInput()->label(false) ?>
                     </div>
                 <?php endif; ?>
-                
-                
+
+
                 <?php
                 if ($eventTypeWithLimitedSeats) {
                     ?>
@@ -469,7 +497,7 @@ WorkflowTransitionStateDescriptorWidget::widget([
                         ?>
                         <?php if ($moduleEvents->enableEventRooms): ?>
                             <div class="col-lg-4 col-sm-4">
-                                <?= $form->field($model, 'event_room_id')->widget(Select::classname(), [
+                                <?= $form->field($model, 'event_room_id')->widget(Select::class, [
                                     'data' => EventsUtility::getEventRoomsReadyForSelect($allEventRooms),
                                     'language' => substr(Yii::$app->language, 0, 2),
                                     'options' => [
@@ -507,7 +535,7 @@ WorkflowTransitionStateDescriptorWidget::widget([
                 <div class="row">
                     <div class="col-lg-12 col-sm-12">
                         <?= $form->field($model, 'summary')->textInput(['maxlength' => true]) ?>
-                        <?= $form->field($model, 'description')->widget(TextEditorWidget::className(), [
+                        <?= $form->field($model, 'description')->widget(TextEditorWidget::class, [
                             'clientOptions' => [
                                 'placeholder' => AmosEvents::t('amosevents', 'Insert the event description'),
                                 'lang' => substr(Yii::$app->language, 0, 2)
@@ -518,12 +546,12 @@ WorkflowTransitionStateDescriptorWidget::widget([
 
             </div>
 
-            <div class="col-lg-4 col-sm-4">
+            <div class="col-xs-12">
                 <?= $this->render('boxes/box_custom_uploads_begin', ['form' => $form, 'model' => $model]); ?>
                 <!-- {{{ Locandina -->
-                <div class="col-xs-12 nop">
+                <div>
                     <?=
-                    $form->field($model, 'eventLogo')->widget(CropInput::classname(),
+                    $form->field($model, 'eventLogo')->widget(CropInput::class,
                         [
                             'jcropOptions' => ['aspectRatio' => '1.7']
                         ])->label(AmosEvents::t('amosevents', 'Locandina'))
@@ -531,10 +559,10 @@ WorkflowTransitionStateDescriptorWidget::widget([
                 </div>
                 <!-- }}} Locandina -->
                 <!-- {{{ Allegati -->
-                <div class="col-xs-12 attachment-section nop">
-                    <div class="col-xs-12">
+                <div class="attachment-section" style="padding: 24px;">
+                    <div>
                         <?= Html::tag('h2', AmosEvents::t('amosevents', '#attachments_title')) ?>
-                        <?= $form->field($model, 'eventAttachments')->widget(AttachmentsInput::classname(), [
+                        <?= $form->field($model, 'eventAttachments')->widget(AttachmentsInput::class, [
                             'options' => [// Options of the Kartik's FileInput widget
                                 'multiple' => true, // If you want to allow multiple upload, default to false
                             ],
@@ -543,20 +571,64 @@ WorkflowTransitionStateDescriptorWidget::widget([
                                 'showPreview' => false
                             ]
                         ])->label(AmosEvents::t('amosevents', '#attachments_field'))->hint(AmosEvents::t('amosevents', '#attachments_field_hint')) ?>
-                        
+
                         <?= AttachmentsList::widget([
                             'model' => $model,
                             'attribute' => 'eventAttachments'
                         ]) ?>
                     </div>
                 </div>
+
+                <!--Gallery, inserimento di più immagini-->
+                <div class="attachment-section" style="padding: 24px;">
+                    <div>
+                        <?php if ($enableGalleryAttachment) : ?>
+                            <?= Html::tag('h2', AmosEvents::t('amosevents', 'Gallery')); ?>
+                            <?= $form->field($model, 'event_gallery_attachment')->widget(AttachmentsInput::className(), [
+                                    'options' => [ // Options of the Kartik's FileInput widget
+                                        'multiple' => true,
+                                        'accept' => ".jpg, .jpeg, .png",
+                                    ],
+                                    'pluginOptions' => [ // Plugin options of the Kartik's FileInput widget
+                                        'maxFileCount' => 100, // Client max files
+                                        'showPreview' => true,
+                                        'allowedPreviewTypes' => ['image'],
+                                        'maxFileSize' => 5 * 1024 * 1024,
+                                    ]
+                                ])->hint(AmosEvents::t('amosevents', '#gallery_field_hint')); ?>
+                        <?php endif; ?>
+                    </div>
+                </div>
                 <!-- }}} Allegati -->
                 <?= $this->render('boxes/box_custom_uploads_end', ['form' => $form, 'model' => $model]); ?>
+            </div>
+            <div class="col-xs-12 m-t-35">
+                <?php if ($enableRelatedEvents) : ?>
+                    <?= Html::tag('h2', AmosEvents::t('amosevents', 'Eventi Correlati')); ?>
+                    <?= $form->field($model, 'relatedEventMmAttribute')->widget(Select2::class, [
+                        'data' => ArrayHelper::map(
+                            \open20\amos\events\models\Event::find()
+                                ->andwhere(['status' => 'EventWorkflow/PUBLISHED'])
+                                ->andWhere(['deleted_at' => null])
+                                //->andWhere(['end_date_hour' => date("y:m:d h:i:sa")])
+                                ->all(),
+                            'id',
+                            'title'
+                        ),
+                        'options' => [
+                            'multiple' => true,
+                            'placeholder' => AmosEvents::t('amosevents', 'Seleziona...')
+                        ],
+                        'pluginOptions' => [
+                            'allowClear' => true
+                        ]
+                    ])->hint(AmosEvents::t('amosevents', '#event_field_hint')); ?>
+                <?php endif; ?>
             </div>
 
         </div>
 
-        <div class="row">
+        <div class="row m-t-30">
             <div class="col-lg-12 col-sm-12">
                 <?= $form->field($model, 'event_location')->textInput(['maxlength' => true]) ?>
             </div>
@@ -593,7 +665,6 @@ WorkflowTransitionStateDescriptorWidget::widget([
             ]); ?>
         </div>
         <?= $this->render('boxes/box_custom_fields_end', ['form' => $form, 'model' => $model]); ?>
-        
         <?php $this->beginBlock('general_advanced'); ?>
         <div class="row">
             <div class="col-xs-12"><h2><?= AmosEvents::t('amosevents', '#form_section_advanced') ?></h2></div>
@@ -602,7 +673,7 @@ WorkflowTransitionStateDescriptorWidget::widget([
                 ?>
                 <div class="col-lg-4 col-sm-4">
                     <?=
-                    $form->field($model, 'publication_date_begin')->widget(DateControl::className(),
+                    $form->field($model, 'publication_date_begin')->widget(DateControl::class,
                         [
                             'type' => DateControl::FORMAT_DATETIME
                         ])->hint(AmosEvents::t('amosevents', '#publication_date_begin_hint'))
@@ -610,7 +681,7 @@ WorkflowTransitionStateDescriptorWidget::widget([
                 </div>
                 <div class="col-lg-4 col-sm-4">
                     <?=
-                    $form->field($model, 'publication_date_end')->widget(DateControl::className(),
+                    $form->field($model, 'publication_date_end')->widget(DateControl::class,
                         [
                             'type' => DateControl::FORMAT_DATETIME
                         ])->hint(AmosEvents::t('amosevents', '#publication_date_end_hint'))
@@ -620,88 +691,84 @@ WorkflowTransitionStateDescriptorWidget::widget([
             <?php
             if ($moduleNotify && !empty($moduleNotify->enableNotificationContentLanguage) && $moduleNotify->enableNotificationContentLanguage) { ?>
                 <div class="col-lg-4 col-sm-4">
-                    <?=
-                    \open20\amos\notificationmanager\widgets\NotifyContentLanguageWidget::widget(['model' => $model]);
-                    ?>
+                <?= NotifyContentLanguageWidget::widget(['model' => $model]) ?>
                 </div>
             <?php } ?>
         </div>
         <?php if ($eventTypeWithLimitedSeats): ?>
             <div class="row">
                 <div class="col-sm-4">
-                    <?= $form->field($model, 'numero_max_accompagnatori')->textInput(['type' => 'number']); ?>
+                <?= $form->field($model, 'numero_max_accompagnatori')->textInput(['type' => 'number']) ?>
                 </div>
             </div>
         <?php endif; ?>
+    
+        <?php if (!$eventTypeInformative): ?>
+            <div class="row">
+                <div class="col-lg-4 col-sm-4">
+                    <?= $form->field($model, 'registration_date_begin')->widget(DateControl::class, [
+                        'type' => DateControl::FORMAT_DATETIME
+                    ])
+                    ?>
+                </div>
+                <div class="col-lg-4 col-sm-4">
+                    <?= $form->field($model, 'registration_date_end')->widget(DateControl::class, [
+                        'type' => DateControl::FORMAT_DATETIME
+                    ])
+                    ?>
+                </div>
+            </div>
+        <?php endif; ?>
+
         <div class="row">
             <div class="col-lg-4 col-sm-4">
-                <?=
-                $form->field($model, 'registration_date_begin')->widget(DateControl::className(),
-                    [
-                        'type' => DateControl::FORMAT_DATETIME
-                    ])
-                ?>
+            <?= $form->field($model, 'event_commentable')->dropDownList(
+                Html::getBooleanFieldsValues(),
+                [
+                    'options' => !$model->isNewRecord ? [$moduleEvents->forceEventCommentable => ['Selected' => true]] : null,
+                    'prompt' => AmosEvents::t('amosevents', 'Select/Choose' . '...'),
+                    'disabled' => false
+                ])
+            ?>
             </div>
-            <div class="col-lg-4 col-sm-4">
-                <?=
-                $form->field($model, 'registration_date_end')->widget(DateControl::className(),
-                    [
-                        'type' => DateControl::FORMAT_DATETIME
-                    ])
-                ?>
-            </div>
-
         </div>
-
-
-        <div class="row">
-            <div class="col-lg-4 col-sm-4">
-                <?=
-                $form->field($model, 'event_commentable')->dropDownList(
+        <?php if ($moduleEvents->enableFiscalCode): ?>
+            <div class="row">
+                <div class="col-lg-4 col-sm-4">
+                <?= $form->field($model, 'abilita_codice_fiscale_in_form')->dropDownList(
                     Html::getBooleanFieldsValues(),
                     [
-                        'options' => $model->isNewRecord ? [$moduleEvents->forceEventCommentable => ['Selected' => true]] : null,
-                        'prompt' => AmosEvents::t('amosevents', 'Select/Choose' . '...'), 'disabled' => false,
+                        'prompt' => AmosEvents::t('amosevents', 'Select/Choose' . '...'),
+                        'disabled' => false
                     ]
                 )
                 ?>
+                </div>
             </div>
-        </div>
-
-
+        <?php endif; ?>
+    
         <div class="row">
-            <div class="col-lg-4 col-sm-4">
-                <?=
-                $form->field($model, 'abilita_codice_fiscale_in_form')->dropDownList(
-                    Html::getBooleanFieldsValues(),
-                    ['prompt' => AmosEvents::t('amosevents', 'Select/Choose' . '...'), 'disabled' => false,]
-                )
-                ?>
-            </div>
-        </div>
-
-        <div class="row">
-            <div class="col-lg-4 col-sm-4">
-                <?=
-                $form->field($model, 'has_tickets')->dropDownList(
+            <?php if ($moduleEvents->enableTickets): ?>
+                <div class="col-lg-4 col-sm-4">
+                <?= $form->field($model, 'has_tickets')->dropDownList(
                     Html::getBooleanFieldsValues(),
                     [
                         'prompt' => AmosEvents::t('amosevents', 'Select/Choose' . '...'),
                         'disabled' => false,
                         'id' => 'has-ticket'
-                    ]
-                )
+                    ])
                 ?>
-            </div>
-            
+                </div>
+            <?php endif; ?>
+
             <?php
-            if ($eventTypeWithLimitedSeats) {
+            if ($eventTypeWithLimitedSeats) :
                 $strhide = '';
                 if (!$model->has_tickets) {
                     $strhide = "display:none";
                 }
-                ?>
-                <?php if ($moduleEvents->enableSeatsManagement): ?>
+                
+                if ($moduleEvents->enableSeatsManagement): ?>
                     <div id="container-seats-management" class="col-lg-4 col-sm-4" style="<?= $strhide ?>">
                         <?=
                         $form->field($model, 'seats_management')->dropDownList(
@@ -712,35 +779,42 @@ WorkflowTransitionStateDescriptorWidget::widget([
                         ?>
                     </div>
                 <?php endif; ?>
-            <?php } ?>
+            <?php endif; ?>
 
-
+            <?php if ($moduleEvents->enableQrCode): ?>
             <div class="col-lg-4 col-sm-4">
-                <?=
-                $form->field($model, 'has_qr_code')->dropDownList(
+                <?= $form->field($model, 'has_qr_code')->dropDownList(
                     Html::getBooleanFieldsValues(),
                     ['prompt' => AmosEvents::t('amosevents', 'Select/Choose' . '...'), 'disabled' => false,]
                 )
                 ?>
-            </div>
-            
-            <?php if ($moduleEvents->enableCalendarsManagement): ?>
-                <div id="container-seats-management" class="col-lg-4 col-sm-4">
-                    <?=
-                    $form->field($model, 'slots_calendar_management')->dropDownList(
-                        Html::getBooleanFieldsValues(),
-                        ['prompt' => AmosEvents::t('amosevents', 'Select/Choose' . '...'), 'disabled' => false,]
-                    )
-                    ?>
                 </div>
             <?php endif; ?>
 
+            <?php if (!empty($moduleEvents->ticketPasses['enabled']) && $moduleEvents->ticketPasses['enabled'] = true) : ?>
+            <div class="col-lg-4 col-sm-4">
+            <?= $form->field($model, 'enable_ticket_wallet')->dropDownList(
+                Html::getBooleanFieldsValues(),
+                ['prompt' => AmosEvents::t('amosevents', 'Select/Choose' . '...'), 'disabled' => false,]
+            )
+            ?>
+            </div>
+            <?php endif; ?>
 
+            <?php if ($moduleEvents->enableCalendarsManagement) : ?>
+            <div id="container-seats-management" class="col-lg-4 col-sm-4">
+            <?= $form->field($model, 'slots_calendar_management')->dropDownList(
+                Html::getBooleanFieldsValues(),
+                ['prompt' => AmosEvents::t('amosevents', 'Select/Choose' . '...'), 'disabled' => false,]
+            )
+            ?>
+            </div>
+            <?php endif; ?>
         </div>
 
         <div class="row">
             <div class="col-xs-12">
-                <?php
+            <?php
                 if ($model->has_tickets) {
                     /** @var EventAccreditationList $eventAccreditationListModel */
                     $eventAccreditationListModel = $moduleEvents->createModel('EventAccreditationList');
@@ -758,8 +832,8 @@ WorkflowTransitionStateDescriptorWidget::widget([
                                         'id' => 'accreditation-lists-available',
                                         'responsive' => true,
                                         'dataProvider' => new ActiveDataProvider([
-                                            'query' => $eventAccreditationListModel::find()->andWhere([
-                                                'event_id' => $model->id]),
+                                            'query' => $eventAccreditationListModel::find()
+                                                ->andWhere(['event_id' => $model->id]),
                                         ]),
                                         'formatter' => [
                                             'class' => 'yii\i18n\Formatter',
@@ -777,16 +851,32 @@ WorkflowTransitionStateDescriptorWidget::widget([
                                                 'buttons' => [
                                                     'update' => function ($url, $model) {
                                                         return Html::a(
-                                                            Html::tag('span', '',
-                                                                ['class' => 'glyphicon glyphicon-pencil']),
-                                                            ['/events/event-accreditation-list/update', 'id' => $model->id]
+                                                            Html::tag(
+                                                                'span',
+                                                                '',
+                                                                [
+                                                                    'class' => 'glyphicon glyphicon-pencil'
+                                                                ]
+                                                            ),
+                                                            [
+                                                                '/events/event-accreditation-list/update',
+                                                                'id' => $model->id
+                                                            ]
                                                         );
                                                     },
                                                     'delete' => function ($url, $model) {
                                                         return Html::a(
-                                                            Html::tag('span', '',
-                                                                ['class' => 'glyphicon glyphicon-trash']),
-                                                            ['/events/event-accreditation-list/delete', 'id' => $model->id]
+                                                            Html::tag(
+                                                                'span',
+                                                                '',
+                                                                [
+                                                                    'class' => 'glyphicon glyphicon-trash'
+                                                                ]
+                                                            ),
+                                                            [
+                                                                '/events/event-accreditation-list/delete',
+                                                                'id' => $model->id
+                                                            ]
                                                         );
                                                     }
                                                 ]
@@ -811,9 +901,9 @@ WorkflowTransitionStateDescriptorWidget::widget([
         </div>
 
         <div>&nbsp;</div>
-        
+
         <?php $this->endBlock(); ?>
-        
+
         <?php if ($moduleEvents->enableGdpr): ?>
             <?php $this->beginBlock('general_gdpr'); ?>
             <div class="row">
@@ -836,7 +926,7 @@ WorkflowTransitionStateDescriptorWidget::widget([
             </div>
             <?php $this->endBlock(); ?>
         <?php endif; ?>
-        
+
         <?php $this->beginBlock('advanced_customizations'); ?>
         <div class="row">
             <div class="col-xs-12"><h2><?= AmosEvents::t('amosevents', 'Personalizzazioni') ?></h2></div>
@@ -893,7 +983,11 @@ WorkflowTransitionStateDescriptorWidget::widget([
         </div>
         <div class="row">
             <div class="col-xs-12">
-                <?= $form->field($model, 'sent_credential')->checkbox([0 => AmosEvents::t('amosevents', 'Non inviare credenziali'), 1 => AmosEvents::t('amosevents', 'Invia credenziali')]) ?>
+            <?= $form->field($model, 'sent_credential')->checkbox([
+                0 => AmosEvents::t('amosevents', 'Non inviare credenziali'),
+                1 => AmosEvents::t('amosevents', 'Invia credenziali')
+            ])
+            ?>
             </div>
         </div>
         <div class="row">
@@ -918,7 +1012,11 @@ WorkflowTransitionStateDescriptorWidget::widget([
         </div>
         <div class="row">
             <div class="col-xs-12">
-                <?= $form->field($model, 'use_token')->checkbox([0 => AmosEvents::t('amosevents', 'Non usare token di accesso'), 1 => AmosEvents::t('amosevents', 'Usa token di accesso')]) ?>
+            <?= $form->field($model, 'use_token')->checkbox([
+                0 => AmosEvents::t('amosevents', 'Non usare token di accesso'),
+                1 => AmosEvents::t('amosevents', 'Usa token di accesso')
+            ])
+            ?>
             </div>
         </div>
         <div class="row">
@@ -932,39 +1030,33 @@ WorkflowTransitionStateDescriptorWidget::widget([
             </div>
         </div>
         <?php $this->endBlock(); ?>
-        
-        <?php
-        $showReceiverSection = false;
-        
-        $moduleCwh = \Yii::$app->getModule('cwh');
-        isset($moduleCwh) ? $showReceiverSection = true : null;
-        
-        $moduleTag = \Yii::$app->getModule('tag');
-        isset($moduleTag) ? $showReceiverSection = true : null;
-        
-        if ($showReceiverSection) :
-            ?>
 
-            <div class="row">
-                <div class="col-xs-12">
+        <?php if (isset($moduleCwh) && isset($moduleTag)) : ?>
+        <div class="row">
+            <div class="col-xs-12 section-form">
+                <div class="section-modalita-pubblicazione">
                     <?= Html::tag('h2', AmosEvents::t('amosevents', '#settings_receiver_title'),
-                        ['class' => 'subtitle-form'])
+                        ['class' => 'subtitle-form m-t-0'])
                     ?>
-                    <div class="col-xs-12 receiver-section">
-                        <?=
-                        \open20\amos\cwh\widgets\DestinatariPlusTagWidget::widget([
-                            'model' => $model,
-                            'moduleCwh' => $moduleCwh,
-                            'scope' => $scope
-                        ]);
-                        ?>
+                    <div class="row">
+                        <div class="col-xs-12">
+                            <?= DestinatariPlusTagWidget::widget([
+                                'model' => $model,
+                                'moduleCwh' => $moduleCwh,
+                                'scope' => $scope
+                            ]);
+                            ?>
+                        </div>
                     </div>
+
                 </div>
+                
+               
             </div>
-        
+        </div>
         <?php endif; ?>
-        
-        <?php if ($moduleEvents->enableCommunitySections): ?>
+
+        <?php if (!$eventTypeInformative && $moduleEvents->enableCommunitySections): ?>
             <?php $this->beginBlock('general_community'); ?>
             <div class="row">
                 <div class="col-xs-12"><h2><?= AmosEvents::t('amosevents', '#section_community') ?></h2></div>
@@ -974,7 +1066,7 @@ WorkflowTransitionStateDescriptorWidget::widget([
             </div>
             <?php $this->endBlock(); ?>
         <?php endif; ?>
-        
+
         <?php $this->beginBlock('general_frontend'); ?>
         <div class="row">
             <div class="col-xs-12"><h2><?= AmosEvents::t('amosevents', '#section_frontend') ?></h2></div>
@@ -985,7 +1077,7 @@ WorkflowTransitionStateDescriptorWidget::widget([
                 <?= $form->field($model, 'landing_url')->textInput(['maxlength' => true]) ?>
             </div>
             <div class="col-lg-12 col-sm-12">
-                <?= $form->field($model, 'landingHeader')->widget(AttachmentsInput::classname(), [
+                <?= $form->field($model, 'landingHeader')->widget(AttachmentsInput::class, [
                     'options' => ['multiple' => false],
                     'pluginOptions' => ['maxFileCount' => 1],
                 ]); ?>
@@ -994,7 +1086,7 @@ WorkflowTransitionStateDescriptorWidget::widget([
                 <?= $form->field($model, 'frontend_page_title')->textInput(['maxlength' => 255]) ?>
             </div>
             <div class="col-lg-12 col-sm-12">
-                <?= $form->field($model, 'frontend_claim')->widget(TextEditorWidget::className(), [
+                <?= $form->field($model, 'frontend_claim')->widget(TextEditorWidget::class, [
                     'clientOptions' => [
                         'lang' => substr(Yii::$app->language, 0, 2)
                     ]
@@ -1002,62 +1094,60 @@ WorkflowTransitionStateDescriptorWidget::widget([
             </div>
         </div>
         <?php $this->endBlock(); ?>
-        
-        <?php
-        if ($user_enabled) {
-            ?>
+
+        <?php if ($user_enabled && !$eventTypeInformative) { ?>
             <?php $this->beginBlock('general_invitations'); ?>
             <?php if ($model->status == Event::EVENTS_WORKFLOW_STATUS_PUBLISHED) : ?>
                 <div class="row">
                     <div class="col-xs-12">
-                        <?= Html::a(AmosEvents::t('amosevents', '#download_invitations_example_file'), Url::to($eventsFilesAsset->baseUrl . DIRECTORY_SEPARATOR . 'tracciato_esempio.xlsx')) ?>
+                    <?= Html::a(
+                        AmosEvents::t('amosevents', '#download_invitations_example_file'),
+                        Url::to($eventsFilesAsset->baseUrl . DIRECTORY_SEPARATOR . 'tracciato_esempio.xlsx')
+                    )
+                    ?>
                     </div>
                     <div class="col-xs-12" id="import-invitations-response"></div>
                     <div class="col-xs-12">
                         <ul>
-                            <?php
+                        <?php
                             $stats = $model->getInvitationStats();
-                            
-                            if ($stats['registered']) {
+
+                            if ($stats['registered']) : ?>
+                                <li>
+                                <?= AmosEvents::txt('#invitations_stats_registered', [
+                                    'total' => $stats['registered'],
+                                    'accepted' => (int)$stats['registered_accepted'],
+                                    'rejected' => (int)$stats['registered_rejected']
+                                ]);
                                 ?>
-                                <li><?=
-                                    AmosEvents::txt('#invitations_stats_registered',
-                                        [
-                                            'total' => $stats['registered'],
-                                            'accepted' => (int)$stats['registered_accepted'],
-                                            'rejected' => (int)$stats['registered_rejected']
-                                        ]);
-                                    ?></li>
-                                <?php
-                            }
-                            
-                            if ($stats['imported']) {
+                                </li>
+                            <?php endif; ?>
+
+                            <?php if ($stats['imported']) : ?>
+                                <li>
+                                <?= AmosEvents::txt('#invitations_stats_imported', [
+                                    'total' => $stats['imported'],
+                                    'accepted' => (int)$stats['imported_accepted'],
+                                    'rejected' => (int)$stats['imported_rejected']
+                                ]);
                                 ?>
-                                <li><?=
-                                    AmosEvents::txt('#invitations_stats_imported',
-                                        [
-                                            'total' => $stats['imported'],
-                                            'accepted' => (int)$stats['imported_accepted'],
-                                            'rejected' => (int)$stats['imported_rejected']
-                                        ]);
-                                    ?></li>
-                                <?php
-                            }
+                                </li>
+                            <?php endif; ?>
+
+                            <?php if ($stats['partners']) : ?>
+                                <li>
+                                <?= AmosEvents::txt('#invitations_stats_partners', ['total' => $stats['partners']]); ?>
+                                </li>
+                            <?php endif; ?>
                             
-                            if ($stats['partners']) {
-                                ?>
-                                <li><?= AmosEvents::txt('#invitations_stats_partners', ['total' => $stats['partners']]); ?></li>
-                                <?php
-                            }
+                            <li>
+                            <?= AmosEvents::txt('#invitations_stats_total', [
+                                'total' => $stats['total'],
+                                'accepted' => (int)$stats['accepted'],
+                                'rejected' => (int)$stats['rejected']
+                                ]);
                             ?>
-                            <li><?=
-                                AmosEvents::txt('#invitations_stats_total',
-                                    [
-                                        'total' => $stats['total'],
-                                        'accepted' => (int)$stats['accepted'],
-                                        'rejected' => (int)$stats['rejected']
-                                    ]);
-                                ?></li>
+                            </li>
                         </ul>
                     </div>
                 </div>
@@ -1081,7 +1171,7 @@ WorkflowTransitionStateDescriptorWidget::widget([
             <?php endif; ?>
             <?php $this->endBlock(); ?>
         <?php } ?>
-        
+
         <?php
         $itemsAccordion = [];
         $itemsAccordion[] = [
@@ -1100,7 +1190,7 @@ WorkflowTransitionStateDescriptorWidget::widget([
                 'content' => $this->blocks['general_community'],
             ];
         }
-        
+
         if (\Yii::$app->user->can('ADVANCED_CUSTOMIZE_EVENTS')) {
             $itemsAccordion[] = [
                 'header' => AmosEvents::t('amosevents', 'Personalizzazioni'),
@@ -1108,7 +1198,7 @@ WorkflowTransitionStateDescriptorWidget::widget([
             ];
         }
         ?>
-        
+
         <?=
         AccordionWidget::widget([
             'items' => $itemsAccordion,
@@ -1127,10 +1217,10 @@ WorkflowTransitionStateDescriptorWidget::widget([
             ],
         ]);
         ?>
-        
-        
+
+
         <?php
-        if ($user_enabled) {
+        if ($user_enabled && !$eventTypeInformative) {
             ?>
             <?=
             AccordionWidget::widget([
@@ -1152,7 +1242,7 @@ WorkflowTransitionStateDescriptorWidget::widget([
             ]);
             ?>
         <?php } ?>
-        
+
         <?php
         if (\Yii::$app->user->can('EVENTS_PUBLISHER_FRONTEND')) {
             if (Yii::$app->getModule('events')->params['site_publish_enabled'] || Yii::$app->getModule('events')->params['site_featured_enabled']) {
@@ -1162,11 +1252,12 @@ WorkflowTransitionStateDescriptorWidget::widget([
                         <?php if (Yii::$app->getModule('events')->params['site_publish_enabled']) { ?>
 
                             <h3 class="subtitle-section-form"><?= AmosEvents::t('amosevents', "Pubblication on the portal mode") ?>
-                                <em>(<?= AmosEvents::t('amosevents', "Choose if you want to publish the news also on the portal") ?>)</em>
+                                <em>(<?= AmosEvents::t('amosevents', "Choose if you want to publish the event also on the portal") ?>
+                                    )</em>
                             </h3>
                             <?php
                             $primoPiano = '<div class="col-md-6 col-xs-12">'
-                                . $form->field($model, 'primo_piano')->widget(Select::className(),
+                                . $form->field($model, 'primo_piano')->widget(Select::class,
                                     [
                                         'auto_fill' => true,
                                         'data' => [
@@ -1187,10 +1278,10 @@ WorkflowTransitionStateDescriptorWidget::widget([
                                 '</div>';
                             echo $primoPiano;
                         }
-                        
+
                         if (Yii::$app->getModule('events')->params['site_featured_enabled']) {
                             $inEvidenza = '<div class="col-md-6 col-xs-12">'
-                                . $form->field($model, 'in_evidenza')->widget(Select::className(),
+                                . $form->field($model, 'in_evidenza')->widget(Select::class,
                                     [
                                         'auto_fill' => true,
                                         'data' => [
@@ -1212,18 +1303,13 @@ WorkflowTransitionStateDescriptorWidget::widget([
             }
         }
         ?>
-        
-        
-        <?php
-        $moduleSeo = \Yii::$app->getModule('seo');
-        if (isset($moduleSeo)) :
-            ?>
 
+
+        <?php if (isset($moduleSeo)) : ?>
             <div class="row">
-
-                <div class="col-xs-12">
+                <div class="col-xs-12<?= $hideSeoModuleClass ?>">
                     <?= Html::tag('h2', AmosEvents::t('amosevents', '#settings_seo_title'),
-                        ['class' => 'subtitle-form'])
+                        ['class' => 'subtitle-form m-t-25'])
                     ?>
                     <div class="col-xs-12 receiver-section">
                         <?=
@@ -1234,21 +1320,21 @@ WorkflowTransitionStateDescriptorWidget::widget([
                     </div>
                 </div>
             </div>
-        
         <?php endif; ?>
+        
         <div class="clearfix"></div>
         <?php $this->endBlock(); ?>
-        
-        
+
+
         <?php
         $itemsTab[] = [
             'label' => AmosEvents::tHtml('amosevents', 'General'),
             'content' => $this->blocks['general'],
         ];
         ?>
-    
+
     <?php endif; ?>
-    
+
     <?=
     Tabs::widget(
         [
@@ -1259,29 +1345,21 @@ WorkflowTransitionStateDescriptorWidget::widget([
         ]
     );
     ?>
+    
     <?= RequiredFieldsTipWidget::widget() ?>
     <?= CreatedUpdatedWidget::widget(['model' => $model]) ?>
-    
+
     <?php
-    //    $statusToRender = [
-    //        Event::EVENTS_WORKFLOW_STATUS_DRAFT => AmosEvents::t('amosevents', 'Salva in bozza'),
-    //        Event::EVENTS_WORKFLOW_STATUS_PUBLISHREQUEST => AmosEvents::t('amosevents', 'Richiesta pubblicazione'),
-    //    ];
-    //    if(\Yii::$app->user->can($model->getValidatorRole())) {
-    //        $statusToRender[Event::EVENTS_WORKFLOW_STATUS_PUBLISHED] = AmosEvents::t('amosevents', 'Pubblica');
-    //    }
-    
-    
     $hideDraftStatuses = true;
-    
+
     if (\Yii::$app->user->can($model->getValidatorRole(), ['model' => $model])) {
         $hideDraftStatuses = false;
     }
-    
+
     if (\Yii::$app->user->can('ADMIN')) {
         $hideDraftStatuses = false;
     }
-    
+
     $hideDraftStatus = [];
     if ($hideDraftStatuses) {
         $hideDraftStatus[] = Event::EVENTS_WORKFLOW_STATUS_PUBLISHED;
@@ -1294,7 +1372,7 @@ WorkflowTransitionStateDescriptorWidget::widget([
         $defaultButtonDescription = AmosEvents::t('amosevents', "potrai richiedere la pubblicazione in seguito");
     }
     ?>
-    
+    <div class="row">
     <?=
     WorkflowTransitionButtonsWidget::widget([
         // parametri ereditati da verioni precedenti del widget WorkflowTransition
@@ -1327,9 +1405,9 @@ WorkflowTransitionStateDescriptorWidget::widget([
         ]
     ]);
     ?>
-    
-    <?php ActiveForm::end(); ?>
+    </div>
 </div>
+<?php ActiveForm::end(); ?>
 
 <div id="import-invitations-modal" class="modal" tabindex="-1" role="dialog">
     <div class="modal-dialog" role="document">

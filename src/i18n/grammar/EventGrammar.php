@@ -56,4 +56,12 @@ class EventGrammar implements ModelGrammarInterface
     {
         return AmosEvents::t('amosevents', '#article_indefinite');
     }
+
+    /**
+     * @return mixed
+     */
+    public function getArticleInvitation()
+    {
+        return AmosEvents::t('amosevents', '#article_invitation');
+    }
 }

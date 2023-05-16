@@ -23,19 +23,34 @@ use open20\amos\events\widgets\icons\WidgetIconEventsManagement;
 use open20\amos\events\widgets\icons\WidgetIconEventsToPublish;
 use open20\amos\events\widgets\icons\WidgetIconEventTypes;
 use open20\amos\events\widgets\InviteUserToEventWidget;
+use open20\amos\core\interfaces\BreadcrumbInterface;
 use yii\helpers\ArrayHelper;
 
 /**
  * Class AmosEvents
  * @package open20\amos\events
  */
-class AmosEvents extends AmosModule implements ModuleInterface, SearchModuleInterface, CmsModuleInterface
+class AmosEvents extends AmosModule implements ModuleInterface, SearchModuleInterface, CmsModuleInterface, BreadcrumbInterface
 {
+    /**
+     * @var array $defaultListViews This set the default order for the views in lists
+     */
+    public $defaultListViews = ['calendar', 'grid', 'icon'];
+    
+    /**
+     * @var string $defaultView Set the default view for module
+     */
+    public $defaultView = 'calendar';
+    
+    /**
+     * @var string $CONFIG_FOLDER
+     */
     public static $CONFIG_FOLDER = 'config';
     
     /**
-     * @var string|boolean the layout that should be applied for views within this module. This refers to a view name
-     * relative to [[layoutPath]]. If this is not set, it means the layout value of the [[module|parent module]]
+     * @var string|boolean the layout that should be applied for views within
+     * this module. This refers to a view name relative to [[layoutPath]].
+     * If this is not set, it means the layout value of the [[module|parent module]]
      * will be taken. If this is false, layout will be disabled within this module.
      */
     public $layout = 'main';
@@ -45,7 +60,15 @@ class AmosEvents extends AmosModule implements ModuleInterface, SearchModuleInte
      */
     public $controllerNamespace = 'open20\amos\events\controllers';
     
+    
+    /**
+     * @var int $newFileMode
+     */
     public $newFileMode = 0666;
+    
+    /**
+     * @var string $name
+     */
     public $name = 'Events';
     
     /**
@@ -82,6 +105,13 @@ class AmosEvents extends AmosModule implements ModuleInterface, SearchModuleInte
     public $multipleRecording = false;
     
     /**
+     * This param enables the search by tags
+     * @var bool $searchByTags
+     */
+    
+    public $searchByTags = false;
+    
+    /**
      * @var array $eventsRequiredFields
      */
     public $eventsRequiredFields = [
@@ -111,6 +141,11 @@ class AmosEvents extends AmosModule implements ModuleInterface, SearchModuleInte
     public $forceEventCommentable = '1';
     
     /**
+     * @var bool $dropdownEventTypeDisabled if true disable all the eventType except the Informative type
+     */
+    public $dropdownEventTypeDisabled = false;
+    
+    /**
      * @inheritdoc
      */
     public $db_fields_translation = [
@@ -126,10 +161,16 @@ class AmosEvents extends AmosModule implements ModuleInterface, SearchModuleInte
         ],
     ];
     
+    /**
+     * @var string[] $viewPathEmailSummary
+     */
     public $viewPathEmailSummary = [
         'open20\amos\events\models\Event' => '@vendor/open20/amos-events/src/views/email/notify_summary'
     ];
     
+    /**
+     * @var string[] $viewPathEmailSummaryTitle
+     */
     public $viewPathEmailSummaryTitle = [
         'open20\amos\events\models\Event' => '@vendor/open20/amos-events/src/views/email/notify_summary_title'
     ];
@@ -140,10 +181,14 @@ class AmosEvents extends AmosModule implements ModuleInterface, SearchModuleInte
     public $enableSeatsManagement = true;
     
     /**
-     * @var bool $enableAutoInviteUsers If true enable the auto invite of the event recipients when the event is published.
+     * @var bool $enableAutoInviteUsers If true enable the auto invite
+     * of the event recipients when the event is published.
      */
     public $enableAutoInviteUsers = false;
     
+    /**
+     * @var string $tempPath
+     */
     public $tempPath = '@backend/web/ticket_download';
     
     /**
@@ -157,7 +202,23 @@ class AmosEvents extends AmosModule implements ModuleInterface, SearchModuleInte
     public $enableCommunitySections = true;
     
     /**
-     * @var bool $actionCreatedByOnlyViewGrid If true the only list view for the action created by is the grid view.
+     * @var bool $enableFiscalCode If true enable the fiscal code management sections in the form.
+     */
+    public $enableFiscalCode = true;
+    
+    /**
+     * @var bool $enableTickets If true enable the tickets management sections in the form.
+     */
+    public $enableTickets = true;
+    
+    /**
+     * @var bool $enableQrCode If true enable the qr code management sections in the form.
+     */
+    public $enableQrCode = true;
+    
+    /**
+     * @var bool $actionCreatedByOnlyViewGrid If true the only list view
+     * for the action created by is the grid view.
      */
     public $actionCreatedByOnlyViewGrid = true;
     
@@ -165,11 +226,6 @@ class AmosEvents extends AmosModule implements ModuleInterface, SearchModuleInte
      * @var bool
      */
     public $enableCalendarsManagement = false;
-
-    /**
-     * @var bool
-     */
-    public $disableAssociateToCalendar = false;
     
     /**
      * @var bool $forceEventSubscription if true the user is immediatly subscribed to event
@@ -177,27 +233,32 @@ class AmosEvents extends AmosModule implements ModuleInterface, SearchModuleInte
     public $forceEventSubscription = false;
     
     /**
-     * @var bool $viewEventSignupLinkInForm If true enable a read only field that show the event sign-up generic link
+     * @var bool $viewEventSignupLinkInForm If true enable a read only
+     * field that show the event sign-up generic link
      */
     public $viewEventSignupLinkInForm = false;
     
     /**
-     * @var bool $enableContentDuplication If true enable the content duplication on each row in table view
+     * @var bool $enableContentDuplication If true enable the content
+     * duplication on each row in table view
      */
     public $enableContentDuplication = false;
     
     /**
-     * @var bool $enableEventRooms If true enable the event rooms management and event rooms select in event form
+     * @var bool $enableEventRooms If true enable the event rooms management
+     * and event rooms select in event form
      */
     public $enableEventRooms = false;
     
     /**
-     * @var bool $showInvitationsInEventView With this parameter true, the plugin show the invitations list in event view.
+     * @var bool $showInvitationsInEventView With this parameter true,
+     * the plugin show the invitations list in event view.
      */
     public $showInvitationsInEventView = false;
     
     /**
-     * @var bool $saveExternalInvitations With this parameter true, the plugin save the external excel invitations, like old style plugin.
+     * @var bool $saveExternalInvitations With this parameter true,
+     * the plugin save the external excel invitations, like old style plugin.
      */
     public $saveExternalInvitations = false;
     
@@ -207,9 +268,65 @@ class AmosEvents extends AmosModule implements ModuleInterface, SearchModuleInte
     public $enableAgid = false;
     
     /**
-     * @var bool $enableAgid This parameter allow the user to select a custom end of the event instead of select duration with duration unit.
+     * @var bool $enableAgid This parameter allow the user to select a custom end
+     * of the event instead of select duration with duration unit.
      */
     public $freeSelectEndOfTheEvent = false;
+    
+    /**
+     * @var array
+     */
+    public $ticketPasses = [
+        'enabled' => false,
+        'main-color' => "#297a38",
+    ];
+    
+    /**
+     * Used on IntranetARIA reset event scope with community scope
+     *
+     * @var bool $overrideScopeWithComunityScope
+     */
+    public $overrideScopeWithComunityScope = false;
+    
+    /**
+     * @var string $geoLocationDefaultPosition
+     */
+    public $geoLocationDefaultPosition = 'Roma';
+    
+    /**
+     * hide block on _form relative to seo module even if it is present
+     * @var bool $hideSeoModule
+     */
+    public $hideSeoModule = false;
+    
+    /**
+     * @var bool $showEventLegend If true this param show the event types legend
+     */
+    public $showEventLegend = true;
+
+    /**
+     * Enable/Disable correspondent select on _form page
+     * @var bool $enableGalleryAttachment
+     */
+    public $enableGalleryAttachment = false;
+
+    /**
+     * Enable/Disable correspondent select on _form page
+     * @var bool $enableRelatedEvents
+     */
+    public $enableRelatedEvents = false;
+
+    /**
+     * Enable/Disable button 'Torna Agli Eventi' in view page
+     * @var bool $showButtonTornaAgliEventi
+     */
+    public $showButtonTornaAgliEventi = true;
+    
+    /**
+     * 
+     * @var type
+     */
+    public $enableExportToPdfInColumn = false;
     
     /**
      * @inheritdoc
@@ -226,6 +343,7 @@ class AmosEvents extends AmosModule implements ModuleInterface, SearchModuleInte
     {
         return 'calendar';
     }
+       
     
     /**
      * @inheritdoc
@@ -272,6 +390,7 @@ class AmosEvents extends AmosModule implements ModuleInterface, SearchModuleInte
             'AgidEventDocumentsMm' => __NAMESPACE__ . '\\' . 'models\AgidEventDocumentsMm',
             'AgidEventTypology' => __NAMESPACE__ . '\\' . 'models\AgidEventTypology',
             'AgidRelatedEventMm' => __NAMESPACE__ . '\\' . 'models\AgidRelatedEventMm',
+            'RelatedEventMm' => __NAMESPACE__ . '\\' . 'models\RelatedEventMm',
             'Event' => __NAMESPACE__ . '\\' . 'models\Event',
             'EventAccreditationList' => __NAMESPACE__ . '\\' . 'models\EventAccreditationList',
             'EventCalendars' => __NAMESPACE__ . '\\' . 'models\EventCalendars',
@@ -421,9 +540,65 @@ class AmosEvents extends AmosModule implements ModuleInterface, SearchModuleInte
     {
         $menu = parent::getFrontEndMenu();
         $app = \Yii::$app;
-        if (!$app->user->isGuest) {
+        if (!$app->user->isGuest && (\Yii::$app->user->can('EVENTS_READER') || \Yii::$app->user->can('REDACTOR_EVENTS'))) {
             $menu .= $this->addFrontEndMenu(AmosEvents::t('amosevents', '#menu_front_events'), AmosEvents::toUrlModule('/event/all-events'), $dept);
         }
         return $menu;
+    }
+
+    public function getIndexActions()
+    {
+        return [
+            'default/index',
+            'event-accreditation-list/index',
+            'event-accreditation-list/view',
+            'event-accreditation-list/create',
+            'event-accreditation-list/update',
+            'event-calendars/index',
+            'event-calendars/view',
+            'event-calendars/create',
+            'event-calendars/update',
+            'event/index',
+            'event/view',
+            'event/create',
+            'event/update',
+            'event-room/index',
+            'event-room/create',
+            'event-room/update',
+            'event-room/view',
+            'event-type/index',
+            'event-type/create',
+            'event-type/update',
+            'event-type/view',
+            'event-wizard/introduction',
+            'event-wizard/description',
+            'event-wizard/organizational-data',
+            'event-wizard/publication',
+            'event-wizard/summary',
+            'event-wizard/finish',
+            
+            
+            
+            
+            
+        ];
+    }
+
+    public function getControllerNames()
+    {
+        $names = [
+            'default' => self::t('amosevents', '#controller_default'),
+            'event-accreditation-list' => self::t('amosevents', '#controller_event_accreditation_list'),
+            'event-calendars' => self::t('amosevents', '#controller_event_calendars'),
+            'event-calendars-slots' => self::t('amosevents', '#controller_event_calendars_slots'),
+            'event-configurations' => self::t('amosevents', '#controller_event_configurations'),
+            'event' => self::t('amosevents', '#controller_event'),
+            'event-room' => self::t('amosevents', '#controller_event_room'),
+            'event-type' => self::t('amosevents', '#controller_event_type'),
+            'event-wizard' => self::t('amosevents', '#controller_event_wizard'),
+            'wallet' => self::t('amosevents', '#controller_wallet')
+        ];
+
+        return $names;
     }
 }

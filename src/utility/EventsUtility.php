@@ -147,10 +147,10 @@ class EventsUtility
     {
         $ok = true;
         $eventLogo = File::findOne(['model' => AmosEvents::instance()->model('Event'), 'attribute' => 'eventLogo',
-            'itemId' => $model->id]);
+            'item_id' => $model->id]);
         if (!is_null($eventLogo)) {
             $communityLogo = File::findOne(['model' => Community::className(), 'attribute' => 'communityLogo',
-                'itemId' => $model->community_id]);
+                'item_id' => $model->community_id]);
             if (!is_null($communityLogo)) {
                 if ($eventLogo->hash != $communityLogo->hash) {
                     $communityLogo->delete();
@@ -163,7 +163,7 @@ class EventsUtility
             }
         } else {
             $communityLogo = File::findOne(['model' => Community::className(), 'attribute' => 'communityLogo',
-                'itemId' => $model->community_id]);
+                'item_id' => $model->community_id]);
             if (!is_null($communityLogo)) {
                 $communityLogo->delete();
             }
@@ -180,7 +180,7 @@ class EventsUtility
     {
         $communityLogo = new File();
         $eventLogoAttributes = $eventLogo->attributes;
-        $toSkipFields = ['id', 'model', 'attribute', 'itemId'];
+        $toSkipFields = ['id', 'model', 'attribute', 'item_id'];
         foreach ($eventLogoAttributes as $fieldName => $fieldValue) {
             if (!in_array($fieldName, $toSkipFields)) {
                 $communityLogo->{$fieldName} = $fieldValue;
@@ -188,14 +188,14 @@ class EventsUtility
         }
         $communityLogo->model = Community::className();
         $communityLogo->attribute = 'communityLogo';
-        $communityLogo->itemId = $communityId;
+        $communityLogo->item_id = $communityId;
         return $communityLogo->save();
     }
     
     public static function deleteCommunityLogo($model)
     {
         $communityLogo = File::findOne(['model' => Community::className(), 'attribute' => 'communityLogo',
-            'itemId' => $model->community_id]);
+            'item_id' => $model->community_id]);
         if (!is_null($communityLogo)) {
             $communityLogo->delete();
         }
@@ -592,7 +592,7 @@ class EventsUtility
      * @param AmosEvents|null $eventsModule
      * @return bool
      */
-    public static function showCommunityButtonInView(Event $model, $eventsModule = null)
+    public static function showCommunityButtonInView( $model, $eventsModule = null)
     {
         if (is_null($eventsModule)) {
             $eventsModule = AmosEvents::instance();

@@ -11,9 +11,9 @@
 
 namespace open20\amos\events\models\search;
 
+use open20\amos\events\models\EventCalendarsSlots;
 use yii\base\Model;
 use yii\data\ActiveDataProvider;
-use open20\amos\events\models\EventCalendarsSlots;
 use yii\helpers\ArrayHelper;
 use yii\db\ActiveQuery;
 

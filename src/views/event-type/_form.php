@@ -102,7 +102,7 @@ JS
         </div>
     </div>
     <div class="row">
-        <div class="col-lg-12 col-sm-12">
+        <div class="col-lg-8 col-sm-8">
             <?= $form->field($model, 'description')->widget(Redactor::className(), [
                 'clientOptions' => [
                     'buttonsHide' => [
@@ -112,6 +112,9 @@ JS
                     'lang' => substr(Yii::$app->language, 0, 2)
                 ]
             ]) ?>
+        </div>
+        <div class="col-lg-8 col-sm-4">
+            <?= $form->field($model, 'type_icon')->textInput(['maxlength' => true]) ?>
         </div>
     </div>
     <div class="row">

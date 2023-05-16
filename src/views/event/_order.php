@@ -18,7 +18,7 @@ use yii\widgets\ActiveForm;
 
 <div class="news-order element-to-toggle" data-toggle-element="form-order">
     <div class="col-xs-12">
-        <h2><?= AmosEvents::t('amosnews', 'Ordina per') ?>:</h2>
+        <h2><?= AmosEvents::t('amosevents', 'Ordina per') ?>:</h2>
     </div>
 
     <?php $form = ActiveForm::begin([
@@ -36,8 +36,8 @@ use yii\widgets\ActiveForm;
     <div class="col-sm-6 col-lg-4">
         <?= $form->field($model, 'orderType')->dropDownList(
             [
-                SORT_ASC => AmosEvents::t('amosnews', 'Crescente'),
-                SORT_DESC => AmosEvents::t('amosnews', 'Decrescente'),
+                SORT_ASC => AmosEvents::t('amosevents', 'Crescente'),
+                SORT_DESC => AmosEvents::t('amosevents', 'Decrescente'),
             ]
         )
         ?>
@@ -45,9 +45,9 @@ use yii\widgets\ActiveForm;
 
     <div class="col-xs-12">
         <div class="pull-right">
-            <?= Html::a(AmosEvents::t('amosnews', 'Annulla'), [Yii::$app->controller->action->id, 'currentView' => Yii::$app->request->getQueryParam('currentView')],
+            <?= Html::a(AmosEvents::t('amosevents', 'Annulla'), [Yii::$app->controller->action->id, 'currentView' => Yii::$app->request->getQueryParam('currentView')],
                 ['class'=>'btn btn-secondary']) ?>
-            <?= Html::submitButton(AmosEvents::t('amosnews', 'Ordina'), ['class' => 'btn btn-navigation-primary']) ?>
+            <?= Html::submitButton(AmosEvents::t('amosevents', 'Ordina'), ['class' => 'btn btn-navigation-primary']) ?>
         </div>
     </div>
 
