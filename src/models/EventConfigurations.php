@@ -50,9 +50,9 @@ class EventConfigurations extends \open20\amos\events\models\base\EventConfigura
     }
 
 
-    public static function getEditFields()
+    public function getEditFields()
     {
-        $labels = self::attributeLabels();
+        $labels = $this->attributeLabels();
 
         return [
             [

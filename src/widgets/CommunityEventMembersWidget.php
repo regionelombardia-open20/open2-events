@@ -803,7 +803,6 @@ class CommunityEventMembersWidget extends Widget
             'forceListRender' => true,
             'targetUrlParams' => $this->targetUrlParams,
             'gridId' => $gridId,
-            'firstGridSearch' => true,
             'isModal' => $this->enableModal,
             'createAdditionalAssociateButtonsEnabled' => $this->showAdditionalAssociateButton,
             'disableCreateButton' => true,

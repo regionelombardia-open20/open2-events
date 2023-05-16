@@ -11,17 +11,13 @@
 /**
  * @var \open20\amos\events\models\Event $model
  */
-use retecomuni\frontend\assets\AppAsset;
+
 use yii\helpers\Html;
 
-$appAsset = AppAsset::register($this);
 
 $likEventDetail = '/events/event/view?id=' . $model->id;
 
-$url = $appAsset->baseUrl . '/img/generic.jpg';
-if (!is_null($model->eventLogo)) {
-    $url = $model->getEventsImageUrl('original', false);
-}
+
 $format = Yii::$app->getFormatter();
 if ($model->begin_date_hour && $model->end_date_hour) {
     $beginDate = $format->asDate($model->begin_date_hour, 'full');

@@ -55,9 +55,9 @@ class EventCalendarsSlotsBooked extends \open20\amos\events\models\base\EventCal
     }
 
 
-    public static function getEditFields()
+    public function getEditFields()
     {
-        $labels = self::attributeLabels();
+        $labels = $this->attributeLabels();
 
         return [
             [

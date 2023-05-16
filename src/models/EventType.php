@@ -78,7 +78,7 @@ class EventType extends \open20\amos\events\models\base\EventType
      * @return string
      */
     
-    public function colorText($color){
+    public static function colorText($color){
         if(empty($color)){
             return null;
         }

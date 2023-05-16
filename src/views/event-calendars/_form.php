@@ -319,5 +319,4 @@ $hasUserBookedSlot = $model->hasUserBookedSlot(\Yii::$app->user->id);
     </div>
 </div>
 
-<?php echo $this->render('_modal_additional_info'); ?>
-
+<?php echo $this->render('_modal_additional_info');

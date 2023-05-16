@@ -48,5 +48,5 @@ $('body').on('click', '.fc-basicDay-view .fc-content', function (e) {
 
 JS;
 $this->registerJs($jsAjax, View::POS_READY);
-?>
+
 
